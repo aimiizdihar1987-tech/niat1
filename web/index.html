@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Niat — From Intention to Intervention</title>
+  <link rel="icon" type="image/png" href="niat-logo.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0c1210" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Niat" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Sora:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ============ NIAT · MINT MACHINE DESIGN LANGUAGE ============
+       Charcoal-green OLED canvas · mint primary · violet aurora accents ·
+       pill controls · uppercase micro-labels · fintech-dark, fully legible.
+       Type scale enlarged one step for presence (base 16px, micro ≥ 11.5px). */
+    :root{
+      --bg:#0c1210; --panel:#131a17; --card:#182019; --field:#0e1512;
+      --ink:#ecf7f2; --muted:#9db4ab; --line:#243029; --line-strong:#3a4d44;
+      --blue:#63e6c2; --blue-700:#8df2d9; --blue-50:#13251e;
+      --ink-on-accent:#04231a;
+      --violet:#a78bfa; --violet-deep:#8b5cf6;
+      --grad:linear-gradient(120deg,#63e6c2 0%,#22d3ee 100%);
+      --grad-soft:linear-gradient(120deg,#11221c 0%,#15271f 100%);
+      --accent:#63e6c2;
+      --a-class:#63e6c2; --a-curr:#22d3ee; --a-peda:#a78bfa; --a-ws:#34d399; --a-fixed:#7e938c;
+      --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --radius:14px;
+      --shadow:0 1px 2px rgba(0,0,0,.5);
+      --shadow-lg:0 18px 50px rgba(0,0,0,.55);
+      --glow:0 0 20px rgba(99,230,194,.22);
+    }
+    *{box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    html,body{overflow-x:hidden;max-width:100%;}
+    body{margin:0;font-family:"Inter",system-ui,sans-serif;font-size:16px;color:var(--ink);line-height:1.58;min-height:100vh;
+      background:
+        radial-gradient(760px 560px at 92% -12%, rgba(139,92,246,.16), transparent 60%),
+        radial-gradient(680px 520px at -10% 112%, rgba(99,230,194,.11), transparent 60%),
+        linear-gradient(rgba(99,230,194,.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,230,194,.028) 1px, transparent 1px),
+        var(--bg);
+      background-size:auto,auto,44px 44px,44px 44px,auto;
+      -webkit-font-smoothing:antialiased;}
+    .brand-text h1,.dash-head h2,.panel-head h2,.nc-class,.output h3,.modal-box h3,.stat-row b,.slide-title{font-family:"Space Grotesk","Inter",system-ui,sans-serif;}
+    ::selection{background:rgba(99,230,194,.35);}
+    ::-webkit-scrollbar{width:11px;height:11px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:#26352d;border-radius:8px;border:2px solid var(--bg);}
+    ::-webkit-scrollbar-thumb:hover{background:#3a4d44;}
+
+    /* ---- Pills (the signature control) ---- */
+    .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:9px 18px;font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#b2c8bf;cursor:pointer;transition:.18s;white-space:nowrap;}
+    .pill:hover{border-color:var(--blue);color:var(--ink);box-shadow:var(--glow);}
+    .pill.solid{background:var(--blue);border-color:var(--blue);color:var(--ink-on-accent);}
+    .pill.solid:hover{background:#8df2d9;border-color:#8df2d9;color:var(--ink-on-accent);}
+    .pill sup{font-size:9px;color:var(--muted);margin-left:2px;}
+    .pill.solid sup{color:var(--ink-on-accent);}
+
+    /* ---- Topbar: minimal, black glass, sticky ---- */
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:rgba(12,18,16,.82);backdrop-filter:blur(10px);color:var(--ink);padding:14px 30px;position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);}
+    .brand{display:flex;align-items:center;gap:14px;}
+    .logo-img{width:54px;height:54px;object-fit:contain;background:#fff;border-radius:12px;padding:3px;}
+    .brand-text h1{font-family:"Sora","Space Grotesk","Inter",system-ui,sans-serif;font-size:27px;margin:0;font-weight:800;color:var(--ink);letter-spacing:.07em;text-transform:uppercase;line-height:1;}
+    .brand-text h1 span{color:var(--blue);text-shadow:0 0 14px rgba(99,230,194,.55);}
+    .brand-text p{font-size:12px;margin:3px 0 0;color:var(--muted);letter-spacing:.16em;text-transform:uppercase;font-style:normal;font-weight:700;}
+
+    /* ---- Smart dashboard (landing) ---- */
+    .dash{max-width:1000px;margin:0 auto;padding:clamp(22px,4.5vh,48px) 24px 46px;animation:rise .45s ease;}
+    .eyebrow{font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;display:flex;align-items:center;gap:8px;}
+    .eyebrow::before{content:"";width:9px;height:9px;border-radius:2px;background:var(--violet);display:inline-block;box-shadow:0 0 10px rgba(167,139,250,.8);}
+    .dash-head h2{font-size:clamp(30px,4.2vw,42px);font-weight:700;letter-spacing:-.03em;margin:0 0 4px;}
+    .dash-head h2 em{font-style:normal;color:var(--blue);text-shadow:0 0 16px rgba(99,230,194,.45);}
+    .dash-sub{color:var(--muted);font-size:16px;margin:0 0 26px;}
+    .dash-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;}
+    .dash-card{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:24px 26px;}
+    .dc-label{font-size:11.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center;margin:0 0 14px;}
+    .dc-label::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--blue);flex:none;box-shadow:0 0 8px rgba(99,230,194,.7);}
+    /* Next class — the hero card (mint → violet, like a payment card) */
+    .next-card{grid-column:span 12;background:linear-gradient(135deg,#0d4035 0%,#12564a 42%,#3d2d72 100%);border:1px solid #34456a;color:#f4fffa;position:relative;overflow:hidden;box-shadow:0 0 44px rgba(99,230,194,.12),0 0 60px rgba(139,92,246,.12);}
+    .next-card .dc-label{color:#a5ecdc;}
+    .next-card .dc-label::before{background:#8df2d9;}
+    .nc-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:10px 0;}
+    .nc-row + .nc-row{border-top:1px solid rgba(141,242,217,.18);}
+    .nc-class{font-size:27px;font-weight:700;letter-spacing:-.02em;}
+    .nc-meta{font-size:14px;color:#c9f0e5;margin-top:2px;}
+    .nc-prep{background:var(--blue);color:var(--ink-on-accent);border:none;border-radius:999px;padding:12px 24px;font-size:13px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:.18s;}
+    .nc-prep:hover{transform:translateY(-1px);box-shadow:0 0 24px rgba(99,230,194,.5);background:#8df2d9;}
+    .nc-empty{font-size:16px;color:#c9f0e5;padding:6px 0 2px;}
+    /* Stats */
+    .stats-card{grid-column:span 12;}
+    .stat-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+    .stat-cols .stat-row{flex-direction:column;align-items:flex-start;border-bottom:none;gap:4px;padding:2px 0;}
+    .stat-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);}
+    .stat-row:last-child{border-bottom:none;}
+    .stat-row b{font-size:26px;font-weight:700;letter-spacing:-.02em;color:var(--ink);}
+    .stat-row span{font-size:13.5px;color:var(--muted);font-weight:600;}
+    .ai-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:6px;box-shadow:0 0 0 3px rgba(74,222,128,.18),0 0 10px rgba(74,222,128,.7);}
+    .ai-dot.off{background:var(--err);box-shadow:0 0 0 3px rgba(248,113,113,.18),0 0 10px rgba(248,113,113,.6);}
+    /* Quick actions */
+    .actions-card{grid-column:span 5;}
+    .qa-grid{display:flex;flex-wrap:wrap;gap:8px;}
+    .qa-grid .pill{font-size:13px;padding:12px 20px;}
+    /* Recent lessons */
+    .recent-card{grid-column:span 12;}
+    .rc-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 2px;border-bottom:1px dashed var(--line);cursor:pointer;transition:.15s;}
+    .rc-item:hover{padding-left:8px;}
+    .rc-item:last-child{border-bottom:none;}
+    .rc-title{font-size:15px;font-weight:700;color:var(--ink);}
+    .rc-meta{font-size:13px;color:var(--muted);margin-top:1px;}
+    .rc-item .go{color:var(--blue);font-weight:800;font-size:16px;}
+    .rc-empty{font-size:14.5px;color:var(--muted);padding:6px 0;}
+    @media (max-width:880px){.next-card,.stats-card,.actions-card,.recent-card{grid-column:span 12;}.stat-cols{grid-template-columns:1fr;}}
+
+    /* ---- Tracker: floating uppercase pills ---- */
+    .tracker{display:flex;justify-content:center;margin:30px 16px 0;}
+    .steps{display:flex;gap:6px;list-style:none;margin:0;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow);flex-wrap:wrap;justify-content:center;}
+    .steps li{display:flex;align-items:center;gap:8px;padding:8px 16px 8px 9px;border-radius:999px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;transition:.2s;}
+    .steps .dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--muted);font-size:12px;font-weight:700;border:1px solid var(--line);}
+    .steps li.active{background:var(--blue);color:var(--ink-on-accent);box-shadow:var(--glow);}
+    .steps li.active .dot{background:var(--ink-on-accent);border-color:transparent;color:var(--blue-700);}
+    .steps li.done{color:var(--blue-700);}
+    .steps li.done .dot{background:var(--blue-50);border-color:#26523f;color:var(--blue-700);}
+
+    /* ---- Layout & panels ---- */
+    main{max-width:920px;margin:26px auto 46px;padding:0 16px;}
+    .panel{display:none;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:34px;animation:rise .4s ease;}
+    .panel.active{display:block;}
+    @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+    .panel-head{margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--line);}
+    .panel-head.center{text-align:center;border-bottom:none;}
+    .panel-head h2{margin:0;font-size:28px;font-weight:700;color:var(--ink);letter-spacing:-.03em;}
+    .panel-head .sub{margin:6px 0 0;color:var(--muted);font-size:15.5px;}
+
+    /* ---- Cards ---- */
+    fieldset.card{border:1px solid var(--line);border-radius:var(--radius);margin:0 0 18px;padding:22px 24px;background:var(--card);transition:border-color .2s;}
+    fieldset.card:hover{border-color:var(--line-strong);}
+    legend{font-weight:800;font-size:12px;letter-spacing:.13em;text-transform:uppercase;padding:0 10px;display:flex;align-items:center;gap:7px;color:var(--muted);}
+    legend .ic{font-size:14px;}
+    .accent-fixed legend::before,.accent-class legend::before,.accent-curr legend::before,.accent-peda legend::before,.accent-ws legend::before,.checkpoint legend::before{content:"";width:8px;height:8px;border-radius:2px;display:inline-block;}
+    .accent-fixed legend::before{background:var(--a-fixed);}
+    .accent-class legend::before{background:var(--a-class);box-shadow:0 0 8px rgba(99,230,194,.6);}
+    .accent-curr legend::before{background:var(--a-curr);box-shadow:0 0 8px rgba(34,211,238,.6);}
+    .accent-peda legend::before{background:var(--a-peda);box-shadow:0 0 8px rgba(167,139,250,.6);}
+    .accent-ws legend::before{background:var(--a-ws);box-shadow:0 0 8px rgba(52,211,153,.6);}
+    .fixed-tags{display:flex;flex-wrap:wrap;gap:8px;}
+    .tag{background:var(--field);color:var(--muted);font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase;padding:7px 15px;border-radius:999px;border:1px solid var(--line);}
+
+    /* ---- Form fields ---- */
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+    label{display:flex;flex-direction:column;font-size:14px;font-weight:600;gap:6px;color:#bdd1c9;}
+    label.block{margin:12px 0 8px;}
+    .hint{font-weight:400;color:var(--muted);font-size:13px;text-transform:none;letter-spacing:0;}
+    input,select,textarea{font:inherit;font-weight:500;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);transition:.15s;}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(99,230,194,.2);}
+    input[readonly]{background:#141c18;color:var(--muted);}
+    select{appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%239db4ab' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+    textarea{width:100%;min-height:84px;resize:vertical;}
+    .muted{color:var(--muted);} .small{font-size:14px;}
+
+    /* ---- SP list & chips ---- */
+    .sp-list{display:flex;flex-direction:column;gap:8px;}
+    .sp-list label{flex-direction:row;align-items:flex-start;gap:10px;font-weight:500;color:var(--ink);padding:13px 15px;border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:.15s;background:var(--card);font-size:15px;}
+    .sp-list label:hover{border-color:var(--line-strong);}
+    .sp-list label:has(input:checked){border-color:var(--blue);background:var(--blue-50);box-shadow:inset 0 0 0 1px rgba(99,230,194,.25);}
+    .sp-list input{margin-top:3px;accent-color:var(--blue);width:17px;height:17px;}
+    .sp-list .kod{font-weight:800;color:var(--blue);margin-right:6px;}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+    .chip{padding:9px 18px;border-radius:999px;background:var(--card);border:1px solid var(--line);cursor:pointer;font-size:13.5px;font-weight:600;color:#b2c8bf;user-select:none;transition:.15s;}
+    .chip:hover{border-color:var(--blue);color:var(--ink);}
+    .chip.on{background:var(--blue);color:var(--ink-on-accent);border-color:var(--blue);box-shadow:0 0 16px rgba(99,230,194,.35);}
+
+    /* ---- Buttons: pill-shaped ---- */
+    .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px;align-items:center;}
+    .actions.center{justify-content:center;}
+    button{font:inherit;font-size:14.5px;font-weight:700;padding:11px 22px;min-height:44px;border-radius:999px;cursor:pointer;border:1px solid transparent;transition:background .2s,border-color .2s,color .2s,transform .15s,box-shadow .2s;display:inline-flex;align-items:center;justify-content:center;gap:7px;}
+    button:active{transform:scale(.97);}
+    button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+    .ico{width:16px;height:16px;flex:none;}
+    button.primary{background:var(--blue);color:var(--ink-on-accent);box-shadow:0 4px 22px rgba(99,230,194,.28);}
+    button.primary:hover{background:#8df2d9;transform:translateY(-1px);box-shadow:0 6px 28px rgba(99,230,194,.4);}
+    button.primary:active{transform:translateY(0) scale(.97);}
+    button.primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+    button.ghost{background:transparent;border-color:var(--line);color:#c9dcd4;}
+    button.ghost:hover{border-color:var(--blue);color:var(--blue-700);}
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
+      html{scroll-behavior:auto;}
+    }
+    button.mini{padding:7px 14px;font-size:13px;min-height:36px;}
+    button.mini.danger{color:var(--err);}
+    button.mini.danger:hover{background:#dc2626;color:#fff;border-color:#dc2626;}
+    .lib-btn{background:var(--card);color:#b2c8bf;font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:9px 16px;border-radius:999px;border:1px solid var(--line);cursor:pointer;white-space:nowrap;transition:.15s;}
+    .lib-btn:hover{border-color:var(--blue);color:var(--ink);}
+    .bank-badge{background:var(--blue-50);color:var(--blue-700);font-size:13.5px;font-weight:600;padding:9px 16px;border-radius:999px;border:1px solid #26523f;white-space:nowrap;}
+    .bank-badge b{font-weight:800;}
+
+    /* Caption-left + button-right rows (Send to Classroom etc.) */
+    .send-row{flex-wrap:nowrap;justify-content:space-between;}
+    .send-row .muted.small{flex:1 1 auto;min-width:0;text-align:left;}
+    .send-row button{flex:none;}
+    @media(max-width:640px){
+      .send-row{flex-wrap:wrap;justify-content:flex-end;}
+      .send-row .muted.small{flex:1 1 100%;}
+      .send-row button{width:100%;white-space:normal;height:auto;}
+    }
+    .warn{color:var(--warn);font-size:14.5px;font-weight:700;margin:10px 0 0;}
+    .hidden{display:none !important;}
+
+    /* ---- Dropdown (export) ---- */
+    .dropdown{position:relative;display:inline-block;}
+    .dropdown-menu{position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line-strong);border-radius:14px;box-shadow:var(--shadow-lg);padding:6px;z-index:30;min-width:180px;}
+    .menu-item{display:flex;justify-content:flex-start;width:100%;text-align:left;background:transparent;border:none;padding:10px 13px;min-height:40px;border-radius:9px;font-size:14.5px;color:var(--ink);font-weight:600;}
+    .menu-item:hover{background:var(--blue-50);color:var(--blue-700);}
+
+    /* ---- Output ---- */
+    .output{border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin-bottom:18px;background:var(--card);}
+    .output h3{margin:0 0 12px;font-size:19px;color:var(--ink);font-weight:700;letter-spacing:-.01em;}
+    .output [contenteditable]:focus{outline:2px dashed var(--blue);border-radius:6px;}
+    .editable-hint{font-size:13.5px;color:var(--blue-700);background:var(--blue-50);padding:10px 15px;border-radius:999px;margin:0 0 14px;border:1px solid #26523f;display:inline-block;}
+    table.rph{border-collapse:collapse;width:100%;font-size:14.5px;}
+    table.rph th,table.rph td{border:1px solid var(--line);padding:9px 11px;vertical-align:top;text-align:left;}
+    table.rph th{background:#141d18;color:var(--ink);font-weight:700;width:24%;white-space:nowrap;}
+    table.rph i{color:var(--muted);}
+    .q{border:1px solid var(--line);border-radius:var(--radius);padding:17px 19px;margin-bottom:12px;background:var(--card);}
+    .q .qhead{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-weight:700;}
+    .q .opt{padding:5px 0 5px 10px;border-radius:6px;}
+    .q .opt.correct{color:var(--ok);font-weight:700;background:rgba(74,222,128,.1);}
+    .q .fb{font-size:14.5px;color:var(--muted);margin-top:8px;font-style:italic;border-top:1px dashed var(--line);padding-top:8px;}
+    .badge{display:inline-block;font-size:11.5px;letter-spacing:.08em;padding:4px 12px;border-radius:999px;background:var(--blue-50);color:var(--blue-700);font-weight:800;}
+    .checkpoint{background:#101815;}
+    .checkpoint legend::before{background:var(--blue);box-shadow:0 0 8px rgba(99,230,194,.6);}
+    .saved-list{list-style:none;padding:0;font-size:15.5px;max-width:560px;margin:0 auto 6px;}
+    .saved-list li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 17px;margin-bottom:8px;}
+    .saved-list code{background:var(--blue-50);color:var(--blue-700);padding:2px 7px;border-radius:5px;font-size:14px;}
+    .done-check{width:74px;height:74px;margin:0 auto 14px;border-radius:50%;background:linear-gradient(120deg,#63e6c2,#8b5cf6);color:var(--ink-on-accent);font-size:38px;display:grid;place-items:center;box-shadow:0 0 40px rgba(99,230,194,.4),0 0 60px rgba(139,92,246,.25);animation:pop .4s ease;}
+    @keyframes pop{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+    .foot{text-align:center;color:var(--muted);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;padding:8px 16px 34px;}
+    .foot b{color:var(--blue);}
+    .next-banner{background:var(--blue-50);border:1px solid #26523f;border-radius:999px;padding:12px 21px;margin:0 0 18px;font-size:15px;color:var(--blue-700);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .next-banner button{margin-left:auto;}
+    .ctx-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 19px;margin:0 0 18px;}
+    .ctx-summary{font-size:15px;color:var(--ink);line-height:1.5;}
+
+    /* ---- Tools menu (☰) ---- */
+    .tools-menu{position:relative;}
+    .tools-trigger{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 17px;font-size:17px;line-height:1;cursor:pointer;transition:.15s;}
+    .tools-trigger:hover{border-color:var(--blue);box-shadow:var(--glow);}
+    .tools-pop{position:absolute;right:0;top:100%;margin-top:8px;background:var(--panel);border:1px solid var(--line-strong);border-radius:16px;box-shadow:var(--shadow-lg);padding:8px;display:none;flex-direction:column;gap:6px;min-width:210px;z-index:40;}
+    .tools-pop::before{content:'';position:absolute;top:-8px;left:0;right:0;height:8px;}
+    .tools-menu:hover .tools-pop,.tools-menu.open .tools-pop{display:flex;}
+    .pop-item{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:10px 15px;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#b2c8bf;text-align:left;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;justify-content:flex-start;}
+    .pop-item:hover{border-color:var(--blue);color:var(--ink);background:var(--card);}
+    span.pop-item{cursor:default;background:var(--blue-50);color:var(--blue-700);border-color:#26523f;}
+    span.pop-item b{font-weight:800;}
+
+    /* ---- Slides preview cards ---- */
+    .slide-card{border:1px solid var(--line);border-radius:var(--radius);padding:17px 19px;margin:12px 0;background:var(--card);}
+    .slide-num{font-size:11.5px;font-weight:800;color:var(--violet);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;}
+    .slide-title{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:8px;outline:none;letter-spacing:-.01em;}
+    .slide-isi{margin:0 0 8px 1.1em;}
+    .slide-isi li{margin:.25em 0;outline:none;}
+    .slide-notes{font-size:14.5px;color:var(--muted);background:var(--blue-50);border-left:3px solid var(--blue);border-radius:8px;padding:9px 11px;}
+    .slide-notes span{outline:none;}
+
+    .manual-box{margin:16px 0 4px;border:1px solid var(--line);border-radius:12px;padding:13px 17px;}
+    .manual-box summary{cursor:pointer;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+    .manual-box summary:hover{color:var(--ink);}
+    .manual-box[open] summary{margin-bottom:12px;}
+    /* ---- Modals ---- */
+    .modal{position:fixed;inset:0;z-index:70;background:rgba(5,8,7,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;}
+    .modal-box{background:var(--panel);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:700px;max-height:88vh;overflow-y:auto;padding:27px 29px;border:1px solid var(--line-strong);}
+    .modal-box h3{margin:0 0 4px;font-size:21px;color:var(--ink);font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .proto-tag{font-size:11px;font-weight:800;text-transform:uppercase;color:#422006;background:var(--warn);padding:4px 11px;border-radius:999px;letter-spacing:.06em;}
+    .rcpt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px;margin:14px 0;}
+    .rcpt-grid label{font-size:14px;font-weight:600;color:#bdd1c9;gap:5px;}
+    .how-list{margin:12px 0 14px;padding-left:20px;font-size:15px;color:#bdd1c9;}
+    .how-list li{margin-bottom:5px;} .how-list a{color:var(--blue-700);font-weight:700;}
+    .how-list code{background:var(--blue-50);color:var(--blue-700);padding:1px 7px;border-radius:5px;font-size:14px;}
+    #form-script,#drive-script{width:100%;min-height:240px;font-family:"Consolas","Courier New",monospace;font-size:13px;line-height:1.45;white-space:pre;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px;resize:vertical;}
+    .lib-search{width:100%;margin:12px 0;}
+    .lib-list{display:flex;flex-direction:column;gap:10px;max-height:52vh;overflow-y:auto;margin-bottom:14px;}
+    .lib-item{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border:1px solid var(--line);border-radius:var(--radius);padding:14px 17px;background:var(--card);}
+    .lib-title{font-weight:700;color:var(--ink);font-size:16px;}
+    .lib-meta{font-size:14px;color:var(--muted);margin-top:2px;}
+    .lib-actions{display:flex;gap:6px;flex-wrap:wrap;}
+
+    /* ---- Reflect / Grade / Progress ---- */
+    #reflect-output h4,#grade-output h4{margin:14px 0 6px;font-size:14.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--blue-700);}
+    .reflect-box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;font-size:14.5px;line-height:1.55;white-space:pre-wrap;margin:0;font-family:inherit;color:var(--ink);}
+    #reflect-modal textarea,#grade-modal textarea{width:100%;min-height:95px;}
+    #grade-modal input[type=text]{width:100%;}
+    .g-band{font-size:16.5px;margin:12px 0 8px;}
+    .g-table{border-collapse:collapse;width:100%;font-size:14.5px;margin-bottom:10px;}
+    .g-table th,.g-table td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+    .g-table th{background:var(--blue-50);color:var(--blue-700);}
+    .g-table .g-score{font-weight:800;color:var(--blue-700);text-align:center;white-space:nowrap;}
+    .g-imp{margin:6px 0 0;padding-left:20px;font-size:14.5px;}
+    .pg-wrap{margin:8px 0 14px;}
+    .pg-class{border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:12px;background:var(--card);}
+    .pg-head{font-size:15px;margin-bottom:10px;color:var(--ink);}
+    .pg-chart{display:flex;align-items:flex-end;gap:10px;height:130px;padding-top:6px;}
+    .pg-bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;}
+    .pg-bar span{width:28px;background:var(--grad);border-radius:5px 5px 0 0;display:block;box-shadow:0 0 12px rgba(99,230,194,.3);}
+    .pg-bar em{font-size:12px;color:var(--muted);font-style:normal;}
+
+    /* ---- Overlay & toast ---- */
+    .overlay{position:fixed;inset:0;background:rgba(12,18,16,.88);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:50;}
+    .overlay p{font-weight:700;color:var(--ink);letter-spacing:.03em;font-size:16.5px;}
+    .spinner{width:46px;height:46px;border:4px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite;box-shadow:0 0 24px rgba(99,230,194,.25);}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:60;background:#16291f;color:var(--ink);border:1px solid #26523f;padding:14px 26px;border-radius:999px;font-size:15px;font-weight:600;box-shadow:var(--shadow-lg);max-width:90%;}
+    .toast.err{background:#3d1412;color:#fecaca;border-color:#7f1d1d;}
+
+    /* ---- Left sidebar ---- */
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:242px;background:var(--panel);border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;gap:4px;z-index:25;overflow-y:auto;}
+    .sb-brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:11px;padding:22px 8px 24px;cursor:pointer;border-bottom:1px solid var(--line);margin-bottom:8px;}
+    .sb-brand img{width:86px;height:86px;object-fit:contain;background:#fff;border-radius:20px;padding:7px;flex:none;box-shadow:0 0 28px rgba(99,230,194,.22);}
+    .sb-brand b{font-family:"Sora","Space Grotesk","Inter",system-ui,sans-serif;font-size:34px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);line-height:1;display:block;margin-right:-.08em;}
+    .sb-brand b span{color:var(--blue);text-shadow:0 0 16px rgba(99,230,194,.55);}
+    .sb-brand p{margin:1px 0 0;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);line-height:1.4;white-space:nowrap;}
+    html[data-theme="light"] .sb-brand b span{text-shadow:none;}
+    .sb-label{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:12px 10px 6px;margin:0;}
+    .sb-item{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:1px solid transparent;border-radius:10px;padding:10px 12px;min-height:42px;font:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;text-align:left;transition:.15s;}
+    .sb-item:hover{background:var(--card);color:var(--ink);border-color:var(--line);}
+    .sb-item.active{background:var(--blue-50);color:var(--blue-700);}
+    .sb-item .ico{width:17px;height:17px;flex:none;}
+    .sb-count{margin-left:auto;font-size:11.5px;font-weight:800;background:var(--blue-50);color:var(--blue-700);border-radius:999px;padding:2px 9px;}
+    .sb-foot{margin-top:auto;padding:10px;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+    @media(min-width:881px){
+      body{padding-left:242px;}
+      .topbar .brand{display:none;}
+      .topbar{justify-content:flex-end;}
+    }
+    @media(max-width:880px){
+      .sidebar{position:static;width:auto;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--line);padding:10px 12px;gap:6px;overflow:visible;}
+      .sb-label,.sb-foot,.sb-brand{display:none;}
+      .sb-item{width:auto;padding:8px 13px;min-height:38px;font-size:12.5px;border:1px solid var(--line);border-radius:999px;}
+    }
+
+    /* ---- Account menu (top right) ---- */
+    .acct-menu{position:relative;}
+    .acct-trigger{position:relative;overflow:hidden;width:42px;height:42px;border-radius:50%;background:var(--blue);color:var(--ink-on-accent);font-weight:800;font-size:16px;border:1px solid transparent;cursor:pointer;display:grid;place-items:center;font-family:inherit;box-shadow:0 0 0 2px rgba(99,230,194,.3);}
+    .acct-trigger img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;display:none;}
+    .acct-trigger:hover{box-shadow:var(--glow);}
+    .acct-pop{position:absolute;right:0;top:calc(100% + 10px);background:var(--panel);border:1px solid var(--line-strong);border-radius:16px;box-shadow:var(--shadow-lg);padding:8px;display:none;flex-direction:column;min-width:256px;z-index:45;}
+    .acct-menu.open .acct-pop{display:flex;}
+    .acct-row{display:flex;align-items:center;gap:10px;padding:10px 12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);border-radius:10px;background:transparent;border:none;text-align:left;}
+    .acct-row .ico{width:16px;height:16px;flex:none;}
+    button.acct-row{cursor:pointer;}
+    button.acct-row:hover{background:var(--card);}
+    .acct-user{font-weight:800;}
+    .acct-sep{height:1px;background:var(--line);margin:6px 4px;}
+    .acct-label{font-size:10.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);padding:6px 12px 2px;margin:0;}
+    .acct-head{display:flex;align-items:center;gap:13px;padding:14px 13px;background:var(--grad-soft);border:1px solid var(--line);border-radius:13px;margin:2px 2px 8px;}
+    .acct-ava{position:relative;width:52px;height:52px;border-radius:50%;background:var(--blue);flex:none;cursor:pointer;display:grid;place-items:center;box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--blue),0 0 18px rgba(99,230,194,.3);}
+    .acct-ava img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;display:none;}
+    #acct-ava-initial{font-weight:800;font-size:20px;color:var(--ink-on-accent);}
+    .ava-edit{position:absolute;right:-5px;bottom:-5px;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--panel);display:grid;place-items:center;border:2px solid var(--panel);}
+    .ava-edit .ico{width:11px;height:11px;}
+    .acct-id b{display:block;font-size:15px;letter-spacing:-.01em;color:var(--ink);line-height:1.3;font-family:"Space Grotesk","Inter",sans-serif;}
+    .role-badge{display:inline-block;margin-top:5px;font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;background:var(--blue-50);color:var(--blue-700);border:1px solid rgba(99,230,194,.3);padding:3px 10px;border-radius:999px;}
+    .theme-seg{display:flex;gap:4px;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:4px;margin:4px 10px 10px;}
+    .theme-seg .theme-opt{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;border:none;border-radius:9px;background:transparent;font:inherit;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:.15s;}
+    .theme-seg .theme-opt .ico{width:15px;height:15px;}
+    .theme-seg .theme-opt:hover{color:var(--ink);}
+    .theme-seg .theme-opt.on{background:var(--blue);color:var(--ink-on-accent);box-shadow:0 0 14px rgba(99,230,194,.35);}
+    .fs-val{float:right;color:var(--blue-700);font-size:10.5px;letter-spacing:0;}
+    .acct-logout{color:var(--err);font-weight:700;}
+    button.acct-row.acct-logout:hover{background:rgba(248,113,113,.12);}
+    html[data-theme="light"] .theme-seg .theme-opt.on{box-shadow:0 0 14px rgba(12,143,112,.22);}
+    html[data-theme="light"] .acct-ava{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--blue),0 0 18px rgba(12,143,112,.2);}
+    .fs-row{display:flex;align-items:center;gap:10px;padding:8px 14px 12px;}
+    .fs-row .fa{font-weight:800;color:var(--muted);line-height:1;}
+    .fs-row .fa.sm{font-size:11px;} .fs-row .fa.lg{font-size:18px;}
+    input[type=range].fs-slider{flex:1;appearance:none;-webkit-appearance:none;height:4px;border-radius:4px;background:linear-gradient(90deg,var(--blue) var(--fs-pct,37%),var(--line-strong) var(--fs-pct,37%));outline:none;padding:0;border:none;cursor:pointer;}
+    .fs-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--blue);cursor:pointer;border:none;box-shadow:0 0 10px rgba(99,230,194,.5);}
+    .fs-slider:focus-visible{outline:2px solid var(--blue);outline-offset:4px;}
+
+    /* ---- Niat Guide (page helper) ---- */
+    @keyframes gflow{to{background-position:300% 0;}}
+    @keyframes gflow2{to{background-position:0 0,300% 0;}}
+    @keyframes gfloat{from{transform:translateY(0);}to{transform:translateY(-3px);}}
+    .guide-fab{position:fixed;right:22px;bottom:22px;z-index:65;display:inline-flex;align-items:center;gap:8px;padding:12px 19px;border-radius:999px;border:2px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(90deg,#63e6c2,#22d3ee,#a78bfa,#63e6c2) border-box;background-size:auto,300% 100%;animation:gflow2 5s linear infinite;color:var(--ink);font:inherit;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;box-shadow:var(--shadow-lg),0 0 18px rgba(99,230,194,.22);transition:box-shadow .18s,transform .18s;}
+    .guide-fab:hover{box-shadow:var(--shadow-lg),0 0 28px rgba(99,230,194,.45);transform:translateY(-2px);}
+    .guide-fab .ico{width:16px;height:16px;color:var(--blue);}
+    .guide-fab.pulse::after{content:"";position:absolute;inset:-5px;border-radius:999px;border:2px solid rgba(99,230,194,.55);animation:gpulse 1.7s ease-out infinite;}
+    @keyframes gpulse{from{opacity:1;transform:scale(1);}to{opacity:0;transform:scale(1.22);}}
+    .guide-pop{position:fixed;right:22px;bottom:80px;z-index:65;width:min(370px,calc(100vw - 34px));background:var(--panel);border:1px solid var(--line-strong);border-radius:18px;box-shadow:var(--shadow-lg);padding:16px 14px 14px;display:none;overflow:hidden;}
+    .guide-pop::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#63e6c2,#22d3ee,#a78bfa,#63e6c2);background-size:300% 100%;animation:gflow 4s linear infinite;}
+    .guide.open .guide-pop{display:block;animation:rise .25s ease;}
+    .guide-head{display:flex;align-items:center;gap:11px;margin-bottom:11px;}
+    .guide-head img{width:40px;height:40px;object-fit:contain;background:#fff;border-radius:11px;padding:3px;flex:none;animation:gfloat 2.6s ease-in-out infinite alternate;}
+    .lang-seg{display:flex;gap:2px;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:3px;margin-left:auto;flex:none;}
+    .lang-seg button{border:none;background:transparent;color:var(--muted);font:inherit;font-size:9.5px;font-weight:800;letter-spacing:.06em;padding:5px 10px;min-height:0;border-radius:999px;cursor:pointer;transition:.15s;}
+    .lang-seg button.on{background:linear-gradient(120deg,#63e6c2,#22d3ee);color:#04231a;}
+    .guide-head b{display:block;font-size:14px;font-family:"Space Grotesk","Inter",sans-serif;color:var(--ink);}
+    .guide-head span{font-size:10px;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;font-weight:700;}
+    .guide-x{margin-left:2px;background:transparent;border:none;color:var(--muted);cursor:pointer;padding:8px;min-height:0;}
+    .guide-x .ico{width:15px;height:15px;}
+    .guide-x:hover{color:var(--ink);}
+    .guide-flow{display:flex;align-items:center;gap:3px;margin:2px 0 12px;}
+    .g-chip{flex:1;text-align:center;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:7px 2px;border-radius:8px;border:1px solid transparent;}
+    .g-chip.here{background:linear-gradient(120deg,#63e6c2,#22d3ee);color:#04231a;box-shadow:0 0 12px rgba(99,230,194,.35);}
+    .g-chip.view{border-color:#a78bfa;color:#c4b5fd;}
+    html[data-theme="light"] .g-chip.view{color:#6d28d9;}
+    .guide-body{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:13px 15px;min-height:150px;}
+    .g-here{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;background:linear-gradient(90deg,#63e6c2,#22d3ee,#a78bfa,#63e6c2);background-size:300% 100%;animation:gflow 3.2s linear infinite;color:#04231a;padding:3px 10px;border-radius:999px;margin-bottom:8px;}
+    .guide-body h4{margin:0 0 6px;font-size:14.5px;color:var(--ink);font-family:"Space Grotesk","Inter",sans-serif;}
+    .guide-body p{margin:0 0 9px;font-size:12.5px;color:var(--muted);line-height:1.55;}
+    .guide-body ul{margin:0;padding-left:17px;font-size:12.5px;color:var(--ink);line-height:1.5;}
+    .guide-body li{margin:4px 0;}
+    .guide-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:11px;}
+    .guide-nav .mini{font-size:11px;white-space:nowrap;max-width:42%;overflow:hidden;text-overflow:ellipsis;}
+    .guide-pos{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.07em;text-transform:uppercase;}
+    html[data-theme="light"] .guide-fab{box-shadow:var(--shadow-lg),0 0 18px rgba(12,143,112,.16);}
+    html[data-theme="light"] .g-chip.here{box-shadow:0 0 12px rgba(12,143,112,.22);}
+
+    /* ---- Light theme ---- */
+    html[data-theme="light"]{
+      --bg:#f2f6f4; --panel:#ffffff; --card:#f8fbfa; --field:#eef3f1;
+      --grey:#64748b; --grey-ink:#475569;
+      --ink:#13211b; --muted:#53685f; --line:#d9e3de; --line-strong:#b3c4bc;
+      --blue:#0b7d63; --blue-700:#0a6e56; --blue-50:#dff5ec;
+      --ink-on-accent:#ffffff;
+      --grad:linear-gradient(120deg,#0b7d63 0%,#0784a3 100%);
+      --grad-soft:linear-gradient(120deg,#e4f6ef 0%,#eef9f4 100%);
+      --ok:#15803d; --err:#dc2626;
+      --shadow:0 1px 2px rgba(15,30,24,.06);
+      --shadow-lg:0 18px 50px rgba(15,30,24,.14);
+      --glow:0 0 20px rgba(12,143,112,.18);
+    }
+    html[data-theme="light"] body{
+      background:
+        radial-gradient(760px 560px at 92% -12%, rgba(139,92,246,.10), transparent 60%),
+        radial-gradient(820px 520px at -10% 14%, rgba(100,116,139,.08), transparent 60%),
+        radial-gradient(680px 520px at -10% 112%, rgba(12,143,112,.08), transparent 60%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='920' height='920' viewBox='0 0 920 920' fill='none' stroke-width='1.2'%3E%3Cg stroke='%2364748b' stroke-opacity='.13'%3E%3Cpath d='M60 120h250l70 70v190'/%3E%3Cpath d='M860 780H610l-70-70V520'/%3E%3Cpath d='M780 70v170l-90 90H530'/%3E%3Cpath d='M180 660H60'/%3E%3C/g%3E%3Cg stroke='%230c8f70' stroke-opacity='.12'%3E%3Cpath d='M120 860V650l100-100h220'/%3E%3Cpath d='M40 420h190l80-80'/%3E%3Cpath d='M880 300h-140'/%3E%3C/g%3E%3Cg fill='%2364748b' fill-opacity='.18'%3E%3Ccircle cx='60' cy='120' r='3.5'/%3E%3Ccircle cx='380' cy='380' r='3.5'/%3E%3Ccircle cx='860' cy='780' r='3.5'/%3E%3Ccircle cx='530' cy='330' r='3.5'/%3E%3Ccircle cx='180' cy='660' r='3.5'/%3E%3C/g%3E%3Cg fill='%230c8f70' fill-opacity='.18'%3E%3Ccircle cx='120' cy='860' r='3.5'/%3E%3Ccircle cx='440' cy='550' r='3.5'/%3E%3Ccircle cx='40' cy='420' r='3.5'/%3E%3Ccircle cx='740' cy='300' r='3.5'/%3E%3C/g%3E%3C/svg%3E"),
+        repeating-linear-gradient(115deg, transparent 0 150px, rgba(100,116,139,.05) 150px 151px),
+        linear-gradient(rgba(12,143,112,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(12,143,112,.03) 1px, transparent 1px),
+        #f2f6f4;
+      background-size:auto,auto,auto,920px 920px,auto,44px 44px,44px 44px,auto;
+    }
+    html[data-theme="light"] .topbar{background:rgba(248,251,250,.86);}
+    html[data-theme="light"] .brand-text h1 span,html[data-theme="light"] .dash-head h2 em{text-shadow:none;}
+    html[data-theme="light"] .pill{background:#fff;color:#41544c;}
+    html[data-theme="light"] .pill.solid{background:var(--blue);color:#fff;}
+    html[data-theme="light"] .pill.solid:hover{background:var(--blue-700);border-color:var(--blue-700);color:#fff;}
+    html[data-theme="light"] .chip{background:#fff;color:#41544c;}
+    html[data-theme="light"] .chip.on{background:var(--blue);color:#fff;}
+    html[data-theme="light"] label{color:#33453e;}
+    html[data-theme="light"] .lib-btn,html[data-theme="light"] .pop-item{background:#fff;color:#41544c;}
+    html[data-theme="light"] .how-list,html[data-theme="light"] .rcpt-grid label{color:#33453e;}
+    html[data-theme="light"] button.ghost{background:#fff;color:#33453e;}
+    html[data-theme="light"] button.primary:hover{background:var(--blue-700);}
+    html[data-theme="light"] table.rph th{background:#eef4f1;color:var(--ink);}
+    html[data-theme="light"] .checkpoint{background:#f3f8f6;}
+    html[data-theme="light"] input[readonly]{background:#e8eeeb;color:#53685f;}
+    html[data-theme="light"] .overlay{background:rgba(242,246,244,.9);}
+    html[data-theme="light"] .toast{background:#ffffff;color:var(--ink);border-color:var(--line-strong);}
+    html[data-theme="light"] .toast.err{background:#fef2f2;color:#b91c1c;border-color:#fecaca;}
+    html[data-theme="light"] ::-webkit-scrollbar-thumb{background:#c2d0ca;border:2px solid var(--bg);}
+    html[data-theme="light"] ::-webkit-scrollbar-thumb:hover{background:#a5b8b0;}
+    html[data-theme="light"] .q .opt.correct{background:#e7f8ee;}
+    html[data-theme="light"] .warn{color:#92600a;}
+    html[data-theme="light"] .steps li.active{color:#fff;}
+    html[data-theme="light"] .steps li.active .dot{background:#fff;color:var(--blue-700);}
+    html[data-theme="light"] .theme-opt.on::before{box-shadow:0 0 8px rgba(12,143,112,.5);}
+    html[data-theme="light"] .fs-slider::-webkit-slider-thumb{box-shadow:0 0 10px rgba(12,143,112,.4);}
+    html[data-theme="light"] .acct-trigger{color:#fff;}
+    html[data-theme="light"] .slide-notes{color:#3f524a;}
+
+    /* ---- Landing / App two-page behaviour ---- */
+    body.landing .tracker,body.landing main,body.landing .foot{display:none;}
+    body:not(.landing) .dash{display:none;}
+    .brand{cursor:pointer;}
+
+    @media (max-width:560px){.topbar{padding:12px 16px;}.brand-text h1{font-size:25px;}.logo-img{width:44px;height:44px;}.panel{padding:22px 16px;}.steps .lbl{display:none;}.steps li{padding:8px;}}
+  </style>
+
+
+
+</head>
+<body class="landing">
+  <svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  </svg>
+  <script>
+    // Reminder deep-links (…?class=3%20Delima) skip the landing page entirely.
+    if (new URLSearchParams(location.search).get("class")) {
+      document.body.className = "";
+    }
+  </script>
+  <!-- ============ TOPBAR / BRAND ============ -->
+  <header class="topbar">
+    <div class="brand" id="brand-home" title="Back to home">
+      <img class="logo-img" src="niat-logo.png" alt="Niat logo" />
+      <div class="brand-text">
+        <h1>Ni<span>at</span></h1>
+        <p>From Intention to Intervention</p>
+      </div>
+    </div>
+    <div class="tools-menu" id="tools-menu" style="display:none" aria-hidden="true">
+      <button class="tools-trigger" id="tools-trigger" type="button" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg></button>
+      <div class="tools-pop">
+        <button id="btn-progress" class="pop-item" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg> Progress</button>
+        <button id="btn-grade" class="pop-item" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-pen"/></svg> Grade</button>
+        <button id="btn-library" class="pop-item" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg> My Lessons</button>
+        <span id="bank-badge" class="pop-item"><svg class="ico" aria-hidden="true"><use href="#i-db"/></svg> Bank: <b id="bank-count">…</b></span>
+        <button id="btn-textbook" class="pop-item" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg> Textbook</button>
+        <button id="btn-logout" class="pop-item" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-out"/></svg> Log out</button>
+      </div>
+    </div>
+    <div class="acct-menu" id="acct-menu">
+      <button class="acct-trigger" id="acct-trigger" type="button" aria-label="Account menu" aria-haspopup="true" title="Account">
+        <img id="trig-ava" alt="" />
+        <span id="trig-initial">C</span>
+      </button>
+      <div class="acct-pop" id="acct-pop">
+        <div class="acct-head">
+          <div class="acct-ava" id="acct-ava" title="Change profile photo">
+            <img id="acct-ava-img" alt="" />
+            <span id="acct-ava-initial">C</span>
+            <span class="ava-edit" aria-hidden="true"><svg class="ico"><use href="#i-camera"/></svg></span>
+            <input type="file" id="ava-file" accept="image/*" hidden aria-label="Upload profile photo" />
+          </div>
+          <div class="acct-id">
+            <b id="acct-name">Cikgu</b>
+            <span class="role-badge" id="acct-role">Teacher</span>
+          </div>
+        </div>
+        <p class="acct-label">Theme</p>
+        <div class="theme-seg" role="group" aria-label="Theme">
+          <button class="theme-opt" data-theme="system" type="button"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg>System</button>
+          <button class="theme-opt" data-theme="dark" type="button"><svg class="ico" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+          <button class="theme-opt" data-theme="light" type="button"><svg class="ico" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+        </div>
+        <p class="acct-label">Font size <span class="fs-val" id="fs-val">100%</span></p>
+        <div class="fs-row"><span class="fa sm" aria-hidden="true">A</span><input type="range" class="fs-slider" id="fs-slider" min="85" max="125" step="5" value="100" aria-label="Font size" /><span class="fa lg" aria-hidden="true">A</span></div>
+        <div class="acct-sep"></div>
+        <button class="acct-row acct-logout" id="acct-logout" type="button"><svg class="ico" aria-hidden="true"><use href="#i-out"/></svg> Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ LEFT SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="sb-brand" id="sb-brand" title="Back to home">
+      <img src="niat-logo.png" alt="Niat logo" />
+      <div><b>Ni<span>at</span></b><p>From Intention to Intervention</p></div>
+    </div>
+    <p class="sb-label">Navigate</p>
+    <button class="sb-item active" id="sb-home" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg> Dashboard</button>
+    <button class="sb-item" id="sb-new" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> New lesson</button>
+    <p class="sb-label">Tools</p>
+    <button class="sb-item" id="sb-library" type="button"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg> My lessons</button>
+    <button class="sb-item" id="sb-progress" type="button"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg> Class progress</button>
+    <button class="sb-item" id="sb-grade" type="button"><svg class="ico" aria-hidden="true"><use href="#i-pen"/></svg> Grade writing</button>
+    <p class="sb-label">Resources</p>
+    <button class="sb-item" id="sb-textbook" type="button"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg> Textbook</button>
+    <div class="sb-item" style="cursor:default" title="Questions in the offline bank"><svg class="ico" aria-hidden="true"><use href="#i-db"/></svg> Question bank <span class="sb-count" id="sb-bank">…</span></div>
+  </aside>
+
+  <!-- ============ SMART DASHBOARD (LANDING) ============ -->
+  <section class="dash" aria-label="Niat dashboard">
+    <div class="dash-head">
+      <p class="eyebrow" id="dash-date">Niat ® From Intention to Intervention</p>
+      <h2 id="dash-greet">Welcome back, <em>Cikgu</em>.</h2>
+      <p class="dash-sub" id="dash-sub">Here is what Niat has prepared for you.</p>
+    </div>
+    <div class="dash-grid">
+      <div class="dash-card next-card">
+        <p class="dc-label" id="nc-label">Tomorrow's class</p>
+        <div id="nc-body"><p class="nc-empty">Checking your timetable…</p></div>
+      </div>
+      <div class="dash-card recent-card">
+        <p class="dc-label">Recent lessons</p>
+        <div id="rc-body"><p class="rc-empty">Loading…</p></div>
+      </div>
+      <div class="dash-card stats-card">
+        <p class="dc-label">At a glance</p>
+        <div class="stat-cols">
+          <div class="stat-row"><span>Question Bank</span><b id="ds-bank">…</b></div>
+          <div class="stat-row"><span>Lessons saved</span><b id="ds-lessons">…</b></div>
+          <div class="stat-row"><span>AI engine</span><b id="ds-ai" style="font-size:13px"><span class="ai-dot"></span>checking…</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>
+    // Landing (dashboard) → app page, and back via the brand logo.
+    function enterApp() {
+      document.body.classList.remove("landing");
+      window.scrollTo({ top: 0 });
+    }
+    document.getElementById("brand-home").onclick = () => {
+      document.body.classList.add("landing");
+      window.scrollTo({ top: 0 });
+      const home = document.getElementById("sb-home");
+      if (home) document.querySelectorAll(".sb-item").forEach((b) => b.classList.toggle("active", b === home));
+    };
+
+    // ---- Smart dashboard data ----
+    const dEsc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    async function buildDash() {
+      const now = new Date();
+      const h = now.getHours();
+      const greet = h < 12 ? "Good morning" : h < 19 ? "Good afternoon" : "Good evening";
+      document.getElementById("dash-date").textContent =
+        now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+      // Tomorrow's class(es) from the timetable
+      try {
+        const d = await (await fetch("/api/next-class")).json();
+        const who = (d.teacher || "Cikgu").split(/\s+/).slice(0, 2).join(" ");
+        document.getElementById("dash-greet").innerHTML = greet + ", <em>" + dEsc(who) + "</em>.";
+        document.getElementById("nc-label").textContent = "Tomorrow — " + (d.day || "");
+        const body = document.getElementById("nc-body");
+        if (d.classes && d.classes.length) {
+          document.getElementById("dash-sub").textContent =
+            "You have " + d.classes.length + " English class" + (d.classes.length > 1 ? "es" : "") +
+            " tomorrow. Niat can prepare everything in one tap.";
+          body.innerHTML = d.classes.map((c, i) => `
+            <div class="nc-row">
+              <div><div class="nc-class">${dEsc(c.class)}</div>
+              <div class="nc-meta">${dEsc(c.time || "")}${c.duration ? " · " + c.duration + " min" : ""}${c.pupils ? " · " + c.pupils + " pupils" : ""}</div></div>
+              <button class="nc-prep" data-i="${i}" type="button">🚀 Start AI</button>
+            </div>`).join("");
+          body.querySelectorAll(".nc-prep").forEach((b) => {
+            b.onclick = () => {
+              const c = d.classes[+b.dataset.i];
+              if (typeof applySlot === "function") applySlot(c, d.date);
+              enterApp();
+            };
+          });
+        } else {
+          document.getElementById("dash-sub").textContent = "No class tomorrow — a good day to review progress or top up the bank.";
+          body.innerHTML = '<p class="nc-empty">🎉 No English class tomorrow. Enjoy the breather — or prepare ahead with “New lesson”.</p>';
+        }
+      } catch (e) {
+        document.getElementById("nc-body").innerHTML = '<p class="nc-empty">Timetable unavailable.</p>';
+      }
+
+      // Stats: bank, lessons, AI engine
+      try {
+        const s = await (await fetch("/api/bank-stats")).json();
+        document.getElementById("ds-bank").textContent = (s.jumlah ?? 0) + " questions";
+      } catch (e) { document.getElementById("ds-bank").textContent = "—"; }
+      try {
+        const ls = await (await fetch("/api/lessons")).json();
+        document.getElementById("ds-lessons").textContent = ls.length;
+        const rc = document.getElementById("rc-body");
+        if (ls.length) {
+          rc.innerHTML = ls.slice(0, 4).map((l) => `
+            <div class="rc-item" data-id="${l.id}">
+              <div><div class="rc-title">${dEsc(l.title || l.topic || "Lesson " + l.id)}</div>
+              <div class="rc-meta">${dEsc(l.kelas || "")} · ${dEsc(l.tarikh || "")} · ${dEsc(l.skill || l.theme || "")}</div></div>
+              <span class="go">→</span>
+            </div>`).join("");
+          rc.querySelectorAll(".rc-item").forEach((it) => {
+            it.onclick = () => document.getElementById("btn-library").click();
+          });
+        } else {
+          rc.innerHTML = '<p class="rc-empty">No lessons saved yet — your approved lessons will appear here.</p>';
+        }
+      } catch (e) {
+        document.getElementById("ds-lessons").textContent = "—";
+        document.getElementById("rc-body").innerHTML = '<p class="rc-empty">Could not load lessons.</p>';
+      }
+      try {
+        const hh = await (await fetch("/api/health")).json();
+        const local = hh.local_fallback && hh.local_fallback.available;
+        const el = document.getElementById("ds-ai");
+        if (hh.api_key_set) {
+          el.innerHTML = '<span class="ai-dot"></span>Online' + (local ? " + offline backup" : "");
+        } else if (local) {
+          el.innerHTML = '<span class="ai-dot"></span>Offline model only';
+        } else {
+          el.innerHTML = '<span class="ai-dot off"></span>Not available';
+        }
+      } catch (e) { document.getElementById("ds-ai").innerHTML = '<span class="ai-dot off"></span>—'; }
+    }
+    buildDash();
+  </script>
+
+  <!-- ============ PROGRESS TRACKER ============ -->
+  <nav class="tracker">
+    <ol class="steps">
+      <li data-step="1" class="active"><span class="dot">1</span><span class="lbl">Setup</span></li>
+      <li data-step="2"><span class="dot">2</span><span class="lbl">Lesson Plan</span></li>
+      <li data-step="3"><span class="dot">3</span><span class="lbl">Materials</span></li>
+      <li data-step="4"><span class="dot">4</span><span class="lbl">Worksheet</span></li>
+      <li data-step="5"><span class="dot">5</span><span class="lbl">Done</span></li>
+    </ol>
+  </nav>
+
+  <main>
+    <!-- ============ STEP 1: SETUP ============ -->
+    <section id="panel-orchestrator" class="panel active">
+      <div class="panel-head">
+        <h2>Lesson Setup</h2>
+        <p class="sub">Choose the class context, curriculum content &amp; pedagogy — the system combines them into an instruction.</p>
+      </div>
+
+      <fieldset class="card accent-fixed">
+        <legend>Fixed</legend>
+        <div class="fixed-tags">
+          <span class="tag">English</span>
+          <span class="tag">KSSM</span>
+          <span class="tag">Form 3</span>
+          <span class="tag">CEFR B1 Low</span>
+        </div>
+      </fieldset>
+
+      <div class="ctx-bar"><div id="class-summary" class="ctx-summary"></div><button id="btn-edit-ctx" type="button" class="lib-btn">Edit class details</button></div>
+      <fieldset id="ctx-card" class="card accent-class hidden">
+        <legend>Class Context</legend>
+        <div class="grid">
+          <label>School <input id="school" type="text" placeholder="e.g. SMK Kampung ..." /></label>
+          <label>Teacher <input id="teacher" type="text" placeholder="e.g. Pn. ..." /></label>
+          <label>Week <input id="minggu" type="number" min="1" max="52" placeholder="e.g. 23" /></label>
+          <label>Class
+            <select id="nama_kelas">
+              <option value="">— select class —</option>
+              <option>3 Amber</option><option>3 Berlian</option><option>3 Delima</option>
+              <option>3 Kristal</option><option>3 KRK</option><option>3 Mutiara</option>
+              <option>3 Opal</option><option>3 Zamrud</option>
+            </select>
+          </label>
+          <label>Date <input id="tarikh" type="date" /></label>
+          <label>Day
+            <select id="hari">
+              <option value="">— select —</option>
+              <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+              <option>Thursday</option><option>Friday</option>
+            </select>
+          </label>
+          <label>Time
+            <select id="masa">
+              <option value="">— select —</option>
+              <option>7.40 a.m.</option><option>8.40 a.m.</option><option>9.40 a.m.</option>
+              <option>10.10 a.m.</option><option>11.10 a.m.</option><option>12.10 p.m.</option>
+              <option>01.10 p.m.</option><option>2.10 p.m.</option>
+            </select>
+          </label>
+          <label>Duration
+            <select id="tempoh">
+              <option value="30">30 min</option><option value="60" selected>60 min</option>
+              <option value="90">90 min</option><option value="120">120 min</option>
+            </select>
+          </label>
+          <label>No. of pupils <input id="bil_murid" type="number" value="30" min="1" /></label>
+          <label>Proficiency
+            <select id="tahap_murid">
+              <option>Advanced</option><option selected>Intermediate</option>
+              <option>Beginner / Remedial</option><option>Mixed ability</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-curr">
+        <legend>Curriculum (DSKP)</legend>
+        <div class="grid">
+          <label>Theme <select id="theme"></select></label>
+          <label>Topic / Unit <select id="topic"></select></label>
+          <label>Skill <select id="bidang"></select></label>
+          <label>Content Standard <select id="sk"></select></label>
+        </div>
+        <label class="block">Learning Standard <span class="hint">(select at least one)</span></label>
+        <div id="sp-list" class="sp-list"></div>
+      </fieldset>
+
+      <fieldset class="card accent-peda">
+        <legend>Pedagogy</legend>
+        <label class="block">21st Century Learning strategy <span class="hint">(click to select)</span></label>
+        <div id="strategi" class="chips"></div>
+        <label class="block">Cross-Curricular Elements (CCE) <span class="hint">(click to select)</span></label>
+        <div id="emk" class="chips"></div>
+        <div class="grid" style="margin-top:12px">
+          <label>Target HOTS level
+            <select id="kbat">
+              <option>Applying</option><option>Analysing</option><option>Evaluating</option><option>Creating</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-ws">
+        <legend>Worksheet Settings</legend>
+        <div class="grid">
+          <label>No. of questions <input id="bil_soalan" type="number" value="10" min="1" max="50" /></label>
+          <label>LOTS % <input id="lots" type="number" value="40" min="0" max="100" /></label>
+          <label>MOTS % <input id="mots" type="number" value="40" min="0" max="100" /></label>
+          <label>HOTS % <input id="hots" type="number" value="20" min="0" max="100" /></label>
+        </div>
+        <p id="aras-warn" class="warn hidden">⚠️ The level distribution must total exactly 100%.</p>
+      </fieldset>
+
+      <div class="actions">
+        <button id="btn-gen-rph" class="primary">Generate Lesson Plan →</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 2: LESSON PLAN ============ -->
+    <section id="panel-rph" class="panel">
+      <div class="panel-head">
+        <h2>Daily Lesson Plan</h2>
+        <p class="sub">Review &amp; edit the lesson plan before you approve.</p>
+      </div>
+      <div id="rph-output" class="output"></div>
+
+      <fieldset class="card checkpoint">
+        <legend>Teacher Review</legend>
+        <textarea id="nota-rph" placeholder="Improvement notes (if you need to regenerate)…"></textarea>
+        <div class="actions">
+          <button id="btn-regen-rph" class="ghost">Regenerate</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-ws">
+        <legend>Send to Classroom</legend>
+        <div class="actions send-row" style="margin-top:0">
+          <span class="muted small">saves a Doc + PDF to your Drive, then posts to the RPH Classroom</span>
+          <button id="btn-direct-rph" class="primary">🚀 Send to "Lesson Plan — PRESTIJ Project"</button>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button id="btn-back-1" class="ghost">← Setup</button>
+        <div class="dropdown">
+          <button id="btn-export" class="ghost">Export ▾</button>
+          <div id="export-menu" class="dropdown-menu hidden">
+            <button id="btn-export-pdf" class="menu-item">PDF (.pdf)</button>
+            <button id="btn-export-doc" class="menu-item">Word (.doc)</button>
+            <button id="btn-export-docx" class="menu-item">Word (.docx)</button>
+          </div>
+        </div>
+        <button id="btn-print-rph" class="ghost">Print</button>
+        <button id="btn-approve-rph" class="primary">Approve → Create Materials</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 3: TEACHING MATERIALS ============ -->
+    <section id="panel-materials" class="panel">
+      <div class="panel-head">
+        <h2>Teaching Materials</h2>
+        <p class="sub">Ready-to-teach slides built from your lesson plan. Review &amp; edit, then choose what to do.</p>
+      </div>
+      <div id="mat-output" class="output"></div>
+
+      <fieldset class="card checkpoint">
+        <legend>Teacher Review</legend>
+        <textarea id="nota-mat" placeholder="Improvement notes (if you need to regenerate)…"></textarea>
+        <div class="actions">
+          <button id="btn-back-mat" class="ghost">← Lesson Plan</button>
+          <button id="btn-skip-mat" class="ghost">Skip for now →</button>
+          <button id="btn-regen-mat" class="ghost">Regenerate</button>
+          <button id="btn-gamma" class="ghost">✨ Create with Gamma</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-ws hidden" id="mat-classroom-card">
+        <legend>Send to Classroom</legend>
+        <div class="grid">
+          <label>Send slides to
+            <select id="mat-target">
+              <option value="lesson_plan">Lesson Plan — PRESTIJ Project</option>
+              <option>3 Delima</option>
+              <option>3 Zamrud</option>
+              <option>3 Berlian</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions send-row">
+          <span class="muted small">creates Google Slides, then posts to the chosen Classroom</span>
+          <button id="btn-direct-mat" class="primary">🚀 Send slides to Classroom</button>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button id="btn-use-mat" class="primary">Use these → Worksheet</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 4: WORKSHEET ============ -->
+    <section id="panel-worksheet" class="panel">
+      <div class="panel-head">
+        <h2>Worksheet — Google Form Quiz</h2>
+        <p class="sub">Multiple-choice questions + answer key. The question bank is reused automatically.</p>
+      </div>
+      <div id="ws-output" class="output"></div>
+
+      <fieldset class="card accent-ws">
+        <legend>Send to Classroom</legend>
+        <div class="grid">
+          <label>Class (Google Classroom)
+            <select id="classroom-class">
+              <option value="">— select class —</option>
+              <option>3 Delima</option>
+              <option>3 Zamrud</option>
+              <option>3 Berlian</option>
+            </select>
+          </label>
+          <label>Due date <input id="due-date" type="date" /></label>
+          <label>Due time <input id="due-time" type="time" /></label>
+        </div>
+        <div class="actions" style="justify-content:flex-start">
+          <button id="btn-direct-ws" class="primary">🚀 Send to Classroom now</button>
+          <span class="muted small">posts the quiz as an assignment + emails your pilot students</span>
+        </div>
+      </fieldset>
+
+      <fieldset class="card checkpoint">
+        <legend>Teacher Review</legend>
+        <textarea id="nota-ws" placeholder="Improvement notes (if you need to regenerate)…"></textarea>
+        <div class="actions">
+          <button id="btn-back-2" class="ghost">← Materials</button>
+          <button id="btn-regen-ws" class="ghost">Regenerate</button>
+          <button id="btn-google-form" class="ghost">Manual method…</button>
+          <button id="btn-approve-ws" class="primary">Approve → Save &amp; Finish</button>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ============ STEP 5: DONE ============ -->
+    <section id="panel-done" class="panel">
+      <div class="panel-head center">
+        <div class="done-check">✓</div>
+        <h2>Done!</h2>
+        <p class="sub">The lesson plan and worksheet have been approved, saved, and the questions added to the Question Bank.</p>
+      </div>
+      <ul id="saved-list" class="saved-list"></ul>
+      <div class="actions center">
+        <button id="btn-dl-rph" class="ghost">Download Lesson Plan (.doc)</button>
+        <button id="btn-print-done" class="ghost">Print / PDF</button>
+        <button id="btn-dl-ws" class="ghost">Download Worksheet (.json)</button>
+        <button id="btn-print-ws" class="ghost">Print / PDF (+ answer key)</button>
+        <button id="btn-google-form-done" class="primary">Distribute</button>
+        <button id="btn-restart" class="ghost">Start a new lesson</button>
+      </div>
+      <p class="muted small center">Copy the worksheet into a Google Form Quiz manually (Phase 1). Automatic distribution to Classroom is coming in Phase 2.</p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span><b>Niat</b> ® From Intention to Intervention</span> — for English Language teachers
+  </footer>
+
+  <!-- ============ GOOGLE FORM (APPS SCRIPT) MODAL ============ -->
+  <div id="form-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>Manual distribution (Apps Script)</h3>
+      <p class="muted small">Fallback method — only needed if the one-click "Send to Classroom" on the Worksheet page is not set up. Uses the Class and due date you set there.</p>
+      <details class="manual-box" open>
+        <summary>Script &amp; steps</summary>
+        <label class="block">Lesson plan → teacher email / Drive
+          <input id="rcpt-plan" type="email" value="aimiizdihar1987@gmail.com" />
+        </label>
+        <ol class="how-list">
+          <li>Open <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → <b>New project</b>.</li>
+          <li>Delete the sample code, then paste the script below (use <b>Copy script</b>).</li>
+          <li><b>Enable Classroom:</b> Services ➕ → <b>Google Classroom API</b> → Add.</li>
+          <li><b>Save</b>, then <b>Run</b> ▶ <code>niatDistribute</code> and <b>Allow</b>.</li>
+        </ol>
+        <textarea id="form-script" readonly spellcheck="false"></textarea>
+        <div class="actions" style="justify-content:flex-start">
+          <button id="btn-copy-script" class="ghost">Copy script</button>
+          <button id="btn-dl-script" class="ghost">Download .gs</button>
+        </div>
+      </details>
+      <div class="actions">
+        <button id="btn-close-modal" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SAVE LESSON PLAN TO GOOGLE DRIVE MODAL ============ -->
+  <div id="drive-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>Save to Drive + Upload to Classroom</h3>
+      <p class="muted small">Saves this lesson plan as a Google Doc in your Drive <b>and</b> posts it to your designated RPH Classroom. Runs under your own moe-dl account.</p>
+      <details class="manual-box">
+        <summary>Manual method (Apps Script) — fallback</summary>
+        <ol class="how-list">
+        <li>Open <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → <b>New project</b>, delete the sample code, paste the script below.</li>
+        <li><b>One-time:</b> click <b>Services</b> (the ＋ on the left) → <b>Google Classroom API</b> → <b>Add</b>.</li>
+        <li><b>Step 1:</b> click <b>Run</b> ▶ <code>niatToClassroom</code>, <b>Allow</b> permissions, then open the <b>Execution log</b> to see your Classrooms + IDs.</li>
+        <li><b>Step 2:</b> paste your designated Classroom's ID into <code>COURSE_ID</code> at the top, then <b>Run</b> again.</li>
+        <li>Done — the plan is in your <a href="https://drive.google.com" target="_blank" rel="noopener">Drive</a> and posted to <a href="https://classroom.google.com" target="_blank" rel="noopener">Classroom</a>.</li>
+      </ol>
+      <textarea id="drive-script" readonly spellcheck="false"></textarea>
+      <div class="actions">
+        <button id="btn-copy-drive" class="ghost">Copy script</button>
+        <button id="btn-dl-drive" class="ghost">Download .gs</button>
+      </div>
+      </details>
+      <div class="actions"><button id="btn-close-drive" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ MY LESSONS (LIBRARY) MODAL ============ -->
+  <div id="library-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>My Lessons</h3>
+      <p class="muted small">Every lesson you approve is saved here. Reopen, re-download, duplicate, or delete.</p>
+      <input id="library-search" type="text" class="lib-search" placeholder="Search by class, topic, theme, or skill…" />
+      <div id="library-list" class="lib-list"></div>
+      <div class="actions"><button id="btn-close-library" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ REFLECT & REPORT MODAL ============ -->
+  <div id="reflect-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>Reflect &amp; Report — <span id="reflect-title"></span></h3>
+      <p class="muted small">Enter how the class did. Niat writes the RPH reflection + a class report, then you can save the reflection into the lesson.</p>
+      <div class="rcpt-grid">
+        <label>Average score (%) <input id="reflect-score" type="text" placeholder="e.g. 72" /></label>
+        <label>Quick result (optional) <input id="reflect-quick" type="text" placeholder="e.g. 24/30 pupils passed" /></label>
+      </div>
+      <label class="block">Notes — how did the class do? <span class="hint">(weak questions, common mistakes, strengths)</span></label>
+      <textarea id="reflect-results" placeholder="e.g. Average 72%. Most pupils missed Q3 (inference) and Q5 (vocabulary). Strong on identifying the main idea."></textarea>
+      <div class="actions" style="justify-content:flex-start">
+        <button id="btn-gen-reflection" class="primary">Generate reflection &amp; report</button>
+      </div>
+      <div class="actions" style="justify-content:flex-start"><button id="btn-get-results" class="ghost">Get results from Google Form</button></div>
+      <div id="results-box" class="hidden">
+        <p class="muted small">Run this in script.google.com - it reads your quiz responses and prints the average score + weakest questions to the Execution log. Copy them into the fields above.</p>
+        <textarea id="results-script" readonly spellcheck="false" style="min-height:160px"></textarea>
+        <div class="actions" style="justify-content:flex-start"><button id="btn-copy-results" class="ghost mini">Copy script</button></div>
+      </div>
+      <div id="reflect-output" class="hidden"></div>
+      <div class="actions">
+        <button id="btn-save-reflection" class="primary hidden">Save reflection to lesson</button>
+        <button id="btn-close-reflect" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GRADE WRITING MODAL ============ -->
+  <div id="grade-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>Grade Writing / Speaking</h3>
+      <p class="muted small">Paste a pupil's writing (or speaking transcript). Niat grades it against the CEFR rubric with feedback.</p>
+      <label class="block">Task / question <span class="hint">(optional)</span></label>
+      <input id="grade-task" type="text" placeholder="e.g. Write an email to a friend about your last holiday (80 words)" />
+      <label class="block">Pupil's response</label>
+      <textarea id="grade-text" placeholder="Paste the pupil's writing here…"></textarea>
+      <div class="actions" style="justify-content:flex-start">
+        <button id="btn-do-grade" class="primary">Grade it</button>
+      </div>
+      <div id="grade-output" class="hidden"></div>
+      <div class="actions"><button id="btn-close-grade" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ PROGRESS DASHBOARD MODAL ============ -->
+  <div id="progress-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>Class Progress — towards CEFR B1</h3>
+      <p class="muted small">Average quiz scores per class over time (from your saved reflections). Each bar is one quiz.</p>
+      <div id="progress-body" class="pg-wrap"></div>
+      <div class="actions"><button id="btn-close-progress" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ TEXTBOOK READER MODAL ============ -->
+  <div id="textbook-modal" class="modal hidden">
+    <div class="modal-box" style="max-width:980px;height:92vh;display:flex;flex-direction:column;">
+      <h3 style="display:flex;align-items:center;gap:10px;">Close-Up — English Form 3
+        <a class="pill" href="/textbook.pdf" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none;">Open in new tab</a>
+      </h3>
+      <iframe id="textbook-frame" title="Close-Up English Form 3 textbook" style="flex:1;width:100%;border:1px solid var(--line);border-radius:12px;margin-top:10px;background:#fff;"></iframe>
+      <div class="actions"><button id="btn-close-textbook" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ NIAT GUIDE (page helper — looks like a bot, isn't one) ============ -->
+  <div class="guide" id="guide">
+    <button class="guide-fab" id="guide-fab" type="button" aria-label="Open the page guide" aria-haspopup="dialog">
+      <svg class="ico" aria-hidden="true"><use href="#i-compass"/></svg><span>Guide</span>
+    </button>
+    <div class="guide-pop" id="guide-pop" role="dialog" aria-label="Page guide">
+      <div class="guide-head">
+        <img src="niat-logo.png" alt="" />
+        <div><b>Niat Guide</b><span id="guide-sub">Every page, explained</span></div>
+        <div class="lang-seg" role="group" aria-label="Guide language">
+          <button id="lang-en" type="button" class="on">EN</button>
+          <button id="lang-bm" type="button">BM</button>
+        </div>
+        <button class="guide-x" id="guide-x" type="button" aria-label="Close guide"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="guide-flow" id="guide-flow"></div>
+      <div class="guide-body" id="guide-body"></div>
+      <div class="guide-nav">
+        <button class="ghost mini" id="guide-prev" type="button">←</button>
+        <span class="guide-pos" id="guide-pos"></span>
+        <button class="ghost mini" id="guide-next" type="button">→</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay hidden"><div class="spinner"></div><p id="overlay-msg">Generating…</p></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+  <script>
+    // ============ Sidebar navigation (proxies the hidden menu buttons app.js wires) ============
+    (() => {
+      const setActive = (btn) =>
+        document.querySelectorAll(".sb-item").forEach((b) => b.classList.toggle("active", b === btn));
+      const proxy = (sbId, targetId) => {
+        const el = document.getElementById(sbId);
+        if (el) el.onclick = () => document.getElementById(targetId).click();
+      };
+      document.getElementById("sb-home").onclick = function () {
+        document.body.classList.add("landing"); window.scrollTo({ top: 0 }); setActive(this);
+      };
+      document.getElementById("sb-new").onclick = function () {
+        enterApp(); setActive(this);
+      };
+      document.getElementById("sb-brand").onclick = () => document.getElementById("sb-home").click();
+      proxy("sb-library", "btn-library");
+      proxy("sb-progress", "btn-progress");
+      proxy("sb-grade", "btn-grade");
+      proxy("sb-textbook", "btn-textbook");
+      // Mirror the bank count app.js writes into #bank-count
+      const src = document.getElementById("bank-count"), dst = document.getElementById("sb-bank");
+      if (src && dst) {
+        const sync = () => { dst.textContent = src.textContent; };
+        sync();
+        new MutationObserver(sync).observe(src, { childList: true, characterData: true, subtree: true });
+      }
+    })();
+
+    // ============ Account menu: identity, theme, font size, logout ============
+    (() => {
+      const menu = document.getElementById("acct-menu");
+      document.getElementById("acct-trigger").onclick = (e) => { e.stopPropagation(); menu.classList.toggle("open"); };
+      document.addEventListener("click", (e) => { if (!menu.contains(e.target)) menu.classList.remove("open"); });
+
+      // ---- Identity: from /api/profile (users.json today, Supabase-ready) ----
+      const setName = (n) => {
+        document.getElementById("acct-name").textContent = n;
+        document.getElementById("trig-initial").textContent = n.charAt(0).toUpperCase();
+        document.getElementById("acct-ava-initial").textContent = n.charAt(0).toUpperCase();
+      };
+      const setAvatar = (url) => {
+        for (const id of ["trig-ava", "acct-ava-img"]) {
+          const img = document.getElementById(id);
+          img.src = url; img.style.display = "block";
+        }
+        document.getElementById("trig-initial").style.display = "none";
+        document.getElementById("acct-ava-initial").style.display = "none";
+      };
+      setName(localStorage.getItem("niat-user") || "Cikgu");
+      fetch("/api/profile").then((r) => (r.ok ? r.json() : null)).then((p) => {
+        if (!p) return;
+        setName(p.full_name || p.username);
+        document.getElementById("acct-role").textContent = p.role || "Teacher";
+        if (p.avatar) setAvatar(p.avatar);
+      }).catch(() => {});
+
+      // ---- Profile photo upload: resize to 256px square PNG in the browser ----
+      const avaFile = document.getElementById("ava-file");
+      document.getElementById("acct-ava").onclick = (e) => { e.stopPropagation(); avaFile.click(); };
+      avaFile.onchange = () => {
+        const f = avaFile.files && avaFile.files[0];
+        if (!f) return;
+        const img = new Image();
+        img.onload = () => {
+          const S = 256, c = document.createElement("canvas");
+          c.width = S; c.height = S;
+          const ctx = c.getContext("2d");
+          const scale = Math.max(S / img.width, S / img.height);
+          const w = img.width * scale, h = img.height * scale;
+          ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+          URL.revokeObjectURL(img.src);
+          const dataUrl = c.toDataURL("image/png");
+          fetch("/api/profile-photo", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ image: dataUrl }),
+          }).then((r) => r.json()).then((d) => {
+            if (d.ok) setAvatar(dataUrl);
+            else alert(d.ralat || "Could not save the photo.");
+          }).catch(() => alert("Could not save the photo — is the server running?"));
+        };
+        img.src = URL.createObjectURL(f);
+        avaFile.value = "";
+      };
+      document.getElementById("acct-logout").onclick = () => document.getElementById("btn-logout").click();
+
+      // Theme: system | dark | light, persisted
+      const sysDark = window.matchMedia("(prefers-color-scheme: dark)");
+      let pref = localStorage.getItem("niat-theme") || "dark";
+      const applyTheme = () => {
+        const mode = pref === "system" ? (sysDark.matches ? "dark" : "light") : pref;
+        document.documentElement.setAttribute("data-theme", mode);
+        document.querySelectorAll(".theme-opt").forEach((b) => b.classList.toggle("on", b.dataset.theme === pref));
+      };
+      applyTheme();
+      sysDark.addEventListener("change", () => { if (pref === "system") applyTheme(); });
+      document.querySelectorAll(".theme-opt").forEach((b) => {
+        b.onclick = () => { pref = b.dataset.theme; localStorage.setItem("niat-theme", pref); applyTheme(); };
+      });
+
+      // Font size: 85%–125%, persisted
+      const slider = document.getElementById("fs-slider");
+      const applyFs = (v) => {
+        document.body.style.zoom = v / 100;
+        document.getElementById("fs-val").textContent = v + "%";
+        slider.style.setProperty("--fs-pct", ((v - 85) / 40) * 100 + "%");
+      };
+      let fs = parseInt(localStorage.getItem("niat-fontscale") || "100", 10);
+      if (isNaN(fs) || fs < 85 || fs > 125) fs = 100;
+      slider.value = fs; applyFs(fs);
+      slider.oninput = () => { fs = +slider.value; applyFs(fs); localStorage.setItem("niat-fontscale", fs); };
+    })();
+
+    // ============ Niat Guide: context-aware page helper ============
+    (() => {
+      const TEXTS = {
+        en: {
+          sub: "Every page, explained", here: "You are here", fab: "Guide",
+          stages: [
+            { label: "Home", title: "Dashboard", what: "Your starting point — Niat lays out today's teaching context the moment you arrive.",
+              items: ["Tomorrow's class, with one-tap “Start AI” preparation", "Recent lessons you can reopen anytime", "Question bank size, saved lessons & AI engine status"] },
+            { label: "Setup", title: "Step 1 · Lesson Setup", what: "Tell Niat about the class and what to teach — everything after this is generated from these choices.",
+              items: ["Class, date, time and week", "Theme, topic & DSKP Learning Standards", "Pedagogy and activity preferences"] },
+            { label: "Plan", title: "Step 2 · Lesson Plan", what: "Niat writes the full RPH in the official JPN Perlis format. You stay in charge.",
+              items: ["Click any text to edit it directly", "Objectives & activities matched to your standards", "Not happy? Regenerate before moving on"] },
+            { label: "Slides", title: "Step 3 · Materials", what: "Ready-to-teach slides, built from the plan you just approved.",
+              items: ["Editable slide cards with teacher notes", "Optional designed deck via Gamma AI", "Export to PowerPoint anytime"] },
+            { label: "Quiz", title: "Step 4 · Worksheet", what: "A CEFR-aligned multiple-choice worksheet — question bank first, AI fills the rest.",
+              items: ["Every question tagged to a Learning Standard", "Edit questions, options and answers freely", "Auto-checked: 4 options, valid answers, no duplicates"] },
+            { label: "Done", title: "Step 5 · Save & Share", what: "Your lesson kit is complete and saved. Send it where it needs to go.",
+              items: ["Export RPH as .doc / PDF, slides as PPTX", "Post the quiz to Google Classroom in one click", "Later: track progress & grade writing from the Dashboard"] },
+          ],
+        },
+        bm: {
+          sub: "Setiap halaman, dijelaskan", here: "Anda di sini", fab: "Panduan",
+          stages: [
+            { label: "Utama", title: "Dashboard", what: "Titik mula anda — Niat menyusun konteks pengajaran hari ini sebaik sahaja anda tiba.",
+              items: ["Kelas esok, dengan penyediaan “Start AI” satu ketukan", "Pelajaran terkini yang boleh dibuka semula", "Saiz bank soalan, pelajaran tersimpan & status enjin AI"] },
+            { label: "Sedia", title: "Langkah 1 · Persediaan Pelajaran", what: "Beritahu Niat tentang kelas dan apa yang hendak diajar — semua selepas ini dijana daripada pilihan ini.",
+              items: ["Kelas, tarikh, masa dan minggu", "Tema, topik & Standard Pembelajaran DSKP", "Pedagogi dan aktiviti pilihan"] },
+            { label: "RPH", title: "Langkah 2 · Rancangan Pengajaran", what: "Niat menulis RPH penuh dalam format rasmi JPN Perlis. Anda tetap berkuasa.",
+              items: ["Klik mana-mana teks untuk terus mengedit", "Objektif & aktiviti sepadan dengan standard pilihan anda", "Tak berkenan? Jana semula sebelum ke langkah seterusnya"] },
+            { label: "Slaid", title: "Langkah 3 · Bahan Mengajar", what: "Slaid sedia-mengajar, dibina daripada RPH yang baru anda luluskan.",
+              items: ["Kad slaid boleh edit dengan nota guru", "Deck bergaya melalui Gamma AI (pilihan)", "Eksport ke PowerPoint bila-bila masa"] },
+            { label: "Kuiz", title: "Langkah 4 · Lembaran Kerja", what: "Kuiz aneka pilihan selari CEFR — bank soalan dahulu, AI mengisi selebihnya.",
+              items: ["Setiap soalan bertag Standard Pembelajaran", "Edit soalan, pilihan dan jawapan dengan bebas", "Semakan auto: 4 pilihan, jawapan sah, tiada pendua"] },
+            { label: "Siap", title: "Langkah 5 · Simpan & Hantar", what: "Kit pelajaran anda lengkap dan tersimpan. Hantar ke mana yang perlu.",
+              items: ["Eksport RPH sebagai .doc / PDF, slaid sebagai PPTX", "Hantar kuiz ke Google Classroom dengan satu klik", "Kemudian: jejak kemajuan & gred penulisan dari Dashboard"] },
+          ],
+        },
+      };
+      let lang = localStorage.getItem("niat-guide-lang") === "bm" ? "bm" : "en";
+      const STAGES = () => TEXTS[lang].stages;
+      const guide = document.getElementById("guide");
+      const fab = document.getElementById("guide-fab");
+      const flow = document.getElementById("guide-flow");
+      const body = document.getElementById("guide-body");
+      const prev = document.getElementById("guide-prev");
+      const next = document.getElementById("guide-next");
+      const pos = document.getElementById("guide-pos");
+      let idx = 0;
+
+      const actual = () => {
+        if (document.body.classList.contains("landing")) return 0;
+        const li = document.querySelector(".steps li.active");
+        return li ? +li.dataset.step : 1;
+      };
+      const esc2 = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      const render = () => {
+        const S = STAGES();
+        const here = actual();
+        const s = S[idx];
+        flow.innerHTML = S.map((st, i) =>
+          `<span class="g-chip${i === here ? " here" : i === idx ? " view" : ""}">${st.label}</span>`).join("");
+        body.innerHTML =
+          (idx === here ? '<span class="g-here">' + TEXTS[lang].here + "</span>" : "") +
+          `<h4>${esc2(s.title)}</h4><p>${esc2(s.what)}</p><ul>` +
+          s.items.map((t) => `<li>${esc2(t)}</li>`).join("") + "</ul>";
+        prev.disabled = idx === 0;
+        next.disabled = idx === S.length - 1;
+        prev.textContent = idx > 0 ? "← " + S[idx - 1].label : "←";
+        next.textContent = idx < S.length - 1 ? S[idx + 1].label + " →" : "→";
+        pos.textContent = (idx + 1) + " / " + S.length;
+        document.getElementById("guide-sub").textContent = TEXTS[lang].sub;
+        fab.querySelector("span").textContent = TEXTS[lang].fab;
+        document.getElementById("lang-en").classList.toggle("on", lang === "en");
+        document.getElementById("lang-bm").classList.toggle("on", lang === "bm");
+      };
+      const setLang = (l) => { lang = l; localStorage.setItem("niat-guide-lang", l); render(); };
+      document.getElementById("lang-en").onclick = () => setLang("en");
+      document.getElementById("lang-bm").onclick = () => setLang("bm");
+      fab.onclick = (e) => {
+        e.stopPropagation();
+        const opening = !guide.classList.contains("open");
+        guide.classList.toggle("open");
+        if (opening) { idx = actual(); render(); }
+        fab.classList.remove("pulse");
+        localStorage.setItem("niat-guide-seen", "1");
+      };
+      document.getElementById("guide-x").onclick = () => guide.classList.remove("open");
+      document.addEventListener("click", (e) => { if (!guide.contains(e.target)) guide.classList.remove("open"); });
+      prev.onclick = () => { if (idx > 0) { idx--; render(); } };
+      next.onclick = () => { if (idx < STAGES().length - 1) { idx++; render(); } };
+      // follow the app: re-sync when the page/step changes while open
+      new MutationObserver(() => { if (guide.classList.contains("open")) { idx = actual(); render(); } })
+        .observe(document.body, { attributes: true, attributeFilter: ["class"], subtree: true });
+      if (!localStorage.getItem("niat-guide-seen")) fab.classList.add("pulse");
+      fab.querySelector("span").textContent = TEXTS[lang].fab;
+    })();
+
+    // ============ PWA service worker ============
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  </script>
+</body>
+</html>

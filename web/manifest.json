@@ -1,0 +1,16 @@
+{
+  "name": "Niat — From Intention to Intervention",
+  "short_name": "Niat",
+  "description": "AI teaching assistant for English KSSM Form 3 — lesson plans, worksheets and slides in one tap.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c1210",
+  "theme_color": "#0c1210",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

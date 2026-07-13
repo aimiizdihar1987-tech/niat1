@@ -1,0 +1,58 @@
+# ============================================================
+#  NIAT — .gitignore
+#  This repo is PUBLIC. Everything listed here stays local only:
+#  secrets, credentials, student PII, copyrighted reference material,
+#  and generated/runtime data. See SECURITY.md.
+# ============================================================
+
+# ---- Secrets & credentials — never commit ----
+apikey.txt
+gamma_apikey.txt
+auth_secret.txt
+reminder_config.txt
+supabase_config.txt
+users.json
+niat_hub.gs
+niat_mail_webhook.gs
+
+# ---- Student & personal PII ----
+Email Student Prototype.txt
+ID DELIMA MOE MURID SMKKPs 2026.pdf
+jadualwaktu.pdf
+datatestsaja.csv
+
+# ---- Copyrighted / third-party reference material (not ours to redistribute) ----
+DSKP KSSM English Form 3.pdf
+Buku Teks - Close-Up English Form 3.pdf
+erphperlis.pdf
+
+# ---- Personal documents unrelated to the app ----
+Agentic AI Article Draft.docx
+Aimi Izdihar Article Draft.docx
+Aimi Izdihar Draft Article.pdf
+Paper PRESTIJ Edit here.docx
+Untitled.ipynb
+.ipynb_checkpoints/
+
+# ---- Real operational data (school-specific; keep local, not in a public repo) ----
+classrooms.json
+timetable.json
+
+# ---- Generated data & runtime artifacts ----
+bank_soalan.db
+output/
+web/avatars/
+*.log
+watchdog_log.txt
+reminders_log.txt
+__pycache__/
+*.pyc
+
+# ---- Local tooling (not needed to run the app) ----
+.claude/
+.playwright-mcp/
+
+# ---- OS / editor junk ----
+desktop.ini
+New Text Document.txt
+local host.txt

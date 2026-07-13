@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Niat</title>
+  <link rel="icon" type="image/png" href="niat-logo.png" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", "Segoe UI", system-ui, sans-serif; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: #fafafa;
+    }
+    .card {
+      background: #fff; border-radius: 20px; padding: 38px 36px 32px;
+      width: 100%; max-width: 380px; border: 1px solid #e7e7e4;
+      box-shadow: 0 18px 50px rgba(10,10,10,.08);
+      text-align: center;
+    }
+    .card img { width: 72px; height: 72px; object-fit: contain; margin-bottom: 10px; }
+    h1 { font-size: 26px; letter-spacing: -.3px; color: #0f172a; }
+    h1 span { color: #0d9488; }
+    .tag { font-size: 13px; color: #64748b; font-style: italic; margin: 4px 0 24px; }
+    label { display: block; text-align: left; font-size: 13px; font-weight: 600;
+            color: #334155; margin: 12px 0 5px; }
+    input {
+      width: 100%; padding: 11px 13px; border: 1.5px solid #e2e8f0;
+      border-radius: 10px; font-size: 15px; outline: none; transition: .15s;
+    }
+    input:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.15); }
+    button {
+      width: 100%; margin-top: 22px; padding: 13px; border: 0; border-radius: 999px;
+      background: #0a0a0a; color: #fff;
+      font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      cursor: pointer; transition: .18s;
+    }
+    button:hover { background: #0d9488; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .err {
+      display: none; margin-top: 14px; padding: 10px 12px; border-radius: 10px;
+      background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 13.5px;
+    }
+    .foot { margin-top: 22px; font-size: 12px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <form class="card" id="f">
+    <img src="niat-logo.png" alt="Niat logo" />
+    <h1>Ni<span>at</span></h1>
+    <p class="tag">AI-Powered Classroom, Reimagined</p>
+    <label for="u">Username</label>
+    <input id="u" autocomplete="username" autofocus required />
+    <label for="p">Password</label>
+    <input id="p" type="password" autocomplete="current-password" required />
+    <button id="b" type="submit">Sign in</button>
+    <div class="err" id="e"></div>
+    <p class="foot">Access is for authorised teachers only.</p>
+  </form>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    $("f").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      $("b").disabled = true; $("e").style.display = "none";
+      try {
+        const r = await fetch("/api/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: $("u").value, password: $("p").value }),
+        });
+        const d = await r.json();
+        if (r.ok && d.ok) {
+          const next = new URLSearchParams(location.search).get("next");
+          location.href = next && next.startsWith("/") ? next : "/";
+        } else {
+          throw new Error(d.ralat || "Sign-in failed.");
+        }
+      } catch (err) {
+        $("e").textContent = err.message;
+        $("e").style.display = "block";
+        $("b").disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

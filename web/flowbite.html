@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Niat — AI-Powered Classroom (Flowbite)</title>
+  <link rel="icon" type="image/png" href="niat-logo.png" />
+  <!-- Flowbite design language: Tailwind + Flowbite (CDN) + Inter font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.css" rel="stylesheet" />
+  <style>
+    /* ---- Flowbite-flavoured theme mapped onto Niat's existing markup ---- */
+    :root{
+      --bg:#f9fafb; --panel:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb;
+      --blue:#047857; --blue-700:#065f46; --blue-50:#ecfdf5;     /* "blue" tokens remapped to emerald */
+      --grad:linear-gradient(120deg,#059669 0%,#047857 100%);     /* emerald accent (buttons, dots) */
+      --grad-soft:linear-gradient(120deg,#ecfdf5 0%,#d1fae5 100%);
+      --grad-header:linear-gradient(160deg,#1f2937 0%,#0f172a 100%); /* charcoal header */
+      --accent:#34d399;
+      --a-class:#059669; --a-curr:#7c3aed; --a-peda:#e11d48; --a-ws:#d97706; --a-fixed:#64748b;
+      --ok:#057a55; --warn:#c27803; --err:#e02424; --radius:10px;
+      --shadow:0 1px 2px rgba(0,0,0,.06),0 1px 3px rgba(0,0,0,.1);
+      --shadow-lg:0 10px 30px rgba(17,24,39,.12);
+    }
+    *{box-sizing:border-box;}
+    html,body{overflow-x:hidden;max-width:100%;}
+    body{margin:0;font-family:"Inter",system-ui,sans-serif;color:var(--ink);line-height:1.55;min-height:100vh;-webkit-font-smoothing:antialiased;
+      background:radial-gradient(900px 420px at 88% -10%,rgba(126,58,242,.10),transparent),radial-gradient(800px 420px at -8% 4%,rgba(26,86,219,.10),transparent),var(--bg);}
+
+    /* Topbar — clean charcoal header, brand only */
+    .topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--grad-header);color:#fff;padding:16px 28px;position:sticky;top:0;z-index:20;box-shadow:0 2px 16px rgba(15,23,42,.18);}
+    .brand{display:flex;align-items:center;gap:14px;}
+    .logo-img{width:54px;height:54px;object-fit:contain;background:#fff;border-radius:14px;padding:5px;box-shadow:0 4px 14px rgba(0,0,0,.25);}
+    .brand-text h1{font-size:25px;margin:0;font-weight:800;color:#fff;letter-spacing:-.3px;}
+    .brand-text h1 span{color:var(--accent);font-weight:800;}
+    .brand-text p{font-size:13px;margin:2px 0 0;color:#fff;opacity:.78;font-style:italic;}
+
+    /* Utility toolbar — right-aligned, subtle */
+    .toolbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;max-width:920px;margin:16px auto 0;padding:0 16px;}
+    .lib-btn{background:#fff;color:#374151;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid var(--line);cursor:pointer;white-space:nowrap;transition:.15s;box-shadow:var(--shadow);}
+    .lib-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-50);}
+    .bank-badge{background:var(--blue-50);color:var(--blue);font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid #a7f3d0;white-space:nowrap;}
+    .bank-badge b{font-weight:800;}
+
+    /* Tracker */
+    .tracker{display:flex;justify-content:center;margin:22px 16px 0;}
+    .steps{display:flex;gap:6px;list-style:none;margin:0;padding:6px;background:#fff;border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow);flex-wrap:wrap;justify-content:center;}
+    .steps li{display:flex;align-items:center;gap:8px;padding:7px 16px 7px 8px;border-radius:999px;color:var(--muted);font-size:13px;font-weight:600;transition:.2s;}
+    .steps .dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--muted);font-size:12px;font-weight:700;}
+    .steps li.active{background:var(--grad-soft);color:var(--blue);}
+    .steps li.active .dot{background:var(--grad);color:#fff;}
+    .steps li.done{color:var(--ok);}
+    .steps li.done .dot{background:#def7ec;color:var(--ok);}
+
+    /* Layout */
+    main{max-width:920px;margin:24px auto 40px;padding:0 16px;}
+    .panel{display:none;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);padding:28px;animation:rise .35s ease;}
+    .panel.active{display:block;}
+    @keyframes rise{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+    .panel-head{margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+    .panel-head.center{text-align:center;border-bottom:none;}
+    .panel-head h2{margin:0;font-size:24px;font-weight:800;color:var(--ink);letter-spacing:-.3px;}
+    .panel-head .sub{margin:6px 0 0;color:var(--muted);font-size:14px;}
+
+    /* Cards */
+    fieldset.card{border:1px solid var(--line);border-radius:12px;margin:0 0 18px;padding:18px 20px;background:#fff;transition:box-shadow .2s;}
+    fieldset.card:hover{box-shadow:var(--shadow);}
+    legend{font-weight:700;font-size:13px;padding:0 8px;display:flex;align-items:center;gap:7px;color:var(--ink);}
+    legend .ic{font-size:15px;}
+    .accent-fixed{border-top:3px solid var(--a-fixed);} .accent-fixed legend{color:var(--a-fixed);}
+    .accent-class{border-top:3px solid var(--a-class);} .accent-class legend{color:var(--a-class);}
+    .accent-curr{border-top:3px solid var(--a-curr);} .accent-curr legend{color:var(--a-curr);}
+    .accent-peda{border-top:3px solid var(--a-peda);} .accent-peda legend{color:var(--a-peda);}
+    .accent-ws{border-top:3px solid var(--a-ws);} .accent-ws legend{color:var(--a-ws);}
+    .fixed-tags{display:flex;flex-wrap:wrap;gap:8px;}
+    .tag{background:var(--grad-soft);color:var(--blue);font-weight:700;font-size:13px;padding:5px 12px;border-radius:999px;border:1px solid #a7f3d0;}
+
+    /* Form fields — Flowbite inputs */
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+    label{display:flex;flex-direction:column;font-size:13px;font-weight:600;gap:6px;color:#374151;}
+    label.block{margin:12px 0 8px;}
+    .hint{font-weight:400;color:var(--muted);font-size:12px;}
+    input,select,textarea{font:inherit;font-weight:500;padding:10px 12px;border:1px solid var(--input-border,#d1d5db);border-radius:8px;background:#f9fafb;color:var(--ink);transition:.15s;}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,.18);background:#fff;}
+    input[readonly]{background:#f3f4f6;color:var(--muted);}
+    select{appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+    textarea{width:100%;min-height:80px;resize:vertical;}
+    .muted{color:var(--muted);} .small{font-size:12.5px;}
+
+    /* SP list & chips */
+    .sp-list{display:flex;flex-direction:column;gap:8px;}
+    .sp-list label{flex-direction:row;align-items:flex-start;gap:10px;font-weight:500;color:var(--ink);padding:11px 14px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:.15s;background:#f9fafb;}
+    .sp-list label:hover{border-color:var(--blue);background:var(--blue-50);}
+    .sp-list label:has(input:checked){border-color:var(--blue);background:var(--blue-50);box-shadow:0 0 0 2px rgba(26,86,219,.15);}
+    .sp-list input{margin-top:3px;accent-color:var(--blue);width:16px;height:16px;}
+    .sp-list .kod{font-weight:800;color:var(--blue);margin-right:6px;}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+    .chip{padding:8px 15px;border-radius:8px;background:#f3f4f6;border:1px solid var(--line);cursor:pointer;font-size:13px;font-weight:600;color:#4b5563;user-select:none;transition:.15s;}
+    .chip:hover{border-color:var(--blue);color:var(--blue);}
+    .chip.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(76,40,160,.25);}
+
+    /* Buttons — Flowbite */
+    .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px;}
+    .actions.center{justify-content:center;}
+    button{font:inherit;font-weight:600;padding:10px 18px;border-radius:8px;cursor:pointer;border:1px solid transparent;transition:.15s;}
+    button.primary{background:var(--grad);color:#fff;box-shadow:0 4px 14px rgba(76,40,160,.28);}
+    button.primary:hover{filter:brightness(1.07);transform:translateY(-1px);}
+    button.primary:active{transform:translateY(0) scale(.98);}
+    button.primary:disabled{opacity:.5;cursor:not-allowed;}
+    button.ghost{background:#fff;border-color:var(--line);color:#1f2a37;}
+    button.ghost:hover{background:#f3f4f6;}
+    button.mini{padding:6px 11px;font-size:12px;border-radius:7px;}
+    button.mini.danger{color:var(--err);}
+    button.mini.danger:hover{background:var(--err);color:#fff;border-color:var(--err);}
+
+    .warn{color:var(--warn);font-size:13px;font-weight:700;margin:10px 0 0;}
+    .hidden{display:none !important;}
+
+    /* Dropdown (export) */
+    .dropdown{position:relative;display:inline-block;}
+    .dropdown-menu{position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-lg);padding:6px;z-index:30;min-width:150px;}
+    .menu-item{display:block;width:100%;text-align:left;background:#fff;border:none;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--ink);}
+    .menu-item:hover{background:var(--blue-50);}
+
+    /* Output */
+    .output{border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px;background:#fff;}
+    .output h3{margin:0 0 12px;font-size:17px;color:var(--blue);font-weight:800;}
+    .output [contenteditable]:focus{outline:2px dashed var(--blue);border-radius:6px;}
+    .editable-hint{font-size:12.5px;color:var(--blue);background:var(--blue-50);padding:9px 13px;border-radius:8px;margin:0 0 14px;border:1px solid #c3ddfd;}
+    table.rph{border-collapse:collapse;width:100%;font-size:13px;}
+    table.rph th,table.rph td{border:1px solid var(--line);padding:8px 10px;vertical-align:top;text-align:left;}
+    table.rph th{background:#f9fafb;color:var(--ink);font-weight:700;width:24%;white-space:nowrap;}
+    table.rph i{color:var(--muted);}
+    .q{border:1px solid var(--line);border-left:3px solid var(--a-ws);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#fff;}
+    .q .qhead{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-bottom:8px;}
+    .q .opt{padding:4px 0 4px 10px;border-radius:6px;}
+    .q .opt.correct{color:var(--ok);font-weight:700;background:#def7ec;}
+    .q .fb{font-size:13px;color:var(--muted);margin-top:8px;font-style:italic;border-top:1px dashed var(--line);padding-top:8px;}
+    .badge{display:inline-block;font-size:11px;padding:2px 10px;border-radius:999px;background:var(--blue-50);color:var(--blue);font-weight:700;}
+    .checkpoint{background:#f9fafb;border-top:3px solid var(--blue);}
+    .checkpoint legend{color:var(--blue);}
+    .saved-list{list-style:none;padding:0;font-size:14px;max-width:560px;margin:0 auto 6px;}
+    .saved-list li{background:#f9fafb;border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin-bottom:8px;}
+    .saved-list code{background:#eef2ff;padding:2px 6px;border-radius:5px;font-size:12.5px;}
+    .done-check{width:70px;height:70px;margin:0 auto 14px;border-radius:50%;background:var(--grad);color:#fff;font-size:36px;display:grid;place-items:center;box-shadow:0 12px 30px rgba(76,40,160,.35);animation:pop .4s ease;}
+    @keyframes pop{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+    .foot{text-align:center;color:var(--muted);font-size:12.5px;padding:8px 16px 30px;}
+    .foot b{color:var(--blue);}
+    .next-banner{background:var(--blue-50);border:1px solid #c3ddfd;border-radius:10px;padding:12px 16px;margin:0 0 18px;font-size:14px;color:var(--blue);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .next-banner button{margin-left:auto;}
+
+    /* Modals — Flowbite */
+    .modal{position:fixed;inset:0;z-index:70;background:rgba(17,24,39,.5);display:flex;align-items:center;justify-content:center;padding:20px;}
+    .modal-box{background:#fff;border-radius:14px;box-shadow:var(--shadow-lg);width:100%;max-width:680px;max-height:88vh;overflow-y:auto;padding:24px 26px;border-top:4px solid transparent;border-image:var(--grad) 1;}
+    .modal-box h3{margin:0 0 4px;font-size:19px;color:var(--ink);font-weight:800;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .proto-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;color:#fff;background:var(--warn);padding:3px 9px;border-radius:999px;}
+    .rcpt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;background:#f9fafb;border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0;}
+    .rcpt-grid label{font-size:12.5px;font-weight:600;color:#374151;gap:5px;}
+    .how-list{margin:12px 0 14px;padding-left:20px;font-size:13.5px;color:#374151;}
+    .how-list li{margin-bottom:5px;} .how-list a{color:var(--blue);font-weight:700;}
+    .how-list code{background:var(--blue-50);padding:1px 6px;border-radius:5px;font-size:12.5px;}
+    #form-script,#drive-script{width:100%;min-height:240px;font-family:"Consolas","Courier New",monospace;font-size:12px;line-height:1.45;white-space:pre;background:#f9fafb;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:12px;resize:vertical;}
+    .lib-search{width:100%;margin:12px 0;}
+    .lib-list{display:flex;flex-direction:column;gap:10px;max-height:52vh;overflow-y:auto;margin-bottom:14px;}
+    .lib-item{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:10px;padding:12px 15px;background:#f9fafb;}
+    .lib-title{font-weight:700;color:var(--ink);font-size:14.5px;}
+    .lib-meta{font-size:12.5px;color:var(--muted);margin-top:2px;}
+    .lib-actions{display:flex;gap:6px;flex-wrap:wrap;}
+    /* Reflect / Grade / Progress */
+    #reflect-output h4,#grade-output h4{margin:14px 0 6px;font-size:14px;color:var(--blue);}
+    .reflect-box{background:#f9fafb;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5;white-space:pre-wrap;margin:0;font-family:inherit;color:var(--ink);}
+    #reflect-modal textarea,#grade-modal textarea{width:100%;min-height:90px;}
+    #grade-modal input[type=text]{width:100%;}
+    .g-band{font-size:15px;margin:12px 0 8px;}
+    .g-table{border-collapse:collapse;width:100%;font-size:13px;margin-bottom:10px;}
+    .g-table th,.g-table td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+    .g-table th{background:var(--blue-50);color:var(--blue);}
+    .g-table .g-score{font-weight:800;color:var(--blue);text-align:center;white-space:nowrap;}
+    .g-imp{margin:6px 0 0;padding-left:20px;font-size:13px;}
+    .pg-wrap{margin:8px 0 14px;}
+    .pg-class{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;background:#f9fafb;}
+    .pg-head{font-size:13.5px;margin-bottom:10px;color:var(--ink);}
+    .pg-chart{display:flex;align-items:flex-end;gap:10px;height:130px;padding-top:6px;}
+    .pg-bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;}
+    .pg-bar span{width:26px;background:var(--blue);border-radius:5px 5px 0 0;display:block;}
+    .pg-bar em{font-size:10.5px;color:var(--muted);font-style:normal;}
+
+    /* Overlay & toast */
+    .overlay{position:fixed;inset:0;background:rgba(249,250,251,.85);backdrop-filter:blur(3px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:50;}
+    .overlay p{font-weight:700;color:var(--blue);}
+    .spinner{width:44px;height:44px;border:4px solid #e5e7eb;border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:60;background:#111827;color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:var(--shadow-lg);max-width:90%;}
+    .toast.err{background:var(--err);}
+    @media (max-width:560px){.topbar{padding:12px 16px;}.brand-text h1{font-size:20px;}.logo-img{width:44px;height:44px;}.panel{padding:20px 16px;}.steps .lbl{display:none;}.steps li{padding:7px;}}
+  </style>
+</head>
+<body>
+  <!-- ============ TOPBAR / BRAND ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo-img" src="niat-logo.png" alt="Niat logo" />
+      <div class="brand-text">
+        <h1>Ni<span>at</span></h1>
+        <p>AI-Powered Classroom, Reimagined</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ UTILITY TOOLBAR ============ -->
+  <div class="toolbar">
+    <button id="btn-progress" class="lib-btn" title="Class progress dashboard">📊 Progress</button>
+    <button id="btn-grade" class="lib-btn" title="Grade pupil writing">✍️ Grade</button>
+    <button id="btn-library" class="lib-btn" title="My saved lessons">📚 My Lessons</button>
+    <span id="bank-badge" class="bank-badge" title="Questions in the Question Bank">🗄️ Bank: <b id="bank-count">…</b></span>
+  </div>
+
+  <!-- ============ PROGRESS TRACKER ============ -->
+  <nav class="tracker">
+    <ol class="steps">
+      <li data-step="1" class="active"><span class="dot">1</span><span class="lbl">Setup</span></li>
+      <li data-step="2"><span class="dot">2</span><span class="lbl">Lesson Plan</span></li>
+      <li data-step="3"><span class="dot">3</span><span class="lbl">Worksheet</span></li>
+      <li data-step="4"><span class="dot">4</span><span class="lbl">Done</span></li>
+    </ol>
+  </nav>
+
+  <main>
+    <!-- ============ STEP 1: SETUP ============ -->
+    <section id="panel-orchestrator" class="panel active">
+      <div class="panel-head">
+        <h2>Lesson Setup</h2>
+        <p class="sub">Choose the class context, curriculum content &amp; pedagogy — the system combines them into an instruction.</p>
+      </div>
+
+      <div id="next-class-banner" class="next-banner hidden"></div>
+
+      <fieldset class="card accent-fixed">
+        <legend><span class="ic">📌</span> Fixed</legend>
+        <div class="fixed-tags">
+          <span class="tag">English</span>
+          <span class="tag">KSSM</span>
+          <span class="tag">Form 3</span>
+          <span class="tag">CEFR B1 Low</span>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-class">
+        <legend><span class="ic">🏫</span> Class Context</legend>
+        <div class="grid">
+          <label>School <input id="school" type="text" placeholder="e.g. SMK Kampung ..." /></label>
+          <label>Teacher <input id="teacher" type="text" placeholder="e.g. Pn. ..." /></label>
+          <label>Week <input id="minggu" type="number" min="1" max="52" placeholder="e.g. 23" /></label>
+          <label>Class
+            <select id="nama_kelas">
+              <option value="">— select class —</option>
+              <option>3 Amber</option><option>3 Berlian</option><option>3 Delima</option>
+              <option>3 Kristal</option><option>3 KRK</option><option>3 Mutiara</option>
+              <option>3 Opal</option><option>3 Zamrud</option>
+            </select>
+          </label>
+          <label>Date <input id="tarikh" type="date" /></label>
+          <label>Day
+            <select id="hari">
+              <option value="">— select —</option>
+              <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+              <option>Thursday</option><option>Friday</option>
+            </select>
+          </label>
+          <label>Time
+            <select id="masa">
+              <option value="">— select —</option>
+              <option>7.40 a.m.</option><option>8.40 a.m.</option><option>9.40 a.m.</option>
+              <option>10.10 a.m.</option><option>11.10 a.m.</option><option>12.10 p.m.</option>
+              <option>01.10 p.m.</option><option>2.10 p.m.</option>
+            </select>
+          </label>
+          <label>Duration
+            <select id="tempoh">
+              <option value="30">30 min</option><option value="60" selected>60 min</option>
+              <option value="90">90 min</option><option value="120">120 min</option>
+            </select>
+          </label>
+          <label>No. of pupils <input id="bil_murid" type="number" value="30" min="1" /></label>
+          <label>Proficiency
+            <select id="tahap_murid">
+              <option>Advanced</option><option selected>Intermediate</option>
+              <option>Beginner / Remedial</option><option>Mixed ability</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-curr">
+        <legend><span class="ic">📚</span> Curriculum (DSKP)</legend>
+        <div class="grid">
+          <label>Theme <select id="theme"></select></label>
+          <label>Topic / Unit <input id="topic" type="text" placeholder="e.g. Unit 1: Family Ties" /></label>
+          <label>Skill <select id="bidang"></select></label>
+          <label>Content Standard <select id="sk"></select></label>
+        </div>
+        <label class="block">Learning Standard <span class="hint">(select at least one)</span></label>
+        <div id="sp-list" class="sp-list"></div>
+      </fieldset>
+
+      <fieldset class="card accent-peda">
+        <legend><span class="ic">🎯</span> Pedagogy</legend>
+        <label class="block">21st Century Learning strategy <span class="hint">(click to select)</span></label>
+        <div id="strategi" class="chips"></div>
+        <label class="block">Cross-Curricular Elements (CCE) <span class="hint">(click to select)</span></label>
+        <div id="emk" class="chips"></div>
+        <div class="grid" style="margin-top:12px">
+          <label>Target HOTS level
+            <select id="kbat">
+              <option>Applying</option><option>Analysing</option><option>Evaluating</option><option>Creating</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-ws">
+        <legend><span class="ic">📝</span> Worksheet Settings</legend>
+        <div class="grid">
+          <label>No. of questions <input id="bil_soalan" type="number" value="10" min="1" max="50" /></label>
+          <label>LOTS % <input id="lots" type="number" value="40" min="0" max="100" /></label>
+          <label>MOTS % <input id="mots" type="number" value="40" min="0" max="100" /></label>
+          <label>HOTS % <input id="hots" type="number" value="20" min="0" max="100" /></label>
+        </div>
+        <p id="aras-warn" class="warn hidden">⚠️ The level distribution must total exactly 100%.</p>
+      </fieldset>
+
+      <div class="actions">
+        <button id="btn-gen-rph" class="primary">Generate Lesson Plan →</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 2: LESSON PLAN ============ -->
+    <section id="panel-rph" class="panel">
+      <div class="panel-head">
+        <h2>Daily Lesson Plan</h2>
+        <p class="sub">Review &amp; edit the lesson plan before you approve.</p>
+      </div>
+      <div id="rph-output" class="output"></div>
+      <fieldset class="card checkpoint">
+        <legend><span class="ic">👩‍🏫</span> Teacher Review</legend>
+        <textarea id="nota-rph" placeholder="Improvement notes (if you need to regenerate)…"></textarea>
+        <div class="actions">
+          <button id="btn-back-1" class="ghost">← Setup</button>
+          <button id="btn-regen-rph" class="ghost">↻ Regenerate</button>
+          <div class="dropdown">
+            <button id="btn-export" class="ghost">⤓ Export ▾</button>
+            <div id="export-menu" class="dropdown-menu hidden">
+              <button id="btn-export-pdf" class="menu-item">📄 PDF (.pdf)</button>
+              <button id="btn-export-doc" class="menu-item">📝 Word (.doc)</button>
+            </div>
+          </div>
+          <button id="btn-drive-rph" class="ghost">🎓 Drive + Classroom</button>
+          <button id="btn-print-rph" class="ghost">🖨 Print</button>
+          <button id="btn-approve-rph" class="primary">Approve → Generate Worksheet</button>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ============ STEP 3: WORKSHEET ============ -->
+    <section id="panel-worksheet" class="panel">
+      <div class="panel-head">
+        <h2>Worksheet — Google Form Quiz</h2>
+        <p class="sub">Multiple-choice questions + answer key. The question bank is reused automatically.</p>
+      </div>
+      <div id="ws-output" class="output"></div>
+      <fieldset class="card checkpoint">
+        <legend><span class="ic">👩‍🏫</span> Teacher Review</legend>
+        <textarea id="nota-ws" placeholder="Improvement notes (if you need to regenerate)…"></textarea>
+        <div class="actions">
+          <button id="btn-back-2" class="ghost">← Lesson Plan</button>
+          <button id="btn-regen-ws" class="ghost">↻ Regenerate</button>
+          <button id="btn-google-form" class="ghost">📤 Distribute (Prototype)</button>
+          <button id="btn-approve-ws" class="primary">Approve → Save &amp; Finish</button>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ============ STEP 4: DONE ============ -->
+    <section id="panel-done" class="panel">
+      <div class="panel-head center">
+        <div class="done-check">✓</div>
+        <h2>Done!</h2>
+        <p class="sub">The lesson plan and worksheet have been approved, saved, and the questions added to the Question Bank.</p>
+      </div>
+      <ul id="saved-list" class="saved-list"></ul>
+      <div class="actions center">
+        <button id="btn-dl-rph" class="ghost">⤓ Download Lesson Plan (.doc)</button>
+        <button id="btn-print-done" class="ghost">🖨 Print / PDF</button>
+        <button id="btn-dl-ws" class="ghost">⤓ Download Worksheet (.json)</button>
+        <button id="btn-google-form-done" class="primary">📤 Distribute (Prototype)</button>
+        <button id="btn-restart" class="ghost">＋ Start a new lesson</button>
+      </div>
+      <p class="muted small center">Copy the worksheet into a Google Form Quiz manually (Phase 1). Automatic distribution to Classroom is coming in Phase 2.</p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>🌐 <b>Niat</b></span> — AI-powered · for English Language teachers
+  </footer>
+
+  <!-- ============ GOOGLE FORM (APPS SCRIPT) MODAL ============ -->
+  <div id="form-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>📤 Distribute via Google</h3>
+      <p class="muted small">Builds a script that (1) saves the lesson plan to your Drive + emails it to you, and (2) creates the worksheet as a Google Form quiz and <b>posts it to your Google Classroom class as an assignment with a due date</b>. Runs under your own moe-dl account.</p>
+      <div class="rcpt-grid">
+        <label>📄 Lesson plan → teacher email / Drive
+          <input id="rcpt-plan" type="email" value="aimiizdihar1987@gmail.com" />
+        </label>
+        <label>🏫 Worksheet → Google Classroom class
+          <input id="classroom-class" type="text" placeholder="e.g. 3 Delima" />
+        </label>
+        <label>📅 Due date <input id="due-date" type="date" /></label>
+        <label>⏰ Due time <input id="due-time" type="time" /></label>
+      </div>
+      <ol class="how-list">
+        <li>Open <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → <b>New project</b>.</li>
+        <li>Delete the sample code, then paste the script below (use <b>Copy script</b>).</li>
+        <li><b>Enable Classroom:</b> in the left sidebar click <b>Services ➕</b> → choose <b>Google Classroom API</b> → Add.</li>
+        <li>Click <b>Save</b> 💾, then <b>Run</b> ▶ the <code>niatDistribute</code> function.</li>
+        <li>Click <b>Review permissions → Allow</b> (first time only).</li>
+        <li>Check the <b>Execution log</b>: lesson plan emailed + saved to Drive, and the quiz posted to your Classroom class.</li>
+      </ol>
+      <textarea id="form-script" readonly spellcheck="false"></textarea>
+      <div class="actions">
+        <button id="btn-copy-script" class="primary">⧉ Copy script</button>
+        <button id="btn-dl-script" class="ghost">⤓ Download .gs</button>
+        <button id="btn-close-modal" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SAVE LESSON PLAN TO GOOGLE DRIVE MODAL ============ -->
+  <div id="drive-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>🎓 Save to Drive + Upload to Classroom</h3>
+      <p class="muted small">Saves this lesson plan as a Google Doc in your Drive <b>and</b> posts it to your designated RPH Classroom. Runs under your own moe-dl account.</p>
+      <ol class="how-list">
+        <li>Open <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → <b>New project</b>, delete the sample code, paste the script below.</li>
+        <li><b>One-time:</b> click <b>Services</b> (the ＋ on the left) → <b>Google Classroom API</b> → <b>Add</b>.</li>
+        <li><b>Step 1:</b> click <b>Run</b> ▶ <code>niatToClassroom</code>, <b>Allow</b> permissions, then open the <b>Execution log</b> to see your Classrooms + IDs.</li>
+        <li><b>Step 2:</b> paste your designated Classroom's ID into <code>COURSE_ID</code> at the top, then <b>Run</b> again.</li>
+        <li>Done — the plan is in your <a href="https://drive.google.com" target="_blank" rel="noopener">Drive</a> and posted to <a href="https://classroom.google.com" target="_blank" rel="noopener">Classroom</a>.</li>
+      </ol>
+      <textarea id="drive-script" readonly spellcheck="false"></textarea>
+      <div class="actions">
+        <button id="btn-copy-drive" class="primary">⧉ Copy script</button>
+        <button id="btn-dl-drive" class="ghost">⤓ Download .gs</button>
+        <button id="btn-close-drive" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MY LESSONS (LIBRARY) MODAL ============ -->
+  <div id="library-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>📚 My Lessons</h3>
+      <p class="muted small">Every lesson you approve is saved here. Reopen, re-download, duplicate, or delete.</p>
+      <input id="library-search" type="text" class="lib-search" placeholder="🔎 Search by class, topic, theme, or skill…" />
+      <div id="library-list" class="lib-list"></div>
+      <div class="actions"><button id="btn-close-library" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ REFLECT & REPORT MODAL ============ -->
+  <div id="reflect-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>✍️ Reflect &amp; Report — <span id="reflect-title"></span></h3>
+      <p class="muted small">Enter how the class did. Niat writes the RPH reflection + a class report, then you can save the reflection into the lesson.</p>
+      <div class="rcpt-grid">
+        <label>Average score (%) <input id="reflect-score" type="text" placeholder="e.g. 72" /></label>
+        <label>Quick result (optional) <input id="reflect-quick" type="text" placeholder="e.g. 24/30 pupils passed" /></label>
+      </div>
+      <label class="block">Notes — how did the class do? <span class="hint">(weak questions, common mistakes, strengths)</span></label>
+      <textarea id="reflect-results" placeholder="e.g. Average 72%. Most pupils missed Q3 (inference) and Q5 (vocabulary). Strong on identifying the main idea."></textarea>
+      <div class="actions" style="justify-content:flex-start">
+        <button id="btn-gen-reflection" class="primary">✍ Generate reflection &amp; report</button>
+      </div>
+      <div id="reflect-output" class="hidden"></div>
+      <div class="actions">
+        <button id="btn-save-reflection" class="primary hidden">💾 Save reflection to lesson</button>
+        <button id="btn-close-reflect" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GRADE WRITING MODAL ============ -->
+  <div id="grade-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>✍️ Grade Writing / Speaking</h3>
+      <p class="muted small">Paste a pupil's writing (or speaking transcript). Niat grades it against the CEFR rubric with feedback.</p>
+      <label class="block">Task / question <span class="hint">(optional)</span></label>
+      <input id="grade-task" type="text" placeholder="e.g. Write an email to a friend about your last holiday (80 words)" />
+      <label class="block">Pupil's response</label>
+      <textarea id="grade-text" placeholder="Paste the pupil's writing here…"></textarea>
+      <div class="actions" style="justify-content:flex-start">
+        <button id="btn-do-grade" class="primary">Grade it</button>
+      </div>
+      <div id="grade-output" class="hidden"></div>
+      <div class="actions"><button id="btn-close-grade" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ PROGRESS DASHBOARD MODAL ============ -->
+  <div id="progress-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>📊 Class Progress — towards CEFR B1</h3>
+      <p class="muted small">Average quiz scores per class over time (from your saved reflections). Each bar is one quiz.</p>
+      <div id="progress-body" class="pg-wrap"></div>
+      <div class="actions"><button id="btn-close-progress" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay hidden"><div class="spinner"></div><p id="overlay-msg">Generating…</p></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

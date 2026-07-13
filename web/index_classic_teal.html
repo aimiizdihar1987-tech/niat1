@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Niat — AI-Powered Classroom, Reimagined</title>
+  <link rel="icon" type="image/png" href="niat-logo.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ TOPBAR / BRAND ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo-img" src="niat-logo.png" alt="Niat logo" />
+      <div class="brand-text">
+        <h1>Ni<span>at</span></h1>
+        <p>AI-Powered Classroom, Reimagined</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button id="btn-progress" class="lib-btn" title="Class progress dashboard">📊 Progress</button>
+      <button id="btn-grade" class="lib-btn" title="Grade pupil writing">✍️ Grade</button>
+      <button id="btn-library" class="lib-btn" title="My saved lessons">📚 My Lessons</button>
+      <span id="bank-badge" class="bank-badge" title="Questions in the Question Bank">🗄️ Bank: <b id="bank-count">…</b></span>
+    </div>
+  </header>
+
+  <!-- ============ PROGRESS TRACKER ============ -->
+  <nav class="tracker">
+    <ol class="steps">
+      <li data-step="1" class="active"><span class="dot">1</span><span class="lbl">Setup</span></li>
+      <li data-step="2"><span class="dot">2</span><span class="lbl">Lesson Plan</span></li>
+      <li data-step="3"><span class="dot">3</span><span class="lbl">Worksheet</span></li>
+      <li data-step="4"><span class="dot">4</span><span class="lbl">Done</span></li>
+    </ol>
+  </nav>
+
+  <main>
+    <!-- ============ STEP 1: AGENT 1 ORCHESTRATOR ============ -->
+    <section id="panel-orchestrator" class="panel active">
+      <div class="panel-head">
+        <h2>Lesson Setup</h2>
+        <p class="sub">Choose the class context, curriculum content &amp; pedagogy — the system combines them into an instruction.</p>
+      </div>
+
+      <div id="next-class-banner" class="next-banner hidden"></div>
+
+      <fieldset class="card accent-fixed">
+        <legend><span class="ic">📌</span> Fixed</legend>
+        <div class="fixed-tags">
+          <span class="tag">English</span>
+          <span class="tag">KSSM</span>
+          <span class="tag">Form 3</span>
+          <span class="tag">CEFR B1 Low</span>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-class">
+        <legend><span class="ic">🏫</span> Class Context</legend>
+        <div class="grid">
+          <label>School <input id="school" type="text" placeholder="e.g. SMK Kampung ..." /></label>
+          <label>Teacher <input id="teacher" type="text" placeholder="e.g. Pn. ..." /></label>
+          <label>Week <input id="minggu" type="number" min="1" max="52" placeholder="e.g. 23" /></label>
+          <label>Class
+            <select id="nama_kelas">
+              <option value="">— select class —</option>
+              <option>3 Amber</option>
+              <option>3 Berlian</option>
+              <option>3 Delima</option>
+              <option>3 Kristal</option>
+              <option>3 KRK</option>
+              <option>3 Mutiara</option>
+              <option>3 Opal</option>
+              <option>3 Zamrud</option>
+            </select>
+          </label>
+          <label>Date <input id="tarikh" type="date" /></label>
+          <label>Day
+            <select id="hari">
+              <option value="">— select —</option>
+              <option>Monday</option>
+              <option>Tuesday</option>
+              <option>Wednesday</option>
+              <option>Thursday</option>
+              <option>Friday</option>
+            </select>
+          </label>
+          <label>Time
+            <select id="masa">
+              <option value="">— select —</option>
+              <option>7.40 a.m.</option>
+              <option>8.40 a.m.</option>
+              <option>9.40 a.m.</option>
+              <option>10.10 a.m.</option>
+              <option>11.10 a.m.</option>
+              <option>12.10 p.m.</option>
+              <option>01.10 p.m.</option>
+              <option>2.10 p.m.</option>
+            </select>
+          </label>
+          <label>Duration
+            <select id="tempoh">
+              <option value="30">30 min</option>
+              <option value="60" selected>60 min</option>
+              <option value="90">90 min</option>
+              <option value="120">120 min</option>
+            </select>
+          </label>
+          <label>No. of pupils <input id="bil_murid" type="number" value="30" min="1" /></label>
+          <label>Proficiency
+            <select id="tahap_murid">
+              <option>Advanced</option>
+              <option selected>Intermediate</option>
+              <option>Beginner / Remedial</option>
+              <option>Mixed ability</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-curr">
+        <legend><span class="ic">📚</span> Curriculum (DSKP)</legend>
+        <div class="grid">
+          <label>Theme <select id="theme"></select></label>
+          <label>Topic / Unit <input id="topic" type="text" placeholder="e.g. Unit 1: Family Ties" /></label>
+          <label>Skill <select id="bidang"></select></label>
+          <label>Content Standard <select id="sk"></select></label>
+        </div>
+        <label class="block">Learning Standard <span class="hint">(select at least one)</span></label>
+        <div id="sp-list" class="sp-list"></div>
+      </fieldset>
+
+      <fieldset class="card accent-peda">
+        <legend><span class="ic">🎯</span> Pedagogy</legend>
+        <label class="block">21st Century Learning strategy <span class="hint">(click to select)</span></label>
+        <div id="strategi" class="chips"></div>
+        <label class="block">Cross-Curricular Elements (CCE) <span class="hint">(click to select)</span></label>
+        <div id="emk" class="chips"></div>
+        <div class="grid" style="margin-top:12px">
+          <label>Target HOTS level
+            <select id="kbat">
+              <option>Applying</option>
+              <option>Analysing</option>
+              <option>Evaluating</option>
+              <option>Creating</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="card accent-ws">
+        <legend><span class="ic">📝</span> Worksheet Settings</legend>
+        <div class="grid">
+          <label>No. of questions <input id="bil_soalan" type="number" value="10" min="1" max="50" /></label>
+          <label>LOTS % <input id="lots" type="number" value="40" min="0" max="100" /></label>
+          <label>MOTS % <input id="mots" type="number" value="40" min="0" max="100" /></label>
+          <label>HOTS % <input id="hots" type="number" value="20" min="0" max="100" /></label>
+        </div>
+        <p id="aras-warn" class="warn hidden">⚠️ The level distribution must total exactly 100%.</p>
+      </fieldset>
+
+      <div class="actions">
+        <button id="btn-gen-rph" class="primary">Generate Lesson Plan →</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 2: AGENT 2 LESSON PLAN ============ -->
+    <section id="panel-rph" class="panel">
+      <div class="panel-head">
+        <h2>Daily Lesson Plan</h2>
+        <p class="sub">Review &amp; edit the lesson plan before you approve.</p>
+      </div>
+      <div id="rph-output" class="output"></div>
+      <fieldset class="card checkpoint">
+        <legend><span class="ic">👩‍🏫</span> Teacher Review</legend>
+        <textarea id="nota-rph" placeholder="Improvement notes (if you need to regenerate)…"></textarea>
+        <div class="actions">
+          <button id="btn-back-1" class="ghost">← Setup</button>
+          <button id="btn-regen-rph" class="ghost">↻ Regenerate</button>
+          <div class="dropdown">
+            <button id="btn-export" class="ghost">⤓ Export ▾</button>
+            <div id="export-menu" class="dropdown-menu hidden">
+              <button id="btn-export-pdf" class="menu-item">📄 PDF (.pdf)</button>
+              <button id="btn-export-doc" class="menu-item">📝 Word (.doc)</button>
+            </div>
+          </div>
+          <button id="btn-drive-rph" class="ghost">🎓 Drive + Classroom</button>
+          <button id="btn-print-rph" class="ghost">🖨 Print</button>
+          <button id="btn-approve-rph" class="primary">Approve → Generate Worksheet</button>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ============ STEP 3: AGENT 3 WORKSHEET ============ -->
+    <section id="panel-worksheet" class="panel">
+      <div class="panel-head">
+        <h2>Worksheet — Google Form Quiz</h2>
+        <p class="sub">Multiple-choice questions + answer key. The question bank is reused automatically.</p>
+      </div>
+      <div id="ws-output" class="output"></div>
+      <fieldset class="card checkpoint">
+        <legend><span class="ic">👩‍🏫</span> Teacher Review</legend>
+        <textarea id="nota-ws" placeholder="Improvement notes (if you need to regenerate)…"></textarea>
+        <div class="actions">
+          <button id="btn-back-2" class="ghost">← Lesson Plan</button>
+          <button id="btn-regen-ws" class="ghost">↻ Regenerate</button>
+          <button id="btn-google-form" class="ghost">📤 Distribute (Prototype)</button>
+          <button id="btn-approve-ws" class="primary">Approve → Save &amp; Finish</button>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ============ STEP 4: DONE ============ -->
+    <section id="panel-done" class="panel">
+      <div class="panel-head center">
+        <div class="done-check">✓</div>
+        <h2>Done!</h2>
+        <p class="sub">The lesson plan and worksheet have been approved, saved, and the questions added to the Question Bank.</p>
+      </div>
+      <ul id="saved-list" class="saved-list"></ul>
+      <div class="actions center">
+        <button id="btn-dl-rph" class="ghost">⤓ Download Lesson Plan (.doc)</button>
+        <button id="btn-print-done" class="ghost">🖨 Print / PDF</button>
+        <button id="btn-dl-ws" class="ghost">⤓ Download Worksheet (.json)</button>
+        <button id="btn-google-form-done" class="primary">📤 Distribute (Prototype)</button>
+        <button id="btn-restart" class="ghost">＋ Start a new lesson</button>
+      </div>
+      <p class="muted small center">Copy the worksheet into a Google Form Quiz manually (Phase 1). Automatic distribution to Classroom is coming in Phase 2.</p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>🌐 <b>Niat</b></span> — AI-powered · for English Language teachers
+  </footer>
+
+  <!-- ============ GOOGLE FORM (APPS SCRIPT) MODAL ============ -->
+  <div id="form-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>📤 Distribute via Google</h3>
+      <p class="muted small">Builds a script that (1) saves the lesson plan to your Drive + emails it to you, and (2) creates the worksheet as a Google Form quiz and <b>posts it to your Google Classroom class as an assignment with a due date</b>. Runs under your own moe-dl account.</p>
+      <div class="rcpt-grid">
+        <label>📄 Lesson plan → teacher email / Drive
+          <input id="rcpt-plan" type="email" value="aimiizdihar1987@gmail.com" />
+        </label>
+        <label>🏫 Worksheet → Google Classroom class
+          <input id="classroom-class" type="text" placeholder="e.g. 3 Delima" />
+        </label>
+        <label>📅 Due date
+          <input id="due-date" type="date" />
+        </label>
+        <label>⏰ Due time
+          <input id="due-time" type="time" />
+        </label>
+      </div>
+      <ol class="how-list">
+        <li>Open <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → <b>New project</b>.</li>
+        <li>Delete the sample code, then paste the script below (use <b>Copy script</b>).</li>
+        <li><b>Enable Classroom:</b> in the left sidebar click <b>Services ➕</b> → choose <b>Google Classroom API</b> → Add.</li>
+        <li>Click <b>Save</b> 💾, then <b>Run</b> ▶ the <code>niatDistribute</code> function.</li>
+        <li>Click <b>Review permissions → Allow</b> (first time only).</li>
+        <li>Check the <b>Execution log</b>: lesson plan emailed + saved to Drive, and the quiz posted to your Classroom class.</li>
+      </ol>
+      <textarea id="form-script" readonly spellcheck="false"></textarea>
+      <div class="actions">
+        <button id="btn-copy-script" class="primary">⧉ Copy script</button>
+        <button id="btn-dl-script" class="ghost">⤓ Download .gs</button>
+        <button id="btn-close-modal" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SAVE LESSON PLAN TO GOOGLE DRIVE MODAL ============ -->
+  <div id="drive-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>🎓 Save to Drive + Upload to Classroom</h3>
+      <p class="muted small">Saves this lesson plan as a Google Doc in your Drive <b>and</b> posts it to your designated RPH Classroom. Runs under your own moe-dl account.</p>
+      <ol class="how-list">
+        <li>Open <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → <b>New project</b>, delete the sample code, paste the script below.</li>
+        <li><b>One-time:</b> click <b>Services</b> (the ＋ on the left) → <b>Google Classroom API</b> → <b>Add</b>.</li>
+        <li><b>Step 1:</b> click <b>Run</b> ▶ <code>niatToClassroom</code>, <b>Allow</b> permissions, then open the <b>Execution log</b> to see your Classrooms + IDs.</li>
+        <li><b>Step 2:</b> paste your designated Classroom's ID into <code>COURSE_ID</code> at the top, then <b>Run</b> again.</li>
+        <li>Done — the plan is in your <a href="https://drive.google.com" target="_blank" rel="noopener">Drive</a> and posted to <a href="https://classroom.google.com" target="_blank" rel="noopener">Classroom</a>.</li>
+      </ol>
+      <textarea id="drive-script" readonly spellcheck="false"></textarea>
+      <div class="actions">
+        <button id="btn-copy-drive" class="primary">⧉ Copy script</button>
+        <button id="btn-dl-drive" class="ghost">⤓ Download .gs</button>
+        <button id="btn-close-drive" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MY LESSONS (LIBRARY) MODAL ============ -->
+  <div id="library-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>📚 My Lessons</h3>
+      <p class="muted small">Every lesson you approve is saved here. Reopen, re-download, duplicate, or delete.</p>
+      <input id="library-search" type="text" class="lib-search" placeholder="🔎 Search by class, topic, theme, or skill…" />
+      <div id="library-list" class="lib-list"></div>
+      <div class="actions"><button id="btn-close-library" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ REFLECT & REPORT MODAL ============ -->
+  <div id="reflect-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>✍️ Reflect &amp; Report — <span id="reflect-title"></span></h3>
+      <p class="muted small">Enter how the class did. Niat writes the RPH reflection + a class report, then you can save the reflection into the lesson.</p>
+      <div class="rcpt-grid">
+        <label>Average score (%) <input id="reflect-score" type="text" placeholder="e.g. 72" /></label>
+        <label>Quick result (optional) <input id="reflect-quick" type="text" placeholder="e.g. 24/30 pupils passed" /></label>
+      </div>
+      <label class="block">Notes — how did the class do? <span class="hint">(weak questions, common mistakes, strengths)</span></label>
+      <textarea id="reflect-results" placeholder="e.g. Average 72%. Most pupils missed Q3 (inference) and Q5 (vocabulary). Strong on identifying the main idea."></textarea>
+      <div class="actions" style="justify-content:flex-start">
+        <button id="btn-gen-reflection" class="primary">✍ Generate reflection &amp; report</button>
+      </div>
+      <div id="reflect-output" class="hidden"></div>
+      <div class="actions">
+        <button id="btn-save-reflection" class="primary hidden">💾 Save reflection to lesson</button>
+        <button id="btn-close-reflect" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GRADE WRITING MODAL (#7) ============ -->
+  <div id="grade-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>✍️ Grade Writing / Speaking</h3>
+      <p class="muted small">Paste a pupil's writing (or speaking transcript). Niat grades it against the CEFR rubric with feedback.</p>
+      <label class="block">Task / question <span class="hint">(optional)</span></label>
+      <input id="grade-task" type="text" placeholder="e.g. Write an email to a friend about your last holiday (80 words)" />
+      <label class="block">Pupil's response</label>
+      <textarea id="grade-text" placeholder="Paste the pupil's writing here…"></textarea>
+      <div class="actions" style="justify-content:flex-start">
+        <button id="btn-do-grade" class="primary">Grade it</button>
+      </div>
+      <div id="grade-output" class="hidden"></div>
+      <div class="actions"><button id="btn-close-grade" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ PROGRESS DASHBOARD MODAL (#5) ============ -->
+  <div id="progress-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>📊 Class Progress — towards CEFR B1</h3>
+      <p class="muted small">Average quiz scores per class over time (from your saved reflections). Each bar is one quiz.</p>
+      <div id="progress-body" class="pg-wrap"></div>
+      <div class="actions"><button id="btn-close-progress" class="ghost">Close</button></div>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay hidden"><div class="spinner"></div><p id="overlay-msg">Generating…</p></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

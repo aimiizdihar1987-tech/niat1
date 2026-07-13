@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Niat</title>
+  <link rel="icon" type="image/png" href="niat-logo.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0c1210" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Niat" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&family=Sora:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", "Segoe UI", system-ui, sans-serif; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      color: #ecf7f2;
+      background:
+        radial-gradient(700px 420px at 80% -10%, rgba(99,230,194,.11), transparent 60%),
+        radial-gradient(700px 460px at -8% 30%, rgba(139,92,246,.15), transparent 60%),
+        radial-gradient(600px 380px at 40% 110%, rgba(99,230,194,.10), transparent 60%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='920' height='920' viewBox='0 0 920 920' fill='none' stroke-width='1.2'%3E%3Cg stroke='%2394a3b8' stroke-opacity='.11'%3E%3Cpath d='M60 120h250l70 70v190'/%3E%3Cpath d='M860 780H610l-70-70V520'/%3E%3Cpath d='M780 70v170l-90 90H530'/%3E%3C/g%3E%3Cg stroke='%232dd4bf' stroke-opacity='.13'%3E%3Cpath d='M120 860V650l100-100h220'/%3E%3Cpath d='M40 420h190l80-80'/%3E%3C/g%3E%3Cg fill='%2394a3b8' fill-opacity='.20'%3E%3Ccircle cx='60' cy='120' r='3.5'/%3E%3Ccircle cx='380' cy='380' r='3.5'/%3E%3Ccircle cx='860' cy='780' r='3.5'/%3E%3C/g%3E%3Cg fill='%232dd4bf' fill-opacity='.24'%3E%3Ccircle cx='120' cy='860' r='3.5'/%3E%3Ccircle cx='440' cy='550' r='3.5'/%3E%3Ccircle cx='40' cy='420' r='3.5'/%3E%3C/g%3E%3C/svg%3E"),
+        repeating-linear-gradient(115deg, transparent 0 150px, rgba(148,163,175,.04) 150px 151px),
+        linear-gradient(rgba(99,230,194,.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,230,194,.028) 1px, transparent 1px),
+        #070c0d;
+      background-size: auto, auto, auto, 920px 920px, auto, 44px 44px, 44px 44px, auto;
+    }
+    .card {
+      background: #10171a; border-radius: 20px; padding: 38px 36px 32px;
+      width: 100%; max-width: 380px; border: 1px solid #263238;
+      box-shadow: 0 18px 50px rgba(0,0,0,.55), 0 0 44px rgba(99,230,194,.1);
+      text-align: center;
+    }
+    .card img { width: 72px; height: 72px; object-fit: contain; margin-bottom: 10px;
+      background: #fff; border-radius: 16px; padding: 4px; }
+    h1 { font-family: "Sora", "Space Grotesk", "Inter", sans-serif; font-size: 27px;
+      font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #ecf7f2; }
+    h1 span { color: #63e6c2; text-shadow: 0 0 14px rgba(99,230,194,.55); }
+    .tag { font-size:12px; color: #9db4ab; letter-spacing: .14em; text-transform: uppercase;
+      font-weight: 700; margin: 6px 0 24px; }
+    label { display: block; text-align: left; font-size:14px; font-weight: 600;
+            color: #bdd1c9; margin: 12px 0 5px; }
+    input {
+      width: 100%; padding: 11px 13px; border: 1.5px solid #243029;
+      border-radius: 10px; font-size:16px; outline: none; transition: .15s;
+      background: #0e1512; color: #ecf7f2; font-family: inherit;
+    }
+    input:focus { border-color: #63e6c2; box-shadow: 0 0 0 3px rgba(99,230,194,.2); }
+    button {
+      width: 100%; margin-top: 22px; padding: 13px; border: 0; border-radius: 999px;
+      background: #63e6c2; color: #04231a;
+      font-size:15px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      cursor: pointer; transition: .18s; font-family: inherit;
+    }
+    button:hover { background: #8df2d9; box-shadow: 0 0 24px rgba(99,230,194,.4); }
+    button:disabled { opacity: .6; cursor: wait; }
+    .err {
+      display: none; margin-top: 14px; padding: 10px 12px; border-radius: 10px;
+      background: #3d1412; border: 1px solid #7f1d1d; color: #fecaca; font-size:14.5px;
+    }
+    .foot { margin-top: 22px; font-size:13px; color: #9db4ab; }
+  </style>
+</head>
+<body>
+  <form class="card" id="f">
+    <img src="niat-logo.png" alt="Niat logo" />
+    <h1>Ni<span>at</span></h1>
+    <p class="tag">From Intention to Intervention</p>
+    <label for="u">Username</label>
+    <input id="u" autocomplete="username" autofocus required />
+    <label for="p">Password</label>
+    <input id="p" type="password" autocomplete="current-password" required />
+    <button id="b" type="submit">Sign in</button>
+    <div class="err" id="e"></div>
+    <p class="foot">Access is for authorised teachers only.</p>
+  </form>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    $("f").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      $("b").disabled = true; $("e").style.display = "none";
+      try {
+        const r = await fetch("/api/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: $("u").value, password: $("p").value }),
+        });
+        const d = await r.json();
+        if (r.ok && d.ok) {
+          try { localStorage.setItem("niat-user", $("u").value.trim()); } catch (_) {}
+          const next = new URLSearchParams(location.search).get("next");
+          location.href = next && next.startsWith("/") ? next : "/";
+        } else {
+          throw new Error(d.ralat || "Sign-in failed.");
+        }
+      } catch (err) {
+        $("e").textContent = err.message;
+        $("e").style.display = "block";
+        $("b").disabled = false;
+      }
+    });
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  </script>
+</body>
+</html>

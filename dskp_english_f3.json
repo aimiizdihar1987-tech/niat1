@@ -1,0 +1,194 @@
+{
+  "subject": "English",
+  "level": "KSSM",
+  "form": 3,
+  "cefr_target": "B1 Low",
+  "textbook": "Close-Up (Form 3, KSSM)",
+  "source": "DSKP KSSM Bahasa Inggeris Tingkatan 3 — Bahagian Pembangunan Kurikulum, KPM. Content & Learning Standards VERIFIED against the official DSKP PDF (DSKP KSSM English Form 3.pdf).",
+  "min_hours_per_year": 144,
+  "themes": [
+    "People and Culture",
+    "Health and Environment",
+    "Science and Technology",
+    "Consumerism and Financial Awareness"
+  ],
+  "textbook_units": [
+    "Unit 1: Family Ties",
+    "Unit 2: Food, Food, Food!",
+    "Unit 3: The Wonders of Nature",
+    "Unit 4: Special Relationships",
+    "Unit 5: A Place to Call Home",
+    "Unit 6: Ready, Steady, Go!",
+    "Unit 7: Extreme Situations",
+    "Unit 8: Time to Spare",
+    "Unit 9: High-Tech World",
+    "Unit 10: That's Entertainment",
+    "Unit 11: Lessons to Learn",
+    "Unit 12: The Body Beautiful"
+  ],
+  "language_focus_examples": [
+    "Present and past tenses",
+    "Present perfect",
+    "Future forms (will / going to)",
+    "Comparatives and superlatives",
+    "Modals (advice, obligation, possibility)",
+    "Conditionals (zero, first)",
+    "Relative clauses",
+    "Reported speech",
+    "Passive voice (introductory)",
+    "Connectors and linkers"
+  ],
+  "_note_structure": "Keys 'bidang' (=Skill), 'standard_kandungan' (=Content Standard) and 'standard_pembelajaran' (=Learning Standard) reuse the engine's keys. Wording matches the official DSKP Form 3.",
+  "bidang": [
+    {
+      "kod": "1.0",
+      "nama": "Listening",
+      "standard_kandungan": [
+        {
+          "kod": "1.1",
+          "nama": "Understand meaning in a variety of familiar contexts",
+          "standard_pembelajaran": [
+            { "kod": "1.1.1", "huraian": "Understand independently the main ideas in simple longer texts on an increased range of familiar topics." },
+            { "kod": "1.1.2", "huraian": "Understand independently specific information and details in longer texts on an increased range of familiar topics." },
+            { "kod": "1.1.3", "huraian": "Recognise with little or no support attitudes or opinions in longer texts on an increased range of familiar topics." },
+            { "kod": "1.1.4", "huraian": "Understand independently longer sequences of classroom instructions." },
+            { "kod": "1.1.5", "huraian": "Understand independently more complex questions." },
+            { "kod": "1.1.6", "huraian": "Understand independently longer simple narratives on a range of familiar topics." }
+          ]
+        },
+        {
+          "kod": "1.2",
+          "nama": "Use appropriate listening strategies in a variety of contexts",
+          "standard_pembelajaran": [
+            { "kod": "1.2.1", "huraian": "Guess the meaning of unfamiliar words from clues provided by other words and by context on an increased range of familiar topics." }
+          ]
+        },
+        {
+          "kod": "1.3",
+          "nama": "Recognise features of spoken genres on familiar topics",
+          "standard_pembelajaran": [
+            { "kod": "1.3.1", "huraian": "Recognise with support typical features at word, sentence and text levels of a small number of spoken genres." }
+          ]
+        }
+      ]
+    },
+    {
+      "kod": "2.0",
+      "nama": "Speaking",
+      "standard_kandungan": [
+        {
+          "kod": "2.1",
+          "nama": "Communicate information, ideas, opinions and feelings intelligibly on familiar topics",
+          "standard_pembelajaran": [
+            { "kod": "2.1.1", "huraian": "Paraphrase short simple texts." },
+            { "kod": "2.1.2", "huraian": "Ask about and explain simple processes." },
+            { "kod": "2.1.3", "huraian": "Describe future plans and ambitions." },
+            { "kod": "2.1.4", "huraian": "Explain own point of view." },
+            { "kod": "2.1.5", "huraian": "Express and respond to common feelings such as happiness, sadness, surprise and interest." }
+          ]
+        },
+        {
+          "kod": "2.2",
+          "nama": "Use register appropriately",
+          "standard_pembelajaran": [
+            { "kod": "2.2.1", "huraian": "Use formal and informal registers appropriately in some familiar contexts." }
+          ]
+        },
+        {
+          "kod": "2.3",
+          "nama": "Use appropriate communication strategies",
+          "standard_pembelajaran": [
+            { "kod": "2.3.1", "huraian": "Keep interaction going in longer exchanges by asking a speaker to slow down, speak up or to repeat what they have said." }
+          ]
+        },
+        {
+          "kod": "2.4",
+          "nama": "Communicate appropriately to a small or large group on familiar topics",
+          "standard_pembelajaran": [
+            { "kod": "2.4.1", "huraian": "Summarise the main points of a story." }
+          ]
+        }
+      ]
+    },
+    {
+      "kod": "3.0",
+      "nama": "Reading",
+      "standard_kandungan": [
+        {
+          "kod": "3.1",
+          "nama": "Understand a variety of texts by using a range of appropriate reading strategies to construct meaning",
+          "standard_pembelajaran": [
+            { "kod": "3.1.1", "huraian": "Understand the main points in longer texts on an increased range of familiar topics." },
+            { "kod": "3.1.2", "huraian": "Understand specific details and information in longer texts on an increased range of familiar topics." },
+            { "kod": "3.1.3", "huraian": "Guess the meaning of unfamiliar words from clues provided by other words and by context on an increased range of familiar topics." },
+            { "kod": "3.1.4", "huraian": "Use independently familiar print and digital resources to check meaning and extend understanding." },
+            { "kod": "3.1.5", "huraian": "Recognise with support the attitude or opinion of the writer in simple longer texts on an increased range of familiar topics." },
+            { "kod": "3.1.6", "huraian": "Recognise with support typical features at word, sentence and text levels of a range of genres." }
+          ]
+        },
+        {
+          "kod": "3.2",
+          "nama": "Explore and expand ideas for personal development by reading independently and widely",
+          "standard_pembelajaran": [
+            { "kod": "3.2.1", "huraian": "Read, enjoy and give a personal response to fiction or non-fiction and other suitable print and digital texts of interest." }
+          ]
+        }
+      ]
+    },
+    {
+      "kod": "4.0",
+      "nama": "Writing",
+      "standard_kandungan": [
+        {
+          "kod": "4.1",
+          "nama": "Communicate intelligibly through print and digital media on familiar topics",
+          "standard_pembelajaran": [
+            { "kod": "4.1.1", "huraian": "Explain simple content from what they have read or heard." },
+            { "kod": "4.1.2", "huraian": "Explain simple processes." },
+            { "kod": "4.1.3", "huraian": "Summarise the main points and explain key details of a story, text or plot." },
+            { "kod": "4.1.4", "huraian": "Express and respond to opinions and common feelings such as happiness, sadness, surprise, and interest." },
+            { "kod": "4.1.5", "huraian": "Organise, sequence and develop ideas within short texts on familiar topics." }
+          ]
+        },
+        {
+          "kod": "4.2",
+          "nama": "Communicate with appropriate language, form and style",
+          "standard_pembelajaran": [
+            { "kod": "4.2.1", "huraian": "Punctuate written work with moderate accuracy." },
+            { "kod": "4.2.2", "huraian": "Spell written work with moderate accuracy." },
+            { "kod": "4.2.3", "huraian": "Produce a plan or draft of two paragraphs or more and modify this appropriately independently." },
+            { "kod": "4.2.4", "huraian": "Begin to use formal and informal registers appropriate to the target audience in familiar situations." }
+          ]
+        }
+      ]
+    },
+    {
+      "kod": "5.0",
+      "nama": "Literature in Action",
+      "standard_kandungan": [
+        {
+          "kod": "5.1",
+          "nama": "Engage with, respond to and interpret a variety of literary text types",
+          "standard_pembelajaran": [
+            { "kod": "5.1.1", "huraian": "Explain why a part or aspect of a text interests them." },
+            { "kod": "5.1.2", "huraian": "Explain briefly the development of plot, characters and themes in a text." }
+          ]
+        },
+        {
+          "kod": "5.2",
+          "nama": "Analyse and evaluate a variety of literary text types",
+          "standard_pembelajaran": [
+            { "kod": "5.2.1", "huraian": "Identify key stylistic features of a text and explain briefly why the author uses them." }
+          ]
+        },
+        {
+          "kod": "5.3",
+          "nama": "Express an imaginative response to literary texts",
+          "standard_pembelajaran": [
+            { "kod": "5.3.1", "huraian": "Respond imaginatively and intelligibly through creating power points, visuals, posters, blogs and webpages." }
+          ]
+        }
+      ]
+    }
+  ]
+}

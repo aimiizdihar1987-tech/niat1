@@ -1,0 +1,1172 @@
+#!/usr/bin/env python3
+"""
+Niat — English Form 3 Lesson Plan & Worksheet Generator (Backend, Phase 1 MVP)
+
+Lightweight server with no external dependencies (Python stdlib only):
+  - Serves the single-page web app (web/ folder) and the curriculum (DSKP) data.
+  - Proxies /api/generate-rph and /api/generate-worksheet to the Gemini API
+    (API key from environment / apikey.txt — never exposed to the browser).
+  - Saves teacher-approved output to the output/ folder.
+
+Run:
+    set GOOGLE_API_KEY=AIza...              (Windows cmd)
+    $env:GOOGLE_API_KEY="AIza..."           (PowerShell)
+    python server.py
+
+Then open http://localhost:8000
+"""
+
+import base64
+import json
+import os
+import re
+import sys
+import threading
+import time
+import urllib.request
+import urllib.error
+from datetime import datetime, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from urllib.parse import urlparse, parse_qs
+
+import auth
+import bank_soalan as bank
+import export_docx
+import export_pptx
+import guardrail
+import lessons
+
+# When launched with pythonw.exe (windowless, e.g. the auto-start task),
+# stdout/stderr are None — guard so prints and request logging don't crash.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
+# --------------------------------------------------------------------------
+# Konfigurasi
+# --------------------------------------------------------------------------
+ROOT = os.path.dirname(os.path.abspath(__file__))
+WEB_DIR = os.path.join(ROOT, "web")
+PROMPT_DIR = os.path.join(ROOT, "prompts")
+OUTPUT_DIR = os.path.join(ROOT, "output")
+DSKP_FILE = os.path.join(ROOT, "dskp_english_f3.json")
+
+HOST = os.environ.get("HOST", "127.0.0.1")
+PORT = int(os.environ.get("PORT", "8000"))
+
+def _baca_kunci_fail():
+    """Baca kunci API dari fail apikey.txt (abaikan baris kosong & baris '#').
+
+    Memudahkan guru: tampal kunci sekali dalam apikey.txt, tak perlu env var.
+    """
+    try:
+        with open(os.path.join(ROOT, "apikey.txt"), encoding="utf-8") as f:
+            for baris in f:
+                baris = baris.strip()
+                if baris and not baris.startswith("#") and "TAMPAL_KUNCI" not in baris:
+                    return baris
+    except FileNotFoundError:
+        pass
+    return ""
+
+
+# Kunci API Google (Gemini) — keutamaan: env var, kemudian fail apikey.txt.
+GOOGLE_API_KEY = (
+    os.environ.get("GOOGLE_API_KEY")
+    or os.environ.get("GEMINI_API_KEY")
+    or _baca_kunci_fail()
+)
+# Boleh tukar ke "gemini-2.5-pro" untuk kualiti lebih tinggi (lebih perlahan/mahal),
+# atau "gemini-2.0-flash" jika model lalai tidak tersedia untuk kunci anda.
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+# --- Enjin sandaran luar talian (Ollama, tempatan) ---------------------------
+# Jika Gemini gagal (tiada internet / kuota habis), sistem beralih automatik
+# ke model tempatan melalui Ollama. Mod: auto (lalai) | gemini | local.
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:latest")
+ENGINE_MODE = os.environ.get("NIAT_ENGINE", "auto").strip().lower()
+
+_ENGINE_STATE = threading.local()
+
+
+def last_engine():
+    """Enjin yang digunakan oleh panggilan LLM terakhir dalam thread ini."""
+    return getattr(_ENGINE_STATE, "last", "gemini")
+
+
+def ollama_available():
+    """True jika Ollama berjalan dan model sandaran yang dikonfigurasi wujud."""
+    try:
+        with urllib.request.urlopen(OLLAMA_URL + "/api/tags", timeout=3) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        return any(m.get("name") == OLLAMA_MODEL for m in data.get("models", []))
+    except Exception:  # noqa: BLE001
+        return False
+
+# --------------------------------------------------------------------------
+# Pembantu Gemini API (Google AI Studio)
+# --------------------------------------------------------------------------
+def call_llm(system_prompt, user_prompt, max_tokens=8000):
+    """Panggil LLM: Gemini dahulu; jatuh balik automatik ke Ollama tempatan.
+
+    Mod (NIAT_ENGINE): auto (lalai) — Gemini, sandaran Ollama;
+    gemini — Gemini sahaja; local — Ollama sahaja (luar talian).
+    """
+    _ENGINE_STATE.last = "gemini"
+    if ENGINE_MODE != "local" and GOOGLE_API_KEY:
+        try:
+            return call_gemini(system_prompt, user_prompt, max_tokens)
+        except RuntimeError:
+            if ENGINE_MODE == "gemini" or not ollama_available():
+                raise
+    # Tiada kunci / dipaksa local / Gemini gagal → cuba model tempatan.
+    if not ollama_available():
+        raise RuntimeError(
+            "Tiada enjin AI tersedia: Gemini tidak boleh dihubungi dan "
+            "Ollama ({}) tidak berjalan.".format(OLLAMA_MODEL)
+        )
+    _ENGINE_STATE.last = "local"
+    return call_ollama(system_prompt, user_prompt, max_tokens)
+
+
+def call_ollama(system_prompt, user_prompt, max_tokens=8000):
+    """Panggil model tempatan melalui Ollama /api/chat (format JSON dipaksa)."""
+    payload = {
+        "model": OLLAMA_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "stream": False,
+        "format": "json",
+        "options": {"num_predict": max_tokens, "temperature": 0.7},
+    }
+    req = urllib.request.Request(
+        OLLAMA_URL + "/api/chat",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    try:
+        # Model tempatan pada CPU boleh lambat — beri masa yang panjang.
+        with urllib.request.urlopen(req, timeout=600) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise RuntimeError("Ollama gagal: {}".format(e))
+    text = (data.get("message", {}) or {}).get("content", "").strip()
+    if not text:
+        raise RuntimeError("Ollama tiada respons: " + json.dumps(data)[:300])
+    return text
+
+
+def call_gemini(system_prompt, user_prompt, max_tokens=8000):
+    """Panggil Gemini generateContent dan pulangkan teks respons. Guna urllib sahaja."""
+    if not GOOGLE_API_KEY:
+        raise RuntimeError(
+            "GOOGLE_API_KEY tidak ditetapkan. Set pemboleh ubah persekitaran dahulu."
+        )
+    payload = {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "generationConfig": {
+            "maxOutputTokens": max_tokens,
+            "temperature": 0.7,
+            # Paksa output JSON tulen — padan dengan arahan dalam fail prompt.
+            "responseMimeType": "application/json",
+        },
+    }
+    # Cuba sehingga 3 kali untuk ralat sementara (429 kuota / 5xx / rangkaian).
+    data = None
+    last_err = None
+    for attempt in range(3):
+        req = urllib.request.Request(
+            GEMINI_URL.format(model=MODEL),
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "content-type": "application/json",
+                "x-goog-api-key": GOOGLE_API_KEY,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "replace")
+            last_err = "Gemini API ralat {}: {}".format(e.code, detail[:400])
+            if e.code not in (429, 500, 502, 503) or attempt == 2:
+                raise RuntimeError(last_err)
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last_err = "Rangkaian gagal: {}".format(e)
+            if attempt == 2:
+                raise RuntimeError(last_err)
+        time.sleep(2 * (attempt + 1))  # 2s, 4s
+    if data is None:
+        raise RuntimeError(last_err or "Gemini tiada respons")
+    candidates = data.get("candidates", [])
+    if not candidates:
+        raise RuntimeError("Gemini tiada respons (mungkin disekat): " + json.dumps(data)[:400])
+    parts = candidates[0].get("content", {}).get("parts", [])
+    return "".join(p.get("text", "") for p in parts).strip()
+
+
+def extract_json(text):
+    """Cabut objek JSON pertama daripada respons model (buang pagar ```json bila ada)."""
+    fenced = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+    candidate = fenced.group(1).strip() if fenced else text.strip()
+    # Cuba terus dahulu
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        pass
+    # Sandaran: ambil dari '{' pertama ke '}' terakhir
+    start, end = candidate.find("{"), candidate.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return json.loads(candidate[start:end + 1])
+    raise ValueError("Respons model bukan JSON sah:\n" + text[:500])
+
+
+def read_text(path, fallback=""):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return fallback
+
+
+def load_dskp():
+    with open(DSKP_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+
+# --------------------------------------------------------------------------
+# Logik agen
+# --------------------------------------------------------------------------
+def find_curriculum(inputs):
+    """Resolve full Skill / Content Standard / Learning Standard from selected codes.
+
+    JSON keys 'bidang' (=Skill), 'standard_kandungan' (=Content Standard) and
+    'standard_pembelajaran' (=Learning Standard) are reused from the engine.
+    """
+    dskp = load_dskp()
+    bidang = next((b for b in dskp["bidang"] if b["kod"] == inputs.get("bidang_kod")), None)
+    if not bidang:
+        return {"bidang": None, "sk": None, "sp": []}
+    sk = next((s for s in bidang["standard_kandungan"] if s["kod"] == inputs.get("sk_kod")), None)
+    sp_kods = set(inputs.get("sp_kods", []))
+    sp = [s for s in (sk["standard_pembelajaran"] if sk else []) if s["kod"] in sp_kods]
+    return {"bidang": bidang, "sk": sk, "sp": sp}
+
+
+def build_context_block(inputs, cur):
+    """Build the curriculum context block (text) injected into the prompt."""
+    ls_lines = "\n".join("  {} {}".format(s["kod"], s["huraian"]) for s in cur["sp"])
+    meta = load_dskp()
+    return (
+        "Subject          : English (KSSM Form 3)\n"
+        "CEFR target      : {cefr}\n"
+        "Textbook         : {textbook}\n"
+        "Minimum hours/yr : {jam}\n"
+        "Week             : {minggu}   Day: {hari}\n"
+        "Class            : {kelas}   Date: {tarikh}   Time: {masa}\n"
+        "Duration         : {tempoh} min   No. of pupils: {bil}   Proficiency: {tahap}\n\n"
+        "Theme            : {theme}\n"
+        "Topic / Unit     : {topic}\n"
+        "Skill            : {bk} {bn}\n"
+        "Content Standard : {sk_k} {sk_n}\n"
+        "Learning Standard(s):\n{ls}\n\n"
+        "21st Century Learning strategy : {strategi}\n"
+        "Cross-Curricular Elements (CCE) : {emk}\n"
+        "HOTS target      : {kbat}"
+    ).format(
+        cefr=meta.get("cefr_target", "B1 Low"),
+        textbook=meta.get("textbook", ""),
+        jam=meta.get("min_hours_per_year", 144),
+        minggu=inputs.get("minggu", ""),
+        hari=inputs.get("hari", ""),
+        kelas=inputs.get("nama_kelas", ""),
+        tarikh=inputs.get("tarikh", ""),
+        masa=inputs.get("masa", ""),
+        tempoh=inputs.get("tempoh", ""),
+        bil=inputs.get("bil_murid", ""),
+        tahap=inputs.get("tahap_murid", ""),
+        theme=inputs.get("theme", ""),
+        topic=inputs.get("topic", ""),
+        bk=cur["bidang"]["kod"] if cur["bidang"] else "",
+        bn=cur["bidang"]["nama"] if cur["bidang"] else "",
+        sk_k=cur["sk"]["kod"] if cur["sk"] else "",
+        sk_n=cur["sk"]["nama"] if cur["sk"] else "",
+        ls=ls_lines,
+        strategi=", ".join(inputs.get("strategi", [])),
+        emk=", ".join(inputs.get("emk", [])),
+        kbat=inputs.get("kbat", ""),
+    )
+
+
+def generate_rph(inputs):
+    cur = find_curriculum(inputs)
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent2_rph.md"))
+    context = build_context_block(inputs, cur)
+    nota = inputs.get("nota_guru", "").strip()
+    user_prompt = "== LESSON CONTEXT ==\n" + context
+    if nota:
+        user_prompt += "\n\n== TEACHER IMPROVEMENT NOTES ==\n" + nota
+    user_prompt += "\n\nGenerate a complete Daily Lesson Plan in JSON format as instructed."
+    raw = call_llm(system_prompt, user_prompt, max_tokens=8000)
+    rph = extract_json(raw)
+    rph, laporan = guardrail.check_rph(rph, inputs, cur)
+    return {"rph": rph, "konteks": cur_summary(cur, inputs),
+            "_guardrail": laporan, "_enjin": last_engine()}
+
+
+def generate_materials(inputs):
+    """Agent 4: turn the approved lesson plan into ready-to-teach slides
+    (teaching aids / 'bahan bantu mengajar')."""
+    cur = find_curriculum(inputs)
+    plan = inputs.get("plan", {}) or {}
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent4_materials.md"))
+    sp = "; ".join(plan.get("standard_pembelajaran", []) or [])
+    obj = "\n".join("- " + o for o in (plan.get("objektif_pembelajaran", []) or []))
+    act = "\n".join("- " + a for a in (plan.get("aktiviti_pembelajaran", []) or []))
+    user_prompt = (
+        "== LESSON PLAN ==\n"
+        "Class: {kelas}\nTheme/Field: {tema}\nTopic/Unit: {topic}\n"
+        "Skill: {skill}\nContent Standard: {sk}\n"
+        "Learning Standards: {sp}\n\n"
+        "Objectives:\n{obj}\n\nPlanned activities:\n{act}\n\n"
+        "Create the teaching slides in JSON as instructed."
+    ).format(
+        kelas=plan.get("tingkatan_kelas", "") or inputs.get("nama_kelas", ""),
+        tema=plan.get("tema_bidang", "") or inputs.get("theme", ""),
+        topic=inputs.get("topic", ""),
+        skill=cur["bidang"]["nama"] if cur["bidang"] else "",
+        sk=("{} {}".format(cur["sk"]["kod"], cur["sk"]["nama"]) if cur["sk"] else ""),
+        sp=sp, obj=obj or "(see plan)", act=act or "(see plan)",
+    )
+    note = inputs.get("nota_guru", "").strip()
+    if note:
+        user_prompt += "\n\n== TEACHER IMPROVEMENT NOTES ==\n" + note
+    raw = call_llm(system_prompt, user_prompt, max_tokens=6000)
+    return {"materials": extract_json(raw), "konteks": cur_summary(cur, inputs)}
+
+
+def _gamma_key():
+    """Gamma API key: env var GAMMA_API_KEY, or gamma_apikey.txt in the project folder."""
+    key = os.environ.get("GAMMA_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        with open(os.path.join(ROOT, "gamma_apikey.txt"), encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    return line
+    except FileNotFoundError:
+        pass
+    return ""
+
+
+GAMMA_URL = "https://public-api.gamma.app/v1.0/generations"
+
+
+def generate_gamma(inputs):
+    """Agent 3+ : send the lesson plan + slides to Gamma AI, which designs a
+    polished presentation / document / webpage. Polls until the deck is ready.
+    Needs a Gamma Pro API key in gamma_apikey.txt (or GAMMA_API_KEY env var)."""
+    key = _gamma_key()
+    if not key:
+        return {"ok": False, "error": "No Gamma API key yet - paste your key into "
+                "gamma_apikey.txt (Gamma -> Account settings -> API keys, Pro plan)."}
+
+    plan = inputs.get("plan", {}) or {}
+    mat = inputs.get("materials", {}) or {}
+    fmt = (inputs.get("format") or "presentation").strip().lower()
+    if fmt not in ("presentation", "document", "social"):
+        fmt = "presentation"
+
+    # Build the source text from the lesson plan + planned teaching slides.
+    lines = ["# " + (plan.get("tajuk") or "English Lesson")]
+    meta = [plan.get("tema_bidang", ""), plan.get("tingkatan_kelas", ""),
+            plan.get("tarikh", ""), "KSSM English Form 3 (CEFR B1)"]
+    lines.append(" | ".join(x for x in meta if x))
+    if plan.get("objektif_pembelajaran"):
+        lines.append("\n## Learning objectives")
+        lines += ["- " + o for o in plan["objektif_pembelajaran"]]
+    slides = mat.get("slides", []) or []
+    for s in slides:
+        lines.append("\n## " + (s.get("tajuk") or "Slide"))
+        lines += ["- " + i for i in (s.get("isi") or [])]
+        if s.get("nota_guru"):
+            lines.append("(Teacher note: " + s["nota_guru"] + ")")
+    if not slides and plan.get("aktiviti_pembelajaran"):
+        lines.append("\n## Lesson activities")
+        lines += ["- " + a for a in plan["aktiviti_pembelajaran"]]
+    input_text = "\n".join(lines)[:20000]
+
+    payload = {
+        "inputText": input_text,
+        "textMode": "preserve",
+        "format": fmt,
+        "numCards": max(4, min(20, len(slides) + 2)),
+        "additionalInstructions": (
+            "This is a lesson for Malaysian Form 3 secondary school pupils "
+            "(KSSM English, CEFR B1). Keep the language simple, visual and "
+            "classroom-friendly. Keep the given content faithful."),
+        "imageOptions": {"source": "aiGenerated"},
+        "textOptions": {"language": "en"},
+    }
+    if fmt == "presentation":
+        payload["exportAs"] = "pptx"
+
+    ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
+    req = urllib.request.Request(
+        GAMMA_URL, data=json.dumps(payload).encode("utf-8"),
+        headers={"content-type": "application/json", "X-API-KEY": key,
+                 "accept": "application/json", "user-agent": ua},
+        method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            start = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")[:300]
+        hint = ""
+        if e.code in (401, 403):
+            hint = " (check the API key / Pro-plan access)"
+        return {"ok": False, "error": "Gamma API error {}{}: {}".format(e.code, hint, detail)}
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        return {"ok": False, "error": "Cannot reach Gamma: {}".format(e)}
+
+    gen_id = start.get("generationId") or start.get("id")
+    if not gen_id:
+        return {"ok": False, "error": "Gamma gave no generation id: " + json.dumps(start)[:300]}
+
+    # Poll until the deck is ready (Gamma usually takes 30-90 s).
+    for _ in range(60):
+        time.sleep(3)
+        req = urllib.request.Request(GAMMA_URL + "/" + str(gen_id),
+                                     headers={"X-API-KEY": key,
+                                              "accept": "application/json",
+                                              "user-agent": ua})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                st = json.loads(r.read().decode("utf-8"))
+        except Exception:  # noqa: BLE001 - transient poll errors are fine
+            continue
+        status = (st.get("status") or "").lower()
+        if status in ("completed", "complete", "succeeded"):
+            return {"ok": True, "url": st.get("gammaUrl") or st.get("url") or "",
+                    "export_url": st.get("exportUrl") or "",
+                    "credits": (st.get("credits") or {}).get("remaining")}
+        if status in ("failed", "error"):
+            return {"ok": False, "error": "Gamma generation failed: " + json.dumps(st)[:300]}
+    return {"ok": False, "error": "Gamma timed out after 3 minutes - check gamma.app, "
+            "the deck may still appear in your account."}
+
+
+def materials_summary(mat):
+    """Compact text of the teaching slides, to anchor worksheet questions."""
+    if isinstance(mat, str):
+        return mat[:3000]
+    if not isinstance(mat, dict):
+        return ""
+    lines = []
+    for s in (mat.get("slides", []) or [])[:12]:
+        isi = "; ".join(s.get("isi", []) or [])
+        t = s.get("tajuk", "")
+        lines.append("- {}: {}".format(t, isi) if isi else "- " + t)
+    return "\n".join(lines)[:3000]
+
+
+def _agihan_aras(n, lots, mots, hots):
+    """Tukar peratus agihan aras → bilangan soalan setiap aras (jumlah = n)."""
+    n_lots = round(n * lots / 100)
+    n_mots = round(n * mots / 100)
+    n_hots = max(0, n - n_lots - n_mots)  # baki, elak ralat pembundaran
+    return {"LOTS": n_lots, "MOTS": n_mots, "HOTS": n_hots}
+
+
+def generate_worksheet(inputs):
+    """Mod 'bank dahulu, AI tampung baki'.
+
+    1. Kira sasaran soalan setiap aras.
+    2. Ambil soalan diluluskan dari Bank Soalan untuk SP yang sama (paling jarang
+       diguna dahulu). Jika guru beri nota (jana semula), langkau bank — jana segar.
+    3. AI jana HANYA baki yang kurang, sambil dielak daripada menghasilkan soalan
+       yang serupa dengan yang sedia ada.
+    """
+    cur = find_curriculum(inputs)
+    ws = inputs.get("worksheet", {})
+    sp_lines = "\n".join("  {} {}".format(s["kod"], s["huraian"]) for s in cur["sp"])
+    sp_kods = [s["kod"] for s in cur["sp"]]
+    nota = inputs.get("nota_guru", "").strip()
+
+    n = int(ws.get("bil_soalan", 10) or 10)
+    sasaran = _agihan_aras(
+        n, int(ws.get("lots", 40)), int(ws.get("mots", 40)), int(ws.get("hots", 20))
+    )
+
+    # (2) Bank dahulu — HANYA soalan topik yang sama; kecuali guru minta jana semula.
+    dari_bank = [] if nota else bank.fetch_for_generation(
+        sp_kods, sasaran, inputs.get("topic", ""))
+    diperoleh = {a: 0 for a in sasaran}
+    for q in dari_bank:
+        diperoleh[q.get("aras", "MOTS")] = diperoleh.get(q.get("aras", "MOTS"), 0) + 1
+    gap = {a: max(0, sasaran[a] - diperoleh.get(a, 0)) for a in sasaran}
+    gap_total = sum(gap.values())
+
+    # (3) AI hanya menampung baki.
+    dijana_ai = []
+    ai_tajuk = ""
+    ai_arahan = ""
+    if gap_total > 0:
+        system_prompt = read_text(os.path.join(PROMPT_DIR, "agent3_worksheet.md"))
+        elak = "\n".join("- " + q["soalan"] for q in dari_bank) or "(none)"
+        user_prompt = (
+            "Learning Standard(s) to be tested:\n{sp}\n\n"
+            "Theme: {theme}   Topic/Unit: {topic}\n\n"
+            "Generate EXACTLY this many NEW questions per cognitive level:\n"
+            "  LOTS : {gl}\n  MOTS : {gm}\n  HOTS : {gh}\n"
+            "Total new questions : {gt}\n"
+            "Pupil proficiency : {tahap}\n\n"
+            "IMPORTANT — do NOT produce questions similar to or overlapping in meaning "
+            "with these existing ones:\n{elak}\n"
+        ).format(
+            sp=sp_lines,
+            theme=inputs.get("theme", ""), topic=inputs.get("topic", ""),
+            gl=gap["LOTS"], gm=gap["MOTS"], gh=gap["HOTS"], gt=gap_total,
+            tahap=inputs.get("tahap_murid", ""), elak=elak,
+        )
+        # Konteks RPH — soalan MESTI selari dengan apa yang diajar dalam lesson ini.
+        plan = inputs.get("plan") or {}
+        if plan:
+            user_prompt += (
+                "\n== LESSON PLAN CONTEXT (every question MUST be about THIS "
+                "lesson's topic and content — never an unrelated topic) ==\n"
+                "Lesson title : {}\n"
+                "Objectives   :\n{}\n"
+                "Activities   :\n{}\n"
+            ).format(
+                plan.get("tajuk", ""),
+                "\n".join("- " + o for o in (plan.get("objektif_pembelajaran") or [])) or "(none)",
+                "\n".join("- " + a for a in (plan.get("aktiviti_pembelajaran") or [])) or "(none)",
+            )
+        mat = inputs.get("materials")
+        if mat:
+            user_prompt += (
+                "\n== TAUGHT MATERIAL (base the questions on what pupils were "
+                "actually taught in these slides) ==\n" + materials_summary(mat) + "\n"
+            )
+        if nota:
+            user_prompt += "\n== TEACHER IMPROVEMENT NOTES ==\n" + nota
+        user_prompt += "\n\nGenerate the multiple-choice worksheet in JSON format as instructed."
+        raw = call_llm(system_prompt, user_prompt, max_tokens=8000)
+        ws_ai = extract_json(raw)
+        if isinstance(ws_ai, dict):
+            dijana_ai = ws_ai.get("soalan", []) or []
+            ai_tajuk = (ws_ai.get("tajuk") or "").strip()
+            ai_arahan = (ws_ai.get("arahan_murid") or "").strip()
+
+    # Gabung (bank dahulu) + nombor semula, hadkan kepada n.
+    gabung = (list(dari_bank) + list(dijana_ai))[:n]
+    for i, q in enumerate(gabung, 1):
+        q["no"] = i
+    worksheet = {
+        "tajuk": ai_tajuk or ("Worksheet — " + (cur["sk"]["nama"] if cur["sk"] else "English Form 3")),
+        "arahan_murid": ai_arahan,
+        "jumlah_soalan": len(gabung),
+        "jumlah_markah": sum(int(q.get("markah", 1) or 1) for q in gabung),
+        "soalan": gabung,
+        "_sumber": {"dari_bank": len(dari_bank), "dijana_ai": len(dijana_ai)},
+    }
+    worksheet, laporan = guardrail.check_worksheet(worksheet, sp_kods)
+    return {"worksheet": worksheet, "konteks": cur_summary(cur, inputs),
+            "_guardrail": laporan, "_enjin": last_engine()}
+
+
+def cur_summary(cur, inputs):
+    return {
+        "bidang": "{} {}".format(cur["bidang"]["kod"], cur["bidang"]["nama"]) if cur["bidang"] else "",
+        "sk": "{} {}".format(cur["sk"]["kod"], cur["sk"]["nama"]) if cur["sk"] else "",
+        "sp": ["{} {}".format(s["kod"], s["huraian"]) for s in cur["sp"]],
+        "kelas": inputs.get("nama_kelas", ""),
+        "tarikh": inputs.get("tarikh", ""),
+    }
+
+
+def save_artifact(body):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    jenis = re.sub(r"[^a-z0-9_]", "", (body.get("jenis", "artifak")).lower())
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    kelas = re.sub(r"[^A-Za-z0-9]+", "-", body.get("kelas", "")).strip("-")
+    name = "{}_{}_{}.json".format(jenis, kelas or "kelas", stamp)
+    path = os.path.join(OUTPUT_DIR, name)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(body.get("kandungan", {}), f, ensure_ascii=False, indent=2)
+    hasil = {"disimpan": True, "fail": "output/" + name}
+
+    # Worksheet yang guru SETUJU → masukkan ke Bank Soalan.
+    # Soalan baharu (tiada id) ditambah; soalan sedia ada dari bank ditanda diguna.
+    if body.get("jenis") == "worksheet":
+        kandungan = body.get("kandungan", {})
+        soalan = kandungan.get("soalan", []) if isinstance(kandungan, dict) else []
+        baharu = [q for q in soalan if not q.get("id")]
+        diguna = [q.get("id") for q in soalan if q.get("id")]
+        ditambah = bank.add_questions(baharu, status="diluluskan",
+                                      topic=body.get("topic", ""),
+                                      theme=body.get("theme", ""))
+        bank.mark_used(diguna)
+        hasil["bank"] = {"ditambah": ditambah, "diguna_semula": len(diguna)}
+    return hasil
+
+
+# --------------------------------------------------------------------------
+# Pengendali HTTP
+# --------------------------------------------------------------------------
+def save_lesson_route(body):
+    return {"id": lessons.save_lesson(body)}
+
+
+def delete_lesson_route(body):
+    return lessons.delete_lesson(body.get("id"))
+
+
+def generate_reflection(inputs):
+    """Agent: turn class results + the lesson into an RPH reflection + a teacher report."""
+    plan = inputs.get("plan", {}) or {}
+    results = (inputs.get("results", "") or "").strip()
+    score = (inputs.get("score_avg", "") or "").strip()
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent_reflection.md"))
+    sp = "; ".join(plan.get("standard_pembelajaran", []) or [])
+    obj = "; ".join(plan.get("objektif_pembelajaran", []) or [])
+    user_prompt = (
+        "== LESSON ==\n"
+        "Class: {kelas}\nTopic: {tajuk}\nTheme: {tema}\n"
+        "Learning Standards: {sp}\nObjectives: {obj}\n\n"
+        "== CLASS RESULTS / TEACHER NOTES ==\n"
+        "Average score: {score}\n{results}\n\n"
+        "Write the reflection and report in JSON as instructed."
+    ).format(
+        kelas=plan.get("tingkatan_kelas", ""), tajuk=plan.get("tajuk", ""),
+        tema=plan.get("tema_bidang", ""), sp=sp, obj=obj,
+        score=score or "(not given)", results=results or "(no extra notes)",
+    )
+    raw = call_llm(system_prompt, user_prompt, max_tokens=2000)
+    return extract_json(raw)
+
+
+def lesson_reflection_route(body):
+    return lessons.update_reflection(int(body.get("id")), body.get("refleksi", ""), body.get("score"))
+
+
+def distribute_direct(body):
+    """Path B (direct Google API) — dormant scaffold; inert until client_secret.json exists."""
+    try:
+        import niat_google
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "Path B module error: " + str(e)}
+    if not niat_google.available():
+        return {"ok": False, "error": "Path B is not set up yet — see PATH_B_SETUP.md "
+                "(needs client_secret.json + the google libraries)."}
+    return niat_google.distribute(
+        body.get("worksheet", {}), body.get("class_name", ""),
+        body.get("due_iso", ""), body.get("max_points"))
+
+
+def _read_reminder_cfg():
+    """k=v pairs from reminder_config.txt (shared with the reminder script)."""
+    cfg = {}
+    try:
+        with open(os.path.join(ROOT, "reminder_config.txt"), encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    cfg[k.strip()] = v.strip()
+    except FileNotFoundError:
+        pass
+    return cfg
+
+
+def _load_classrooms():
+    try:
+        with open(os.path.join(ROOT, "classrooms.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _post_hub(payload):
+    """POST to the teacher's Niat Hub web app (Apps Script). Returns its JSON."""
+    cfg = _read_reminder_cfg()
+    url = cfg.get("APPSCRIPT_HUB_URL", "").strip()
+    if not url:
+        return {"ok": False, "error": "One-time setup needed: deploy niat_hub.gs "
+                "(open the file for the 5 steps), then put APPSCRIPT_HUB_URL in "
+                "reminder_config.txt."}
+    payload["key"] = cfg.get("APPSCRIPT_HUB_KEY", "")
+    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
+                                 headers={"content-type": "application/json"})
+    try:
+        # Apps Script boleh ambil masa (cipta Doc/Form) — beri masa panjang.
+        with urllib.request.urlopen(req, timeout=180) as r:
+            text = r.read().decode("utf-8", "ignore")
+    except urllib.error.HTTPError as e:
+        return {"ok": False, "error": "Hub error {}: {}".format(
+            e.code, e.read().decode("utf-8", "replace")[:200])}
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        return {"ok": False, "error": "Cannot reach the hub: {}".format(e)}
+    try:
+        return json.loads(text)
+    except ValueError:
+        return {"ok": False, "error": "Hub gave a non-JSON reply (check the "
+                "deployment is 'Anyone' access): " + text[:200]}
+
+
+def _plan_rows(plan):
+    """RPH dict -> 2-column table rows for the Google Doc (plain Perlis format)."""
+    plan = plan or {}
+    g = lambda k: str(plan.get(k, "") or "")
+    obj = "\n".join("{}. {}".format(i, o) for i, o in
+                    enumerate(plan.get("objektif_pembelajaran", []) or [], 1))
+    akt = "\n".join("{}. {}".format(i, a) for i, a in
+                    enumerate(plan.get("aktiviti_pembelajaran", []) or [], 1))
+    sp = "\n".join(plan.get("standard_pembelajaran", []) or [])
+    return [
+        ["MINGGU", g("minggu")], ["TARIKH", g("tarikh")], ["HARI", g("hari")],
+        ["MASA", g("masa")], ["TINGKATAN / KELAS", g("tingkatan_kelas")],
+        ["MINIMUM JAM SETAHUN", g("minimum_jam_setahun")],
+        ["MATA PELAJARAN", g("mata_pelajaran")],
+        ["TEMA / BIDANG", g("tema_bidang")], ["TAJUK", g("tajuk")],
+        ["STANDARD KANDUNGAN", g("standard_kandungan")],
+        ["STANDARD PEMBELAJARAN", sp],
+        ["OBJEKTIF PEMBELAJARAN", "Pada akhir PdPc, murid boleh :\n" + obj],
+        ["AKTIVITI PEMBELAJARAN", akt],
+        ["REFLEKSI", g("refleksi")],
+    ]
+
+
+def classroom_lessonplan(body):
+    """One click: RPH -> Doc+PDF -> the 'Lesson Plan' Classroom via the hub."""
+    plan = body.get("plan") or {}
+    course = (_load_classrooms() or {}).get("lesson_plan", "")
+    title = "RPH — {} — {}".format(plan.get("tingkatan_kelas", "Class"),
+                                   plan.get("tarikh", ""))
+    return _post_hub({
+        "action": "lessonplan", "courseId": course, "title": title,
+        "school": body.get("school", ""), "rows": _plan_rows(plan),
+    })
+
+
+def classroom_materials(body):
+    """One click: teaching slides -> Google Slides -> the chosen Classroom."""
+    mat = body.get("materials") or {}
+    slides = mat.get("slides") or []
+    if not slides:
+        return {"ok": False, "error": "No teaching materials yet - generate the slides first."}
+    target = (body.get("target") or "").strip()
+    cmap = _load_classrooms() or {}
+    if target.lower().replace("_", " ") == "lesson plan":
+        course = cmap.get("lesson_plan", "")
+        target_label = "Lesson Plan - PRESTIJ Project"
+    else:
+        course = ""
+        target_label = target
+        for name, cid in (cmap.get("classes") or {}).items():
+            if name.strip().lower() == target.lower() and cid:
+                course = cid
+                break
+    if not course:
+        return {"ok": False, "error": "No Classroom ID mapped for '{}'. Add it to "
+                "classrooms.json.".format(target_label or "?")}
+    plan = body.get("plan") or {}
+    title = "Slides — " + (plan.get("tajuk") or "English Lesson")
+    if plan.get("tingkatan_kelas"):
+        title += " — " + plan["tingkatan_kelas"]
+    return _post_hub({
+        "action": "materials", "courseId": course, "title": title,
+        "slides": [{"heading": s.get("tajuk", ""), "points": s.get("isi") or []}
+                   for s in slides],
+    })
+
+
+def classroom_worksheet(body):
+    """One click: worksheet -> Form quiz -> the pupils' Classroom + emails."""
+    ws = body.get("worksheet") or {}
+    class_name = (body.get("class_name") or "").strip()
+    cls_map = (_load_classrooms() or {}).get("classes", {})
+    course = ""
+    for name, cid in cls_map.items():
+        if name.strip().lower() == class_name.lower():
+            course = cid
+            break
+    if not course:
+        return {"ok": False, "error": "No Classroom ID mapped for '{}'. Add it to "
+                "classrooms.json (current: {}).".format(class_name or "?",
+                ", ".join(cls_map) or "none")}
+    questions = [{
+        "q": q.get("soalan", ""), "opts": q.get("pilihan", []),
+        "answerIndex": "ABCD".find(str(q.get("jawapan_betul", "A"))[:1]),
+        "points": int(q.get("markah", 1) or 1),
+        "feedback": q.get("maklum_balas", ""),
+    } for q in (ws.get("soalan") or [])]
+    due_iso = ""
+    if body.get("due_date") and body.get("due_time"):
+        due_iso = "{}T{}:00+08:00".format(body["due_date"], body["due_time"])
+    desc = (ws.get("arahan_murid") or "").strip() or \
+        "Answer all questions and submit before the due date. Good luck!"
+    if due_iso:
+        desc += "\n\nDue: {} {}".format(body.get("due_date"), body.get("due_time"))
+    return _post_hub({
+        "action": "worksheet", "courseId": course, "dueIso": due_iso,
+        "description": desc,
+        "ws": {"title": ws.get("tajuk") or "English Quiz", "questions": questions,
+               "points": ws.get("jumlah_markah") or len(questions)},
+        "studentEmails": load_students().get("students", []),
+    })
+
+
+def _load_timetable():
+    try:
+        with open(os.path.join(ROOT, "timetable.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _enrich(c, pupils_map):
+    """Attach the per-class pupil count to a timetable slot."""
+    out = dict(c)
+    out["pupils"] = pupils_map.get(c.get("class", ""), "")
+    return out
+
+
+def next_class():
+    """Tomorrow's English class(es) + teacher/school profile — for one-tap auto-fill."""
+    tt = _load_timetable()
+    pupils = tt.get("class_pupils", {}) or {}
+    tomorrow = datetime.now() + timedelta(days=1)
+    day = tomorrow.strftime("%A")
+    classes = [_enrich(c, pupils) for c in tt.get("classes", [])
+               if c.get("day", "").strip().lower() == day.lower()]
+    return {
+        "date": tomorrow.strftime("%Y-%m-%d"), "day": day,
+        "teacher": tt.get("teacher_name", ""), "school": tt.get("school", ""),
+        "classes": classes,
+    }
+
+
+def load_students():
+    """Pilot students from 'Email Student Prototype.txt' (name line, then email line).
+
+    Any line containing '@' is an email; the nearest non-empty line above it is
+    the student's name. Teacher edits the txt file — no code change needed.
+    """
+    path = os.path.join(ROOT, "Email Student Prototype.txt")
+    students = []
+    last_name = ""
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                if "@" in line and "." in line.split("@")[-1]:
+                    students.append({"name": last_name or "Student", "email": line})
+                    last_name = ""
+                else:
+                    last_name = line
+    except FileNotFoundError:
+        pass
+    return {"students": students, "jumlah": len(students)}
+
+
+def class_lookup(body):
+    """Return the timetable slot details for a given class name (any day) — for reminder-link prefill."""
+    tt = _load_timetable()
+    pupils = tt.get("class_pupils", {}) or {}
+    want = (body.get("class", "") if body else "").strip().lower()
+    for c in tt.get("classes", []):
+        if c.get("class", "").strip().lower() == want:
+            return {"found": True, "slot": _enrich(c, pupils),
+                    "teacher": tt.get("teacher_name", ""), "school": tt.get("school", "")}
+    return {"found": False, "teacher": tt.get("teacher_name", ""), "school": tt.get("school", "")}
+
+
+def grade_writing(inputs):
+    """Agent: grade a pupil's writing/speaking transcript against the CEFR rubric."""
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent_rubric.md"))
+    task = (inputs.get("task", "") or "").strip()
+    writing = (inputs.get("writing", "") or "").strip()
+    user_prompt = (
+        "== MARKING TASK (if any) ==\n{task}\n\n"
+        "== PUPIL'S RESPONSE ==\n{writing}\n\n"
+        "Grade it and return JSON as instructed."
+    ).format(task=task or "(general writing)", writing=writing)
+    raw = call_llm(system_prompt, user_prompt, max_tokens=4000)
+    return extract_json(raw)
+
+
+ROUTES = {
+    "/api/generate-rph": generate_rph,
+    "/api/generate-materials": generate_materials,
+    "/api/gamma-generate": generate_gamma,
+    "/api/classroom-lessonplan": classroom_lessonplan,
+    "/api/classroom-worksheet": classroom_worksheet,
+    "/api/classroom-materials": classroom_materials,
+    "/api/generate-worksheet": generate_worksheet,
+    "/api/save-lesson": save_lesson_route,
+    "/api/delete-lesson": delete_lesson_route,
+    "/api/reflect": generate_reflection,
+    "/api/lesson-reflection": lesson_reflection_route,
+    "/api/grade": grade_writing,
+    "/api/distribute-direct": distribute_direct,
+}
+
+CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".ico": "image/x-icon",
+    ".pdf": "application/pdf",
+}
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "PenjanaRPH/1.0"
+
+    def log_message(self, fmt, *args):
+        sys.stderr.write("  %s\n" % (fmt % args))
+
+    def _send(self, code, body, ctype="application/json; charset=utf-8", headers=None):
+        if isinstance(body, (dict, list)):
+            body = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        elif isinstance(body, str):
+            body = body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _redirect(self, location, headers=None):
+        self.send_response(302)
+        self.send_header("Location", location)
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    # Paths reachable WITHOUT logging in (login page + its logo + health probe
+    # + PWA manifest/service worker, which browsers fetch outside the session).
+    PUBLIC_GET = ("/login.html", "/niat-logo.png", "/api/health", "/favicon.ico",
+                  "/manifest.json", "/sw.js", "/icon-192.png", "/icon-512.png")
+
+    def _current_user(self):
+        return auth.user_from_cookie(self.headers.get("Cookie", ""))
+
+    def do_GET(self):
+        path = self.path.split("?", 1)[0]
+        if path == "/":
+            path = "/index.html"
+        # ---- Login gate: everything except PUBLIC_GET needs a valid session ----
+        if path not in self.PUBLIC_GET and not self._current_user():
+            if path.startswith("/api/"):
+                self._send(401, {"ralat": "not logged in"})
+            else:
+                # keep the original link (e.g. ?class=3%20Delima) for after login
+                nxt = self.path if self.path not in ("/", "/index.html") else ""
+                self._redirect("/login.html" + (("?next=" + urllib.parse.quote(nxt)) if nxt else ""))
+            return
+        if path == "/dskp_english_f3.json":
+            self._send(200, read_text(DSKP_FILE, "{}"), CONTENT_TYPES[".json"])
+            return
+        if path == "/api/health":
+            try:
+                bank_total = bank.stats().get("jumlah", 0)
+            except Exception:  # noqa: BLE001
+                bank_total = None
+            self._send(200, {
+                "ok": True,
+                "model": MODEL,
+                "api_key_set": bool(GOOGLE_API_KEY),
+                "bank_total": bank_total,
+                "engine_mode": ENGINE_MODE,
+                "local_fallback": {
+                    "available": ollama_available(),
+                    "model": OLLAMA_MODEL,
+                },
+                "time": datetime.now().isoformat(timespec="seconds"),
+            })
+            return
+        if path == "/textbook.pdf":
+            # Buku teks rujukan (Close-Up F3) — dilindungi login seperti yang lain.
+            tb = os.path.join(ROOT, "Buku Teks - Close-Up English Form 3.pdf")
+            if os.path.isfile(tb):
+                with open(tb, "rb") as f:
+                    self._send(200, f.read(), "application/pdf")
+            else:
+                self._send(404, {"ralat": "textbook file not found"})
+            return
+        if path == "/api/bank-stats":
+            try:
+                self._send(200, bank.stats())
+            except Exception as e:  # noqa: BLE001
+                self._send(500, {"ralat": str(e)})
+            return
+        if path == "/api/lessons":
+            q = parse_qs(urlparse(self.path).query).get("q", [""])[0]
+            self._send(200, lessons.list_lessons(q))
+            return
+        if path == "/api/lesson":
+            lid = parse_qs(urlparse(self.path).query).get("id", [""])[0]
+            rec = lessons.get_lesson(int(lid)) if lid.isdigit() else None
+            self._send(200 if rec else 404, rec or {"ralat": "lesson not found"})
+            return
+        if path == "/api/progress":
+            self._send(200, {"items": lessons.progress()})
+            return
+        if path == "/api/next-class":
+            self._send(200, next_class())
+            return
+        if path == "/api/students":
+            self._send(200, load_students())
+            return
+        if path == "/api/class-info":
+            q = parse_qs(urlparse(self.path).query).get("class", [""])[0]
+            self._send(200, class_lookup({"class": q}))
+            return
+        if path == "/api/profile":
+            # User profile (name, role, avatar). Stored in users.json next to the
+            # password hash — swap this for a Supabase `profiles` table later.
+            user = self._current_user()
+            rec = auth._load_users().get(user, {})
+            av_file = os.path.join(WEB_DIR, "avatars", user + ".png")
+            avatar = None
+            if os.path.isfile(av_file):
+                avatar = "/avatars/{}.png?v={}".format(user, int(os.path.getmtime(av_file)))
+            self._send(200, {
+                "username": user,
+                "full_name": rec.get("full_name") or user,
+                "role": rec.get("role") or "Teacher",
+                "avatar": avatar,
+            })
+            return
+        # Sajikan fail statik dari web/
+        safe = os.path.normpath(path.lstrip("/")).replace("\\", "/")
+        if safe.startswith(".."):
+            self._send(403, {"ralat": "dilarang"})
+            return
+        full = os.path.join(WEB_DIR, safe)
+        if os.path.isfile(full):
+            ext = os.path.splitext(full)[1].lower()
+            with open(full, "rb") as f:
+                data = f.read()
+            self._send(200, data, CONTENT_TYPES.get(ext, "application/octet-stream"))
+        else:
+            self._send(404, {"ralat": "tidak dijumpai: " + path})
+
+    def do_POST(self):
+        path = self.path.split("?", 1)[0]
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            body = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            self._send(400, {"ralat": "JSON permintaan tidak sah"})
+            return
+        # ---- Login / logout (no session needed) ----
+        if path == "/api/login":
+            time.sleep(0.4)  # slow down password guessing
+            user = (body.get("username") or "").strip()
+            if auth.verify(user, body.get("password") or ""):
+                token = auth.make_token(user.lower())
+                self._send(200, {"ok": True, "user": user.lower()},
+                           headers={"Set-Cookie": auth.session_cookie(token)})
+            else:
+                self._send(401, {"ok": False, "ralat": "Wrong username or password."})
+            return
+        if path == "/api/logout":
+            self._send(200, {"ok": True}, headers={"Set-Cookie": auth.clear_cookie()})
+            return
+        # ---- Everything else needs a valid session ----
+        if not self._current_user():
+            self._send(401, {"ralat": "not logged in"})
+            return
+        try:
+            if path == "/api/export-docx":
+                data = export_docx.plan_to_docx(body.get("plan", {}), body.get("school", ""))
+                self._send(200, data,
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            elif path == "/api/export-pptx":
+                data = export_pptx.slides_to_pptx(body.get("materials", {}),
+                                                  body.get("footer", ""))
+                self._send(200, data,
+                           "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+            elif path == "/api/profile":
+                users = auth._load_users()
+                user = self._current_user()
+                rec = users.setdefault(user, {})
+                name = (body.get("full_name") or "").strip()
+                if name:
+                    rec["full_name"] = name[:80]
+                role = (body.get("role") or "").strip()
+                if role:
+                    rec["role"] = role[:40]
+                auth._save_users(users)
+                self._send(200, {"ok": True})
+            elif path == "/api/profile-photo":
+                # Body: {"image": "data:image/png;base64,..."} — the UI resizes the
+                # picture to a small square PNG on the client before sending.
+                user = self._current_user()
+                m = re.match(r"^data:image/png;base64,([A-Za-z0-9+/=]+)$",
+                             body.get("image") or "")
+                if not m:
+                    self._send(400, {"ralat": "expected a data:image/png;base64 image"})
+                else:
+                    img = base64.b64decode(m.group(1))
+                    if len(img) > 1_500_000:
+                        self._send(400, {"ralat": "image too large (max 1.5 MB)"})
+                    else:
+                        av_dir = os.path.join(WEB_DIR, "avatars")
+                        os.makedirs(av_dir, exist_ok=True)
+                        av_file = os.path.join(av_dir, user + ".png")
+                        with open(av_file, "wb") as f:
+                            f.write(img)
+                        self._send(200, {"ok": True,
+                                         "avatar": "/avatars/{}.png?v={}".format(
+                                             user, int(os.path.getmtime(av_file)))})
+            elif path == "/api/save":
+                self._send(200, save_artifact(body))
+            elif path in ROUTES:
+                self._send(200, ROUTES[path](body))
+            else:
+                self._send(404, {"ralat": "laluan tidak dikenali: " + path})
+        except Exception as e:  # noqa: BLE001 — pulangkan ralat ke UI
+            self._send(500, {"ralat": str(e)})
+
+
+def main():
+    if not GOOGLE_API_KEY:
+        print("WARNING: GOOGLE_API_KEY not set — generation will fail.")
+        print('  PowerShell:  $env:GOOGLE_API_KEY="AIza..."\n')
+    print("Niat — English Form 3 Lesson Plan & Worksheet Generator (Phase 1 MVP)")
+    print("  Model : {}".format(MODEL))
+    print("  Open  : http://{}:{}".format(HOST if HOST != "0.0.0.0" else "localhost", PORT))
+    print("  (Ctrl+C to stop)\n")
+    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+
+
+if __name__ == "__main__":
+    main()
