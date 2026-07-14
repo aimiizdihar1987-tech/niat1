@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign in — Niat</title>
+  <title>Create account — Niat</title>
   <link rel="icon" type="image/png" href="niat-logo.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0c1210" />
@@ -17,7 +17,7 @@
     body {
       font-family: "Inter", "Segoe UI", system-ui, sans-serif; min-height: 100vh;
       display: flex; align-items: center; justify-content: center;
-      color: #ecf7f2;
+      color: #ecf7f2; padding: 24px 16px;
       background:
         radial-gradient(700px 420px at 80% -10%, rgba(99,230,194,.11), transparent 60%),
         radial-gradient(700px 460px at -8% 30%, rgba(139,92,246,.15), transparent 60%),
@@ -50,6 +50,7 @@
       background: #0e1512; color: #ecf7f2; font-family: inherit;
     }
     input:focus { border-color: #63e6c2; box-shadow: 0 0 0 3px rgba(99,230,194,.2); }
+    .hint { display: block; text-align: left; font-size: 11.5px; color: #7e948b; margin-top: 5px; }
     button {
       width: 100%; margin-top: 22px; padding: 13px; border: 0; border-radius: 999px;
       background: #63e6c2; color: #04231a;
@@ -71,33 +72,47 @@
   <form class="card" id="f">
     <img src="niat-logo.png" alt="Niat logo" />
     <h1>Ni<span>at</span></h1>
-    <p class="tag">From Intention to Intervention</p>
+    <p class="tag">Create your teacher account</p>
+    <label for="n">Full name</label>
+    <input id="n" autocomplete="name" autofocus required placeholder="e.g. Cikgu Aimi Izdihar" />
     <label for="u">Username</label>
-    <input id="u" autocomplete="username" autofocus required />
+    <input id="u" autocomplete="username" required pattern="[a-z0-9_.-]{3,32}" placeholder="e.g. cikguaimi" />
+    <span class="hint">3-32 characters: lowercase letters, numbers, . _ -</span>
     <label for="p">Password</label>
-    <input id="p" type="password" autocomplete="current-password" required />
-    <button id="b" type="submit">Sign in</button>
+    <input id="p" type="password" autocomplete="new-password" required minlength="6" />
+    <label for="p2">Confirm password</label>
+    <input id="p2" type="password" autocomplete="new-password" required minlength="6" />
+    <button id="b" type="submit">Create account</button>
     <div class="err" id="e"></div>
-    <p class="foot">New teacher? <a href="signup.html">Create an account</a></p>
+    <p class="foot">Already have an account? <a href="login.html">Sign in</a></p>
   </form>
   <script>
     const $ = (id) => document.getElementById(id);
     $("f").addEventListener("submit", async (ev) => {
       ev.preventDefault();
-      $("b").disabled = true; $("e").style.display = "none";
+      $("e").style.display = "none";
+      const full_name = $("n").value.trim();
+      const username = $("u").value.trim().toLowerCase();
+      const password = $("p").value;
+      const password2 = $("p2").value;
+      if (password !== password2) {
+        $("e").textContent = "Passwords do not match.";
+        $("e").style.display = "block";
+        return;
+      }
+      $("b").disabled = true;
       try {
-        const r = await fetch("/api/login", {
+        const r = await fetch("/api/signup", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ username: $("u").value, password: $("p").value }),
+          body: JSON.stringify({ full_name, username, password }),
         });
         const d = await r.json();
         if (r.ok && d.ok) {
-          try { localStorage.setItem("niat-user", $("u").value.trim()); } catch (_) {}
-          const next = new URLSearchParams(location.search).get("next");
-          location.href = next && next.startsWith("/") ? next : "/";
+          try { localStorage.setItem("niat-user", username); } catch (_) {}
+          location.href = "/";
         } else {
-          throw new Error(d.ralat || "Sign-in failed.");
+          throw new Error(d.ralat || "Could not create account.");
         }
       } catch (err) {
         $("e").textContent = err.message;

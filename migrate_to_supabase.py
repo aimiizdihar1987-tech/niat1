@@ -128,6 +128,10 @@ def migrate_students():
 
 
 def migrate_timetable():
+    # timetable.json is now per-teacher (keyed by login username). The
+    # Supabase `timetable_classes` table has no owner column yet (deferred —
+    # the live app doesn't read timetables from Supabase at all currently),
+    # so this still only migrates Cikgu Aimi's branch, same as before.
     path = os.path.join(ROOT, "timetable.json")
     try:
         with open(path, encoding="utf-8") as f:
@@ -135,7 +139,7 @@ def migrate_timetable():
     except FileNotFoundError:
         print("No timetable.json found -- skipped.")
         return
-    rows = data.get("classes") or []
+    rows = (data.get("teachers") or {}).get("aimiizdihar", {}).get("classes") or []
     if rows:
         sb.insert("timetable_classes", rows)
         print("Migrated {} timetable rows.".format(len(rows)))

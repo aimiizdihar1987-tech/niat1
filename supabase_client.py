@@ -103,6 +103,54 @@ def update(table_name, match_params, patch, role="service", access_token=None):
                      params=match_params, access_token=access_token, extra_headers=headers)
 
 
+# --------------------------------------------------------------------------
+# Storage (raw file upload/download — service_role only, bypasses RLS)
+# --------------------------------------------------------------------------
+def _request_raw(method, path, content_type, data, extra_headers=None):
+    """Like _request(), but sends a raw byte body instead of JSON-encoding it
+    (for file uploads/downloads)."""
+    if not URL:
+        raise SupabaseError("supabase_config.txt is not filled in yet (SUPABASE_URL missing).")
+    req = urllib.request.Request(URL + path, method=method, data=data)
+    req.add_header("apikey", SERVICE_KEY)
+    req.add_header("Authorization", "Bearer " + SERVICE_KEY)
+    req.add_header("Content-Type", content_type)
+    for k, v in (extra_headers or {}).items():
+        req.add_header(k, v)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            raw = r.read()
+            ct = r.headers.get("Content-Type", "")
+            return json.loads(raw) if raw and "json" in ct else raw
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "ignore")
+        raise SupabaseError("{} {} -> {}".format(method, path, detail)) from None
+
+
+def storage_create_bucket(bucket_id, public=False):
+    """Create a Storage bucket if it doesn't already exist. Safe to call
+    every time before an upload."""
+    try:
+        _request("POST", "/storage/v1/bucket", role="service",
+                  body={"id": bucket_id, "name": bucket_id, "public": public})
+    except SupabaseError as e:
+        if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+            raise
+
+
+def storage_upload(bucket, path, data, content_type="application/octet-stream"):
+    """Upload (or overwrite) a file. `data` is raw bytes. Returns the storage
+    path on success."""
+    return _request_raw("POST", "/storage/v1/object/{}/{}".format(bucket, path),
+                         content_type, data, extra_headers={"x-upsert": "true"})
+
+
+def storage_download(bucket, path):
+    """Download a file's raw bytes."""
+    return _request_raw("GET", "/storage/v1/object/{}/{}".format(bucket, path),
+                         "application/octet-stream", None)
+
+
 def delete(table_name, match_params, role="service", access_token=None):
     return _request("DELETE", "/rest/v1/" + table_name, role=role,
                      params=match_params, access_token=access_token)
@@ -142,3 +190,30 @@ def admin_list_users():
 
 def admin_delete_user(auth_user_id):
     return _request("DELETE", "/auth/v1/admin/users/" + auth_user_id, role="service")
+
+
+def admin_find_user(username):
+    """Return the Auth user dict whose user_metadata.username matches, else None.
+    Service-role only."""
+    username = (username or "").strip().lower()
+    for u in (admin_list_users().get("users") or []):
+        if (u.get("user_metadata") or {}).get("username", "").lower() == username:
+            return u
+    return None
+
+
+def admin_update_user(auth_user_id, password=None, user_metadata=None):
+    """Service-role only. Update an Auth user's password and/or metadata."""
+    body = {}
+    if password is not None:
+        body["password"] = password
+    if user_metadata is not None:
+        body["user_metadata"] = user_metadata
+    return _request("PUT", "/auth/v1/admin/users/" + auth_user_id, role="service", body=body)
+
+
+def set_profile_role(username, role):
+    """Update the profiles table role (the value the app actually reads).
+    Service-role bypasses RLS. Returns the updated rows."""
+    return update("profiles", {"username": "eq." + username.strip().lower()},
+                  {"role": role}, role="service")

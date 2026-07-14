@@ -124,8 +124,12 @@ def check_token(token):
             return None
         if int(exp) < time.time():
             return None
-        if username not in _load_users():
-            return None  # deleted users lose access immediately
+        # Trust the signature + expiry alone (standard session-token design).
+        # We deliberately do NOT also require `username in _load_users()` here:
+        # accounts created via Supabase Auth (signup, or migrated teachers)
+        # never appear in the local users.json store at all, so that check
+        # would reject every Supabase-only session as "logged out" the
+        # instant it was issued.
         return username
     except Exception:  # noqa: BLE001
         return None

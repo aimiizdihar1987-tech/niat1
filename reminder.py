@@ -57,11 +57,15 @@ def read_config():
 
 
 def load_timetable():
+    """This reminder script is Cikgu Aimi's own (Gmail/Telegram/WhatsApp
+    numbers in reminder_config.txt are hers) — timetable.json now holds
+    every teacher's schedule keyed by username, so pick her branch here."""
     try:
         with open(TIMETABLE, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except FileNotFoundError:
         return {}
+    return (data.get("teachers") or {}).get("aimiizdihar", {})
 
 
 def compose(teacher, date_str, day, classes, iso_date=""):

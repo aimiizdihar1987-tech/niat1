@@ -31,6 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 import auth
+import supabase_client as sb
 import bank_soalan as bank
 import export_docx
 import export_pptx
@@ -831,12 +832,16 @@ def classroom_worksheet(body):
     })
 
 
-def _load_timetable():
+def _load_timetable(username):
+    """Return the timetable for ONE teacher (keyed by login username) —
+    timetable.json is shared by everyone but each teacher only ever sees
+    their own schedule, never another teacher's."""
     try:
         with open(os.path.join(ROOT, "timetable.json"), encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except (FileNotFoundError, ValueError):
         return {}
+    return (data.get("teachers") or {}).get(username, {})
 
 
 def _enrich(c, pupils_map):
@@ -846,9 +851,10 @@ def _enrich(c, pupils_map):
     return out
 
 
-def next_class():
-    """Tomorrow's English class(es) + teacher/school profile — for one-tap auto-fill."""
-    tt = _load_timetable()
+def next_class(username):
+    """Tomorrow's English class(es) + teacher/school profile — for one-tap auto-fill.
+    Tallied against whoever is currently logged in — never someone else's classes."""
+    tt = _load_timetable(username)
     pupils = tt.get("class_pupils", {}) or {}
     tomorrow = datetime.now() + timedelta(days=1)
     day = tomorrow.strftime("%A")
@@ -886,9 +892,10 @@ def load_students():
     return {"students": students, "jumlah": len(students)}
 
 
-def class_lookup(body):
-    """Return the timetable slot details for a given class name (any day) — for reminder-link prefill."""
-    tt = _load_timetable()
+def class_lookup(body, username):
+    """Return the timetable slot details for a given class name (any day) — for reminder-link prefill.
+    Looked up against the CURRENT user's own timetable only."""
+    tt = _load_timetable(username)
     pupils = tt.get("class_pupils", {}) or {}
     want = (body.get("class", "") if body else "").strip().lower()
     for c in tt.get("classes", []):
@@ -896,6 +903,169 @@ def class_lookup(body):
             return {"found": True, "slot": _enrich(c, pupils),
                     "teacher": tt.get("teacher_name", ""), "school": tt.get("school", "")}
     return {"found": False, "teacher": tt.get("teacher_name", ""), "school": tt.get("school", "")}
+
+
+# --------------------------------------------------------------------------
+# Admin: user management + oversight (all callers already role-checked in the
+# handler via _require_admin, so these trust `actor_role` as verified).
+# --------------------------------------------------------------------------
+VALID_ROLES = ("teacher", "admin", "super_admin")
+USERNAME_RE = re.compile(r"^[a-z0-9_.-]{3,32}$")
+
+
+def admin_list_all_users():
+    """Every account: username, full_name, role, created_at. Supabase is the
+    source of truth for accounts; local users.json is a fallback."""
+    out = []
+    if sb.configured():
+        try:
+            profiles = {p["username"]: p for p in sb.select("profiles",
+                        {"select": "username,full_name,role"})}
+            for u in (sb.admin_list_users().get("users") or []):
+                uname = (u.get("user_metadata") or {}).get("username", "")
+                if not uname:
+                    continue
+                prof = profiles.get(uname, {})
+                out.append({
+                    "username": uname,
+                    "full_name": prof.get("full_name") or (u.get("user_metadata") or {}).get("full_name") or uname,
+                    "role": (prof.get("role") or "teacher").lower(),
+                    "created_at": u.get("created_at", ""),
+                })
+        except sb.SupabaseError as e:
+            return {"users": [], "error": str(e)}
+    else:
+        for uname, rec in auth._load_users().items():
+            out.append({"username": uname, "full_name": rec.get("full_name") or uname,
+                        "role": (rec.get("role") or "teacher").lower(), "created_at": ""})
+    order = {"super_admin": 0, "admin": 1, "teacher": 2}
+    out.sort(key=lambda r: (order.get(r["role"], 3), r["full_name"].lower()))
+    return {"users": out}
+
+
+def admin_overview():
+    """School-wide totals for the admin dashboard."""
+    users = admin_list_all_users().get("users", [])
+    try:
+        bank_total = bank.stats().get("jumlah", 0)
+    except Exception:  # noqa: BLE001
+        bank_total = 0
+    try:
+        lesson_total = len(lessons.list_lessons(""))
+    except Exception:  # noqa: BLE001
+        lesson_total = 0
+    return {
+        "users_total": len(users),
+        "teachers": sum(1 for u in users if u["role"] == "teacher"),
+        "admins": sum(1 for u in users if u["role"] in ("admin", "super_admin")),
+        "lessons_total": lesson_total,
+        "bank_total": bank_total,
+    }
+
+
+def admin_create_teacher(body, actor_role):
+    if not sb.configured():
+        return {"ok": False, "ralat": "Supabase is not configured."}
+    username = (body.get("username") or "").strip().lower()
+    full_name = (body.get("full_name") or "").strip()[:80]
+    password = body.get("password") or ""
+    role = (body.get("role") or "teacher").lower()
+    if role not in VALID_ROLES:
+        return {"ok": False, "ralat": "Invalid role."}
+    # Only a super_admin may create another admin or super_admin.
+    if role in ("admin", "super_admin") and actor_role != "super_admin":
+        return {"ok": False, "ralat": "Only a super admin can create admin accounts."}
+    if not USERNAME_RE.match(username):
+        return {"ok": False, "ralat": "Username must be 3-32 chars: a-z 0-9 _ . -"}
+    if len(password) < 6:
+        return {"ok": False, "ralat": "Password must be at least 6 characters."}
+    if not full_name:
+        return {"ok": False, "ralat": "Please enter the teacher's full name."}
+    try:
+        sb.admin_create_user(username, password, full_name=full_name, role_name=role)
+    except sb.SupabaseError as e:
+        msg = "That username is already taken." if "already" in str(e).lower() or "exists" in str(e).lower() \
+            else "Could not create the account."
+        return {"ok": False, "ralat": msg}
+    return {"ok": True}
+
+
+def admin_set_role(body, actor, actor_role):
+    if not sb.configured():
+        return {"ok": False, "ralat": "Supabase is not configured."}
+    target = (body.get("username") or "").strip().lower()
+    new_role = (body.get("role") or "").lower()
+    if new_role not in VALID_ROLES:
+        return {"ok": False, "ralat": "Invalid role."}
+    if target == actor:
+        return {"ok": False, "ralat": "You can't change your own role."}
+    try:
+        rows = sb.select("profiles", {"select": "role", "username": "eq." + target})
+        current = (rows[0].get("role") or "teacher").lower() if rows else None
+    except sb.SupabaseError:
+        current = None
+    if current is None:
+        return {"ok": False, "ralat": "User not found."}
+    # Guard the super_admin tier: only a super_admin may grant it, or change
+    # someone who currently holds it.
+    if (new_role == "super_admin" or current == "super_admin") and actor_role != "super_admin":
+        return {"ok": False, "ralat": "Only a super admin can manage super admin accounts."}
+    try:
+        sb.set_profile_role(target, new_role)
+        u = sb.admin_find_user(target)
+        if u:  # keep Auth metadata in sync with the profiles table
+            meta = dict(u.get("user_metadata") or {})
+            meta["role"] = new_role
+            sb.admin_update_user(u["id"], user_metadata=meta)
+    except sb.SupabaseError as e:
+        return {"ok": False, "ralat": str(e)}
+    return {"ok": True}
+
+
+def admin_reset_password(body, actor, actor_role):
+    if not sb.configured():
+        return {"ok": False, "ralat": "Supabase is not configured."}
+    target = (body.get("username") or "").strip().lower()
+    password = body.get("password") or ""
+    if len(password) < 6:
+        return {"ok": False, "ralat": "Password must be at least 6 characters."}
+    u = sb.admin_find_user(target)
+    if not u:
+        return {"ok": False, "ralat": "User not found."}
+    target_role = (u.get("user_metadata") or {}).get("role", "teacher").lower()
+    if target_role == "super_admin" and actor_role != "super_admin":
+        return {"ok": False, "ralat": "Only a super admin can reset a super admin's password."}
+    try:
+        sb.admin_update_user(u["id"], password=password)
+    except sb.SupabaseError as e:
+        return {"ok": False, "ralat": str(e)}
+    return {"ok": True}
+
+
+def admin_delete_teacher(body, actor, actor_role):
+    if not sb.configured():
+        return {"ok": False, "ralat": "Supabase is not configured."}
+    target = (body.get("username") or "").strip().lower()
+    if target == actor:
+        return {"ok": False, "ralat": "You can't delete your own account."}
+    u = sb.admin_find_user(target)
+    if not u:
+        return {"ok": False, "ralat": "User not found."}
+    target_role = (u.get("user_metadata") or {}).get("role", "teacher").lower()
+    if target_role == "super_admin" and actor_role != "super_admin":
+        return {"ok": False, "ralat": "Only a super admin can delete a super admin."}
+    try:
+        sb.admin_delete_user(u["id"])  # cascade removes the profiles row
+    except sb.SupabaseError as e:
+        return {"ok": False, "ralat": str(e)}
+    # tidy up the local avatar file if any
+    av = os.path.join(WEB_DIR, "avatars", target + ".png")
+    try:
+        if os.path.isfile(av):
+            os.remove(av)
+    except OSError:
+        pass
+    return {"ok": True}
 
 
 def grade_writing(inputs):
@@ -970,11 +1140,37 @@ class Handler(BaseHTTPRequestHandler):
 
     # Paths reachable WITHOUT logging in (login page + its logo + health probe
     # + PWA manifest/service worker, which browsers fetch outside the session).
-    PUBLIC_GET = ("/login.html", "/niat-logo.png", "/api/health", "/favicon.ico",
+    PUBLIC_GET = ("/login.html", "/signup.html", "/niat-logo.png", "/api/health", "/favicon.ico",
                   "/manifest.json", "/sw.js", "/icon-192.png", "/icon-512.png")
 
     def _current_user(self):
         return auth.user_from_cookie(self.headers.get("Cookie", ""))
+
+    def _role_of(self, username):
+        """Return the lowercase role ('teacher' | 'admin' | 'super_admin') for a
+        username, read from Supabase profiles (authoritative), falling back to
+        local users.json. Unknown users are treated as plain 'teacher'."""
+        if not username:
+            return "teacher"
+        if sb.configured():
+            try:
+                rows = sb.select("profiles", {"select": "role", "username": "eq." + username})
+                if rows:
+                    return (rows[0].get("role") or "teacher").lower()
+            except sb.SupabaseError:
+                pass
+        return (auth._load_users().get(username, {}).get("role") or "teacher").lower()
+
+    def _require_admin(self):
+        """Return (username, role) if the caller is admin/super_admin, else send
+        a 403 and return (None, None). The role is ALWAYS checked server-side —
+        the client cannot claim to be an admin."""
+        user = self._current_user()
+        role = self._role_of(user)
+        if role not in ("admin", "super_admin"):
+            self._send(403, {"ralat": "Admins only."})
+            return None, None
+        return user, role
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
@@ -1038,30 +1234,57 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"items": lessons.progress()})
             return
         if path == "/api/next-class":
-            self._send(200, next_class())
+            self._send(200, next_class(self._current_user()))
             return
         if path == "/api/students":
             self._send(200, load_students())
             return
         if path == "/api/class-info":
             q = parse_qs(urlparse(self.path).query).get("class", [""])[0]
-            self._send(200, class_lookup({"class": q}))
+            self._send(200, class_lookup({"class": q}, self._current_user()))
             return
         if path == "/api/profile":
-            # User profile (name, role, avatar). Stored in users.json next to the
-            # password hash — swap this for a Supabase `profiles` table later.
+            # User profile (name, role, avatar). Supabase `profiles` table is
+            # authoritative for accounts created there (signup / migrated);
+            # local users.json is the fallback for not-yet-migrated accounts.
             user = self._current_user()
-            rec = auth._load_users().get(user, {})
+            full_name, role, from_supabase = user, "Teacher", False
+            if sb.configured():
+                try:
+                    rows = sb.select("profiles", {"select": "full_name,role",
+                                                   "username": "eq." + user})
+                    if rows:
+                        full_name = rows[0].get("full_name") or user
+                        role = (rows[0].get("role") or "teacher").replace("_", " ").title()
+                        from_supabase = True
+                except sb.SupabaseError:
+                    pass
+            if not from_supabase:
+                rec = auth._load_users().get(user, {})
+                full_name = rec.get("full_name") or user
+                role = rec.get("role") or "Teacher"
             av_file = os.path.join(WEB_DIR, "avatars", user + ".png")
             avatar = None
             if os.path.isfile(av_file):
                 avatar = "/avatars/{}.png?v={}".format(user, int(os.path.getmtime(av_file)))
             self._send(200, {
                 "username": user,
-                "full_name": rec.get("full_name") or user,
-                "role": rec.get("role") or "Teacher",
+                "full_name": full_name,
+                "role": role,
                 "avatar": avatar,
             })
+            return
+        if path == "/api/admin/users":
+            user, role = self._require_admin()
+            if not user:
+                return
+            self._send(200, admin_list_all_users())
+            return
+        if path == "/api/admin/overview":
+            user, role = self._require_admin()
+            if not user:
+                return
+            self._send(200, admin_overview())
             return
         # Sajikan fail statik dari web/
         safe = os.path.normpath(path.lstrip("/")).replace("\\", "/")
@@ -1086,16 +1309,55 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             self._send(400, {"ralat": "JSON permintaan tidak sah"})
             return
-        # ---- Login / logout (no session needed) ----
+        # ---- Login / signup / logout (no session needed) ----
         if path == "/api/login":
             time.sleep(0.4)  # slow down password guessing
             user = (body.get("username") or "").strip()
-            if auth.verify(user, body.get("password") or ""):
+            password = body.get("password") or ""
+            ok = False
+            if sb.configured():
+                try:
+                    sb.sign_in(user, password)
+                    ok = True
+                except sb.SupabaseError:
+                    ok = False
+            if not ok:
+                ok = auth.verify(user, password)  # legacy accounts not yet migrated
+            if ok:
                 token = auth.make_token(user.lower())
                 self._send(200, {"ok": True, "user": user.lower()},
                            headers={"Set-Cookie": auth.session_cookie(token)})
             else:
                 self._send(401, {"ok": False, "ralat": "Wrong username or password."})
+            return
+        if path == "/api/signup":
+            if not sb.configured():
+                self._send(503, {"ok": False, "ralat": "Account creation is not available yet."})
+                return
+            full_name = (body.get("full_name") or "").strip()[:80]
+            username = (body.get("username") or "").strip().lower()
+            password = body.get("password") or ""
+            if not re.match(r"^[a-z0-9_.-]{3,32}$", username):
+                self._send(400, {"ok": False, "ralat": "Username must be 3-32 chars: a-z 0-9 _ . -"})
+                return
+            if len(password) < 6:
+                self._send(400, {"ok": False, "ralat": "Password must be at least 6 characters."})
+                return
+            if not full_name:
+                self._send(400, {"ok": False, "ralat": "Please enter your full name."})
+                return
+            try:
+                # role is ALWAYS "teacher" here — never taken from the request,
+                # so a signup request can't grant itself admin/super_admin.
+                sb.admin_create_user(username, password, full_name=full_name, role_name="teacher")
+            except sb.SupabaseError as e:
+                msg = "That username is already taken." if "already" in str(e).lower() or "exists" in str(e).lower() \
+                    else "Could not create the account. Please try again."
+                self._send(400, {"ok": False, "ralat": msg})
+                return
+            token = auth.make_token(username)
+            self._send(200, {"ok": True, "user": username},
+                       headers={"Set-Cookie": auth.session_cookie(token)})
             return
         if path == "/api/logout":
             self._send(200, {"ok": True}, headers={"Set-Cookie": auth.clear_cookie()})
@@ -1115,16 +1377,24 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, data,
                            "application/vnd.openxmlformats-officedocument.presentationml.presentation")
             elif path == "/api/profile":
-                users = auth._load_users()
+                # Note: role is intentionally NOT settable here (never trust
+                # a role value from the request body — that would let any
+                # logged-in user grant themselves admin/super_admin).
+                # Role changes are an admin-only action, not yet built.
                 user = self._current_user()
-                rec = users.setdefault(user, {})
-                name = (body.get("full_name") or "").strip()
-                if name:
-                    rec["full_name"] = name[:80]
-                role = (body.get("role") or "").strip()
-                if role:
-                    rec["role"] = role[:40]
-                auth._save_users(users)
+                name = (body.get("full_name") or "").strip()[:80]
+                updated_supabase = False
+                if name and sb.configured():
+                    try:
+                        sb.update("profiles", {"username": "eq." + user}, {"full_name": name})
+                        updated_supabase = True
+                    except sb.SupabaseError:
+                        pass
+                if name and not updated_supabase:
+                    users = auth._load_users()
+                    rec = users.setdefault(user, {})
+                    rec["full_name"] = name
+                    auth._save_users(users)
                 self._send(200, {"ok": True})
             elif path == "/api/profile-photo":
                 # Body: {"image": "data:image/png;base64,..."} — the UI resizes the
@@ -1147,6 +1417,22 @@ class Handler(BaseHTTPRequestHandler):
                         self._send(200, {"ok": True,
                                          "avatar": "/avatars/{}.png?v={}".format(
                                              user, int(os.path.getmtime(av_file)))})
+            elif path == "/api/admin/create-user":
+                user, role = self._require_admin()
+                if user:
+                    self._send(200, admin_create_teacher(body, actor_role=role))
+            elif path == "/api/admin/set-role":
+                user, role = self._require_admin()
+                if user:
+                    self._send(200, admin_set_role(body, actor=user, actor_role=role))
+            elif path == "/api/admin/reset-password":
+                user, role = self._require_admin()
+                if user:
+                    self._send(200, admin_reset_password(body, actor=user, actor_role=role))
+            elif path == "/api/admin/delete-user":
+                user, role = self._require_admin()
+                if user:
+                    self._send(200, admin_delete_teacher(body, actor=user, actor_role=role))
             elif path == "/api/save":
                 self._send(200, save_artifact(body))
             elif path in ROUTES:
