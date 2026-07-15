@@ -832,6 +832,16 @@ def classroom_worksheet(body):
     })
 
 
+def quiz_results(body):
+    """Read a distributed quiz's Google Form responses via the hub and return
+    the class report (average %, weakest questions, per-student scores)."""
+    return _post_hub({
+        "action": "results",
+        "formId": (body.get("form_id") or "").strip(),
+        "title": (body.get("title") or "").strip(),
+    })
+
+
 def _load_timetable(username):
     """Return the timetable for ONE teacher (keyed by login username) —
     timetable.json is shared by everyone but each teacher only ever sees
@@ -931,13 +941,15 @@ def admin_list_all_users():
                     "full_name": prof.get("full_name") or (u.get("user_metadata") or {}).get("full_name") or uname,
                     "role": (prof.get("role") or "teacher").lower(),
                     "created_at": u.get("created_at", ""),
+                    "active": not sb.is_banned(u),
                 })
         except sb.SupabaseError as e:
             return {"users": [], "error": str(e)}
     else:
         for uname, rec in auth._load_users().items():
             out.append({"username": uname, "full_name": rec.get("full_name") or uname,
-                        "role": (rec.get("role") or "teacher").lower(), "created_at": ""})
+                        "role": (rec.get("role") or "teacher").lower(), "created_at": "",
+                        "active": True})
     order = {"super_admin": 0, "admin": 1, "teacher": 2}
     out.sort(key=lambda r: (order.get(r["role"], 3), r["full_name"].lower()))
     return {"users": out}
@@ -954,9 +966,11 @@ def admin_overview():
         lesson_total = len(lessons.list_lessons(""))
     except Exception:  # noqa: BLE001
         lesson_total = 0
+    active_teachers = sum(1 for u in users if u["role"] == "teacher" and u.get("active", True))
     return {
         "users_total": len(users),
         "teachers": sum(1 for u in users if u["role"] == "teacher"),
+        "active_teachers": active_teachers,
         "admins": sum(1 for u in users if u["role"] in ("admin", "super_admin")),
         "lessons_total": lesson_total,
         "bank_total": bank_total,
@@ -1068,6 +1082,132 @@ def admin_delete_teacher(body, actor, actor_role):
     return {"ok": True}
 
 
+def admin_set_active(body, actor, actor_role):
+    """Deactivate (ban) or reactivate a teacher account."""
+    if not sb.configured():
+        return {"ok": False, "ralat": "Supabase is not configured."}
+    target = (body.get("username") or "").strip().lower()
+    active = bool(body.get("active"))
+    if target == actor:
+        return {"ok": False, "ralat": "You can't deactivate your own account."}
+    u = sb.admin_find_user(target)
+    if not u:
+        return {"ok": False, "ralat": "User not found."}
+    target_role = (u.get("user_metadata") or {}).get("role", "teacher").lower()
+    if target_role == "super_admin" and actor_role != "super_admin":
+        return {"ok": False, "ralat": "Only a super admin can change a super admin."}
+    try:
+        sb.admin_set_banned(u["id"], banned=not active)
+    except sb.SupabaseError as e:
+        return {"ok": False, "ralat": str(e)}
+    return {"ok": True}
+
+
+# ---- Timetable management (admin edits any teacher's block in timetable.json) ----
+def _timetable_path():
+    return os.path.join(ROOT, "timetable.json")
+
+
+def _load_timetable_all():
+    try:
+        with open(_timetable_path(), encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {"teachers": {}}
+
+
+def admin_get_timetables():
+    return _load_timetable_all()
+
+
+def admin_save_timetable(body):
+    """Replace one teacher's timetable block. body = {username, block:{teacher_name,
+    school, class_pupils, classes:[...]}}."""
+    username = (body.get("username") or "").strip().lower()
+    block = body.get("block") or {}
+    if not username:
+        return {"ok": False, "ralat": "Missing username."}
+    if not isinstance(block.get("classes"), list):
+        return {"ok": False, "ralat": "Invalid timetable data."}
+    data = _load_timetable_all()
+    data.setdefault("teachers", {})[username] = {
+        "teacher_name": str(block.get("teacher_name", ""))[:80],
+        "school": str(block.get("school", ""))[:120],
+        "class_pupils": block.get("class_pupils") or {},
+        "classes": block.get("classes"),
+    }
+    with open(_timetable_path(), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    return {"ok": True}
+
+
+# ---- Shared resources: Classroom IDs + student list ----
+def _classrooms_path():
+    return os.path.join(ROOT, "classrooms.json")
+
+
+def admin_get_classrooms():
+    try:
+        with open(_classrooms_path(), encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {"lesson_plan": "", "classes": {}}
+
+
+def admin_save_classrooms(body):
+    lesson_plan = str(body.get("lesson_plan", "")).strip()
+    classes = body.get("classes") or {}
+    if not isinstance(classes, dict):
+        return {"ok": False, "ralat": "Invalid classes data."}
+    clean = {str(k).strip(): str(v).strip() for k, v in classes.items() if str(k).strip()}
+    data = admin_get_classrooms()
+    data["lesson_plan"] = lesson_plan
+    data["classes"] = clean
+    with open(_classrooms_path(), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    return {"ok": True}
+
+
+def admin_save_students(body):
+    """body = {students:[{name,email}]} -> rewrite Email Student Prototype.txt
+    in the name-line / email-line format load_students() expects."""
+    students = body.get("students") or []
+    lines = []
+    for s in students:
+        name = str(s.get("name", "")).strip()
+        email = str(s.get("email", "")).strip()
+        if "@" not in email:
+            continue
+        lines.append(name or "Student")
+        lines.append(email)
+        lines.append("")
+    path = os.path.join(ROOT, "Email Student Prototype.txt")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines).strip() + "\n")
+    return {"ok": True}
+
+
+# ---- Announcements (admin posts one notice; teachers see it on the dashboard) ----
+def _announcement_path():
+    return os.path.join(ROOT, "announcement.json")
+
+
+def get_announcement():
+    try:
+        with open(_announcement_path(), encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {"message": "", "at": ""}
+
+
+def admin_set_announcement(body):
+    msg = str(body.get("message", "")).strip()[:500]
+    data = {"message": msg, "at": datetime.now().isoformat(timespec="seconds")}
+    with open(_announcement_path(), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    return {"ok": True}
+
+
 def grade_writing(inputs):
     """Agent: grade a pupil's writing/speaking transcript against the CEFR rubric."""
     system_prompt = read_text(os.path.join(PROMPT_DIR, "agent_rubric.md"))
@@ -1093,6 +1233,7 @@ ROUTES = {
     "/api/save-lesson": save_lesson_route,
     "/api/delete-lesson": delete_lesson_route,
     "/api/reflect": generate_reflection,
+    "/api/quiz-results": quiz_results,
     "/api/lesson-reflection": lesson_reflection_route,
     "/api/grade": grade_writing,
     "/api/distribute-direct": distribute_direct,
@@ -1286,6 +1427,44 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._send(200, admin_overview())
             return
+        if path == "/api/admin/lessons":
+            if not self._require_admin()[0]:
+                return
+            q = parse_qs(urlparse(self.path).query).get("q", [""])[0]
+            self._send(200, {"lessons": lessons.list_lessons(q)})
+            return
+        if path == "/api/admin/lesson":
+            if not self._require_admin()[0]:
+                return
+            lid = parse_qs(urlparse(self.path).query).get("id", [""])[0]
+            rec = lessons.get_lesson(int(lid)) if lid.isdigit() else None
+            self._send(200 if rec else 404, rec or {"ralat": "lesson not found"})
+            return
+        if path == "/api/admin/timetables":
+            if not self._require_admin()[0]:
+                return
+            self._send(200, admin_get_timetables())
+            return
+        if path == "/api/admin/classrooms":
+            if not self._require_admin()[0]:
+                return
+            self._send(200, admin_get_classrooms())
+            return
+        if path == "/api/admin/students":
+            if not self._require_admin()[0]:
+                return
+            self._send(200, load_students())
+            return
+        if path == "/api/admin/bank":
+            if not self._require_admin()[0]:
+                return
+            q = parse_qs(urlparse(self.path).query).get("q", [""])[0]
+            self._send(200, {"questions": bank.list_questions(q), "stats": bank.stats()})
+            return
+        if path == "/api/announcement":
+            # Readable by any logged-in user — teachers see it as a dashboard banner.
+            self._send(200, get_announcement())
+            return
         # Sajikan fail statik dari web/
         safe = os.path.normpath(path.lstrip("/")).replace("\\", "/")
         if safe.startswith(".."):
@@ -1433,6 +1612,25 @@ class Handler(BaseHTTPRequestHandler):
                 user, role = self._require_admin()
                 if user:
                     self._send(200, admin_delete_teacher(body, actor=user, actor_role=role))
+            elif path == "/api/admin/set-active":
+                user, role = self._require_admin()
+                if user:
+                    self._send(200, admin_set_active(body, actor=user, actor_role=role))
+            elif path == "/api/admin/timetable":
+                if self._require_admin()[0]:
+                    self._send(200, admin_save_timetable(body))
+            elif path == "/api/admin/classrooms":
+                if self._require_admin()[0]:
+                    self._send(200, admin_save_classrooms(body))
+            elif path == "/api/admin/students":
+                if self._require_admin()[0]:
+                    self._send(200, admin_save_students(body))
+            elif path == "/api/admin/bank-delete":
+                if self._require_admin()[0]:
+                    self._send(200, bank.delete_question(body.get("id")))
+            elif path == "/api/admin/announcement":
+                if self._require_admin()[0]:
+                    self._send(200, admin_set_announcement(body))
             elif path == "/api/save":
                 self._send(200, save_artifact(body))
             elif path in ROUTES:

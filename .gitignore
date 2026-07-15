@@ -42,6 +42,7 @@ timetable.json
 bank_soalan.db
 output/
 web/avatars/
+announcement.json
 *.log
 watchdog_log.txt
 reminders_log.txt

@@ -178,6 +178,31 @@ def mark_used(ids):
         )
 
 
+def list_questions(q="", limit=300):
+    """Admin browse: return question rows (newest first), optional text filter."""
+    init_db()
+    q = (q or "").strip()
+    sql = ("SELECT id, sp_kod, aras, soalan, jawapan_betul, markah, topic, theme, "
+           "kali_diguna, status FROM soalan")
+    params = []
+    if q:
+        like = "%" + q + "%"
+        sql += " WHERE soalan LIKE ? OR sp_kod LIKE ? OR topic LIKE ? OR theme LIKE ?"
+        params = [like] * 4
+    sql += " ORDER BY id DESC LIMIT ?"
+    params.append(int(limit))
+    with _conn() as c:
+        return [dict(r) for r in c.execute(sql, params).fetchall()]
+
+
+def delete_question(qid):
+    """Admin remove one question from the bank by id."""
+    init_db()
+    with _conn() as c:
+        c.execute("DELETE FROM soalan WHERE id=?", (int(qid),))
+    return {"deleted": True, "id": int(qid)}
+
+
 def stats():
     """Ringkasan bank untuk dipaparkan: jumlah + pecahan ikut SP & aras."""
     init_db()

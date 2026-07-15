@@ -426,6 +426,10 @@
     .admin-stat span{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
     .admin-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 10px;}
     .admin-bar b{font-size:13px;color:var(--ink);}
+    .admin-dash .dash-head{position:relative;padding-right:132px;}
+    .admin-lang-switch{position:absolute;top:0;right:0;display:flex;gap:3px;padding:3px;background:var(--field);border:1px solid var(--line);border-radius:999px;}
+    .admin-lang-switch button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:10px;font-weight:800;letter-spacing:.08em;padding:7px 11px;min-height:0;border-radius:999px;cursor:pointer;}
+    .admin-lang-switch button.on{background:var(--blue);color:var(--ink-on-accent);box-shadow:var(--glow);}
     .admin-add{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px;}
     .admin-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;}
     .admin-table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px;}
@@ -440,6 +444,26 @@
     .icon-btn:hover{border-color:var(--blue);color:var(--ink);}
     .icon-btn.danger:hover{border-color:var(--err);color:var(--err);}
     .icon-btn .ico{width:15px;height:15px;}
+    /* admin tabs */
+    .admin-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:16px 0 18px;}
+    .admin-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:700;padding:9px 14px;min-height:0;cursor:pointer;border-radius:8px 8px 0 0;}
+    .admin-tab:hover{color:var(--ink);}
+    .admin-tab.active{color:var(--blue-700);border-bottom-color:var(--blue);}
+    .admin-pane{display:none;}
+    .admin-pane.active{display:block;animation:rise .3s ease;}
+    .admin-status{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:999px;}
+    .admin-status.on{background:var(--blue-50);color:var(--blue-700);}
+    .admin-status.off{background:rgba(248,113,113,.14);color:var(--err);}
+    .admin-lesson-view{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--card);}
+    .admin-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+    .admin-row input{flex:1;min-width:120px;}
+    .admin-row .k{min-width:90px;flex:0 0 auto;}
+    .tt-grid{display:grid;grid-template-columns:1fr 1.2fr 1fr .6fr auto;gap:6px;align-items:center;margin-bottom:6px;}
+    .tt-grid input,.tt-grid select{width:100%;font-size:12px;padding:7px 9px;}
+    @media(max-width:640px){.tt-grid{grid-template-columns:1fr 1fr;}.admin-dash .dash-head{padding-right:0}.admin-lang-switch{position:static;width:max-content;margin:12px 0 0}}
+    /* teacher-facing announcement banner */
+    .announce-banner{display:flex;align-items:flex-start;gap:10px;background:var(--blue-50);border:1px solid rgba(99,230,194,.35);border-radius:12px;padding:12px 15px;margin:0 0 20px;color:var(--blue-700);font-size:13.5px;font-weight:600;line-height:1.5;}
+    .announce-banner .ico{width:18px;height:18px;flex:none;margin-top:1px;}
 
     /* ---- Light theme ---- */
     html[data-theme="light"]{
@@ -532,6 +556,8 @@
     <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6l7-3Z"/><path d="M9 12l2 2 4-4"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></symbol>
     <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="4"/><path d="M11 11l9 9M17 17l2-2M14 20l2-2"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-mega" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1Z"/><path d="M16 9a4 4 0 0 1 0 6"/></symbol>
     <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   </svg>
@@ -620,6 +646,7 @@
       <h2 id="dash-greet">Welcome back, <em>Cikgu</em>.</h2>
       <p class="dash-sub" id="dash-sub">Here is what Niat has prepared for you.</p>
     </div>
+    <div id="announce-banner" class="announce-banner hidden"><svg class="ico" aria-hidden="true"><use href="#i-mega"/></svg><span id="announce-text"></span></div>
     <div class="dash-grid">
       <div class="dash-card next-card">
         <p class="dc-label" id="nc-label">Tomorrow's class</p>
@@ -640,37 +667,106 @@
     </div>
   </section>
 
-  <!-- ============ ADMIN DASHBOARD (landing, admins only) ============ -->
-  <section class="admin-dash" aria-label="Admin dashboard">
+  <!-- ============ ADMIN CONSOLE (landing, admins only) ============ -->
+  <section class="admin-dash" aria-label="Admin console">
     <div class="dash-head">
-      <p class="eyebrow">Niat ® Administration</p>
+      <p class="eyebrow" id="admin-eyebrow">Niat ® Administration</p>
       <h2 id="admin-greet">Welcome, <em>Administrator</em>.</h2>
-      <p class="dash-sub">Manage teacher accounts and monitor school-wide activity.</p>
-    </div>
-    <div class="admin-stats" id="admin-dash-stats"></div>
-    <div class="admin-bar">
-      <b>Teacher &amp; admin accounts</b>
-      <button id="btn-admin-add" class="primary mini" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Add account</button>
-    </div>
-    <form id="admin-add-form" class="admin-add hidden">
-      <div class="grid">
-        <label>Full name <input id="au-name" type="text" placeholder="e.g. Cikgu Siti" /></label>
-        <label>Username <input id="au-user" type="text" placeholder="e.g. cikgusiti" /></label>
-        <label>Temporary password <input id="au-pass" type="text" placeholder="min 6 characters" /></label>
-        <label>Role
-          <select id="au-role"><option value="teacher">Teacher</option><option value="admin">Admin</option></select>
-        </label>
+      <p class="dash-sub" id="admin-subtitle">Manage accounts, timetables, resources and school-wide activity.</p>
+      <div class="admin-lang-switch" role="group" aria-label="Administrator language">
+        <button id="admin-lang-bm" type="button">BM</button>
+        <button id="admin-lang-en" type="button" class="on">EN</button>
       </div>
-      <div class="actions">
-        <button type="button" id="btn-admin-add-cancel" class="ghost mini">Cancel</button>
-        <button type="submit" id="btn-admin-add-save" class="primary mini">Create account</button>
+    </div>
+
+    <div class="admin-tabs" role="tablist">
+      <button class="admin-tab active" data-tab="overview" type="button">Overview</button>
+      <button class="admin-tab" data-tab="users" type="button">Users</button>
+      <button class="admin-tab" data-tab="lessons" type="button">Lessons</button>
+      <button class="admin-tab" data-tab="timetables" type="button">Timetables</button>
+      <button class="admin-tab" data-tab="resources" type="button">Resources</button>
+      <button class="admin-tab" data-tab="announce" type="button">Announcement</button>
+    </div>
+
+    <!-- Overview -->
+    <div class="admin-pane active" data-pane="overview">
+      <div class="admin-stats" id="admin-dash-stats"></div>
+      <p class="muted small">Live totals across the whole school. Figures refresh whenever you open the console.</p>
+    </div>
+
+    <!-- Users -->
+    <div class="admin-pane" data-pane="users">
+      <div class="admin-bar">
+        <b>Teacher &amp; admin accounts</b>
+        <button id="btn-admin-add" class="primary mini" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Add account</button>
       </div>
-    </form>
-    <div class="admin-table-wrap">
-      <table class="admin-table" id="admin-users">
-        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th style="text-align:right">Actions</th></tr></thead>
-        <tbody id="admin-users-body"><tr><td colspan="4" class="muted small">Loading…</td></tr></tbody>
-      </table>
+      <form id="admin-add-form" class="admin-add hidden">
+        <div class="grid">
+          <label>Full name <input id="au-name" type="text" placeholder="e.g. Cikgu Siti" /></label>
+          <label>Username <input id="au-user" type="text" placeholder="e.g. cikgusiti" /></label>
+          <label>Temporary password <input id="au-pass" type="text" placeholder="min 6 characters" /></label>
+          <label>Role
+            <select id="au-role"><option value="teacher">Teacher</option><option value="admin">Admin</option></select>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" id="btn-admin-add-cancel" class="ghost mini">Cancel</button>
+          <button type="submit" id="btn-admin-add-save" class="primary mini">Create account</button>
+        </div>
+      </form>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="admin-users">
+          <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody id="admin-users-body"><tr><td colspan="5" class="muted small">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Lessons (read-only oversight) -->
+    <div class="admin-pane" data-pane="lessons">
+      <div class="admin-bar"><b>All lessons</b><span class="muted small">Read-only oversight — open any lesson to review.</span></div>
+      <input id="admin-lesson-search" type="text" class="lib-search" placeholder="Search by class, topic, theme…" />
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="admin-lessons">
+          <thead><tr><th>Title</th><th>Class</th><th>Date</th><th>Theme</th><th style="text-align:right"></th></tr></thead>
+          <tbody id="admin-lessons-body"><tr><td colspan="5" class="muted small">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div id="admin-lesson-view" class="admin-lesson-view hidden"></div>
+    </div>
+
+    <!-- Timetables -->
+    <div class="admin-pane" data-pane="timetables">
+      <div class="admin-bar">
+        <b>Teacher timetables</b>
+        <select id="admin-tt-select" style="min-width:180px"></select>
+      </div>
+      <div id="admin-tt-editor"></div>
+    </div>
+
+    <!-- Resources -->
+    <div class="admin-pane" data-pane="resources">
+      <div class="admin-bar"><b>Google Classroom IDs</b></div>
+      <div id="admin-classrooms"></div>
+      <div class="admin-bar" style="margin-top:18px"><b>Student distribution list</b>
+        <button id="btn-student-add" class="ghost mini" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Add student</button></div>
+      <div id="admin-students"></div>
+      <div class="admin-bar" style="margin-top:18px"><b>Question bank</b><span class="muted small" id="admin-bank-count"></span></div>
+      <input id="admin-bank-search" type="text" class="lib-search" placeholder="Search questions…" />
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="admin-bank">
+          <thead><tr><th>Question</th><th>SP</th><th>Level</th><th style="text-align:right"></th></tr></thead>
+          <tbody id="admin-bank-body"><tr><td colspan="4" class="muted small">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Announcement -->
+    <div class="admin-pane" data-pane="announce">
+      <div class="admin-bar"><b>Announcement to all teachers</b></div>
+      <p class="muted small">Teachers see this as a banner on their dashboard. Leave empty and save to clear it.</p>
+      <textarea id="admin-announce-text" placeholder="e.g. Please submit Week 24 RPHs by Friday." style="width:100%;min-height:90px;margin:10px 0"></textarea>
+      <div class="actions"><button id="btn-announce-save" class="primary mini" type="button">Save announcement</button></div>
     </div>
   </section>
   <script>
@@ -774,6 +870,14 @@
       } catch (e) { document.getElementById("ds-ai").innerHTML = '<span class="ai-dot off"></span>—'; }
     }
     buildDash();
+
+    // Show the admin's announcement to teachers as a dashboard banner.
+    fetch("/api/announcement").then((r) => r.json()).then((a) => {
+      if (a && a.message) {
+        document.getElementById("announce-text").textContent = a.message;
+        document.getElementById("announce-banner").classList.remove("hidden");
+      }
+    }).catch(() => {});
   </script>
 
   <!-- ============ PROGRESS TRACKER ============ -->
@@ -1107,7 +1211,12 @@
   <div id="reflect-modal" class="modal hidden">
     <div class="modal-box">
       <h3>Reflect &amp; Report — <span id="reflect-title"></span></h3>
-      <p class="muted small">Enter how the class did. Niat writes the RPH reflection + a class report, then you can save the reflection into the lesson.</p>
+      <p class="muted small">Fetch the class's quiz results straight from Google Forms, then Niat writes the RPH reflection + a class report and saves the score into the lesson.</p>
+      <div class="actions" style="justify-content:flex-start;margin-top:0">
+        <button id="btn-get-results" class="primary">📊 Fetch quiz results</button>
+        <span class="muted small">reads the responses from the Google Form Niat created</span>
+      </div>
+      <div id="results-box" class="reflect-box hidden" style="margin:12px 0"></div>
       <div class="rcpt-grid">
         <label>Average score (%) <input id="reflect-score" type="text" placeholder="e.g. 72" /></label>
         <label>Quick result (optional) <input id="reflect-quick" type="text" placeholder="e.g. 24/30 pupils passed" /></label>
@@ -1116,12 +1225,6 @@
       <textarea id="reflect-results" placeholder="e.g. Average 72%. Most pupils missed Q3 (inference) and Q5 (vocabulary). Strong on identifying the main idea."></textarea>
       <div class="actions" style="justify-content:flex-start">
         <button id="btn-gen-reflection" class="primary">Generate reflection &amp; report</button>
-      </div>
-      <div class="actions" style="justify-content:flex-start"><button id="btn-get-results" class="ghost">Get results from Google Form</button></div>
-      <div id="results-box" class="hidden">
-        <p class="muted small">Run this in script.google.com - it reads your quiz responses and prints the average score + weakest questions to the Execution log. Copy them into the fields above.</p>
-        <textarea id="results-script" readonly spellcheck="false" style="min-height:160px"></textarea>
-        <div class="actions" style="justify-content:flex-start"><button id="btn-copy-results" class="ghost mini">Copy script</button></div>
       </div>
       <div id="reflect-output" class="hidden"></div>
       <div class="actions">
@@ -1231,16 +1334,153 @@
     (() => {
       const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-      let myUsername = "", myRole = "teacher";
+      let myUsername = "", myRole = "teacher", myAdminDisplayName = "Administrator";
+      let adminLang = localStorage.getItem("niat-admin-lang") === "bm" ? "bm" : "en";
+      const ADMIN_TEXT = {
+        en: {
+          eyebrow:"Niat ® Administration", welcome:"Welcome", subtitle:"Manage accounts, timetables, resources and school-wide activity.",
+          navigate:"Navigate", dashboard:"Dashboard", administration:"Administration", manageAccounts:"Manage accounts", accountMenu:"Account menu", changePhoto:"Change profile photo",
+          themeLabel:"Theme", systemTheme:"System", darkTheme:"Dark", lightTheme:"Light", fontSize:"Font size", logOut:"Log out",
+          overview:"Overview", users:"Users", lessons:"Lessons", timetables:"Timetables", resources:"Resources", announcement:"Announcement",
+          overviewNote:"Live totals across the whole school. Figures refresh whenever you open the console.",
+          accountHeading:"Teacher & admin accounts", addAccount:"Add account", fullName:"Full name", username:"Username", temporaryPassword:"Temporary password", role:"Role",
+          nameExample:"e.g. Cikgu Siti", usernameExample:"e.g. cikgusiti", passwordHint:"min 6 characters", cancel:"Cancel", createAccount:"Create account",
+          name:"Name", status:"Status", actions:"Actions", allLessons:"All lessons", lessonOversight:"Read-only oversight — open any lesson to review.",
+          lessonSearch:"Search by class, topic, theme…", title:"Title", class:"Class", date:"Date", theme:"Theme", teacherTimetables:"Teacher timetables",
+          classroomIds:"Google Classroom IDs", studentList:"Student distribution list", addStudent:"Add student", questionBank:"Question bank", searchQuestions:"Search questions…",
+          question:"Question", standard:"SP", level:"Level", announcementHeading:"Announcement to all teachers",
+          announcementHelp:"Teachers see this as a banner on their dashboard. Leave empty and save to clear it.", announcementExample:"e.g. Please submit Week 24 RPHs by Friday.", saveAnnouncement:"Save announcement",
+          teachers:"Teachers", activeTeachers:"Active teachers", admins:"Admins", savedLessons:"Lessons", bankQuestions:"Bank questions",
+          loading:"Loading…", couldNotLoadUsers:"Could not load users.", noAccounts:"No accounts.", teacher:"Teacher", admin:"Admin", superAdmin:"Super Admin", you:"you",
+          active:"Active", inactive:"Inactive", deactivate:"Deactivate", reactivate:"Reactivate", resetPassword:"Reset password", deleteAccount:"Delete account",
+          roleUpdated:"Role updated for {user}.", roleFailed:"Could not change role.", deactivated:"Deactivated {user}.", reactivated:"Reactivated {user}.", statusFailed:"Could not change status.",
+          newPassword:"New temporary password for {user} (min 6 characters):", passwordShort:"Password must be at least 6 characters.", passwordReset:"Password reset for {user}.", failed:"Failed.",
+          deleteConfirm:"Delete the account for {name}?\nThis cannot be undone.", deleted:"Deleted {user}.", deleteFailed:"Could not delete.", accountCreated:"Account created.", createFailed:"Could not create account.",
+          couldNotLoad:"Could not load.", noLessons:"No lessons found.", lesson:"Lesson", view:"View", close:"Close", noPlan:"No plan text.", worksheetQuestions:"{count} worksheet question(s). Read-only oversight view.",
+          noTeachers:"No teachers", noTimetable:"No timetable.", monday:"Monday", tuesday:"Tuesday", wednesday:"Wednesday", thursday:"Thursday", friday:"Friday",
+          time:"time", classLower:"class", remove:"Remove", teacherName:"Teacher name", school:"School", classesHelp:"Classes (day / time / class / minutes)", addClass:"Add class", saveTimetable:"Save timetable", timetableSaved:"Timetable saved for {user}.",
+          className:"class name", classroomId:"classroom id", lessonRepo:"Lesson-plan repo", saveClassroomIds:"Save Classroom IDs", classroomSaved:"Classroom IDs saved.",
+          studentName:"name", email:"email", saveStudentList:"Save student list", studentsSaved:"Student list saved.", total:"{count} total", noQuestions:"No questions.", delete:"Delete",
+          deleteQuestionConfirm:"Delete this question from the bank? This cannot be undone.", questionDeleted:"Question deleted.", announcementSaved:"Announcement saved."
+        },
+        bm: {
+          eyebrow:"Niat ® Pentadbiran", welcome:"Selamat datang", subtitle:"Urus akaun, jadual waktu, sumber dan aktiviti seluruh sekolah.",
+          navigate:"Navigasi", dashboard:"Dashboard", administration:"Pentadbiran", manageAccounts:"Urus akaun", accountMenu:"Menu akaun", changePhoto:"Tukar foto profil",
+          themeLabel:"Tema", systemTheme:"Sistem", darkTheme:"Gelap", lightTheme:"Cerah", fontSize:"Saiz fon", logOut:"Log keluar",
+          overview:"Ringkasan", users:"Pengguna", lessons:"Pelajaran", timetables:"Jadual Waktu", resources:"Sumber", announcement:"Pengumuman",
+          overviewNote:"Jumlah terkini seluruh sekolah. Angka dikemas kini setiap kali konsol dibuka.",
+          accountHeading:"Akaun guru & pentadbir", addAccount:"Tambah akaun", fullName:"Nama penuh", username:"Nama pengguna", temporaryPassword:"Kata laluan sementara", role:"Peranan",
+          nameExample:"cth. Cikgu Siti", usernameExample:"cth. cikgusiti", passwordHint:"minimum 6 aksara", cancel:"Batal", createAccount:"Cipta akaun",
+          name:"Nama", status:"Status", actions:"Tindakan", allLessons:"Semua pelajaran", lessonOversight:"Semakan baca sahaja — buka mana-mana pelajaran untuk diteliti.",
+          lessonSearch:"Cari mengikut kelas, topik, tema…", title:"Tajuk", class:"Kelas", date:"Tarikh", theme:"Tema", teacherTimetables:"Jadual waktu guru",
+          classroomIds:"ID Google Classroom", studentList:"Senarai agihan murid", addStudent:"Tambah murid", questionBank:"Bank soalan", searchQuestions:"Cari soalan…",
+          question:"Soalan", standard:"SP", level:"Aras", announcementHeading:"Pengumuman kepada semua guru",
+          announcementHelp:"Guru akan melihatnya sebagai sepanduk pada dashboard. Kosongkan dan simpan untuk memadamkannya.", announcementExample:"cth. Sila hantar RPH Minggu 24 sebelum Jumaat.", saveAnnouncement:"Simpan pengumuman",
+          teachers:"Guru", activeTeachers:"Guru aktif", admins:"Pentadbir", savedLessons:"Pelajaran", bankQuestions:"Soalan bank",
+          loading:"Memuatkan…", couldNotLoadUsers:"Tidak dapat memuatkan pengguna.", noAccounts:"Tiada akaun.", teacher:"Guru", admin:"Pentadbir", superAdmin:"Super Admin", you:"anda",
+          active:"Aktif", inactive:"Tidak aktif", deactivate:"Nyahaktif", reactivate:"Aktifkan semula", resetPassword:"Tetapkan semula kata laluan", deleteAccount:"Padam akaun",
+          roleUpdated:"Peranan {user} telah dikemas kini.", roleFailed:"Tidak dapat menukar peranan.", deactivated:"{user} telah dinyahaktifkan.", reactivated:"{user} telah diaktifkan semula.", statusFailed:"Tidak dapat menukar status.",
+          newPassword:"Kata laluan sementara baharu untuk {user} (minimum 6 aksara):", passwordShort:"Kata laluan mesti sekurang-kurangnya 6 aksara.", passwordReset:"Kata laluan {user} telah ditetapkan semula.", failed:"Gagal.",
+          deleteConfirm:"Padam akaun {name}?\nTindakan ini tidak boleh dibatalkan.", deleted:"{user} telah dipadam.", deleteFailed:"Tidak dapat memadam akaun.", accountCreated:"Akaun telah dicipta.", createFailed:"Tidak dapat mencipta akaun.",
+          couldNotLoad:"Tidak dapat memuatkan data.", noLessons:"Tiada pelajaran ditemui.", lesson:"Pelajaran", view:"Lihat", close:"Tutup", noPlan:"Tiada teks RPH.", worksheetQuestions:"{count} soalan lembaran kerja. Paparan semakan baca sahaja.",
+          noTeachers:"Tiada guru", noTimetable:"Tiada jadual waktu.", monday:"Isnin", tuesday:"Selasa", wednesday:"Rabu", thursday:"Khamis", friday:"Jumaat",
+          time:"masa", classLower:"kelas", remove:"Buang", teacherName:"Nama guru", school:"Sekolah", classesHelp:"Kelas (hari / masa / kelas / minit)", addClass:"Tambah kelas", saveTimetable:"Simpan jadual", timetableSaved:"Jadual {user} telah disimpan.",
+          className:"nama kelas", classroomId:"ID classroom", lessonRepo:"Repositori RPH", saveClassroomIds:"Simpan ID Classroom", classroomSaved:"ID Classroom telah disimpan.",
+          studentName:"nama", email:"e-mel", saveStudentList:"Simpan senarai murid", studentsSaved:"Senarai murid telah disimpan.", total:"{count} jumlah", noQuestions:"Tiada soalan.", delete:"Padam",
+          deleteQuestionConfirm:"Padam soalan ini daripada bank? Tindakan ini tidak boleh dibatalkan.", questionDeleted:"Soalan telah dipadam.", announcementSaved:"Pengumuman telah disimpan."
+        }
+      };
+      const tr = (key, vars={}) => String(ADMIN_TEXT[adminLang][key] ?? key).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+      const roleLabel = (r) => ({ teacher:tr("teacher"), admin:tr("admin"), super_admin:tr("superAdmin") }[r] || r);
 
-      const roleLabel = (r) => ({ teacher: "Teacher", admin: "Admin", super_admin: "Super Admin" }[r] || r);
+      function setButtonElementLabel(button, text) {
+        if (!button) return;
+        const icon = button.querySelector("svg");
+        button.textContent = "";
+        if (icon) button.appendChild(icon);
+        button.appendChild(document.createTextNode((icon ? " " : "") + text));
+      }
+      function setButtonLabel(id, key) {
+        const button = document.getElementById(id);
+        setButtonElementLabel(button, tr(key));
+      }
+      function setFormLabel(inputId, key) {
+        const input = document.getElementById(inputId);
+        const label = input && input.closest("label");
+        if (label && label.firstChild && label.firstChild.nodeType === 3) label.firstChild.nodeValue = tr(key) + " ";
+      }
+      function setHeadings(selector, keys) {
+        document.querySelectorAll(selector).forEach((el, i) => { if (keys[i]) el.textContent = tr(keys[i]); });
+      }
+      function applyAdminLanguage() {
+        document.documentElement.lang = adminLang === "bm" ? "ms" : "en";
+        document.querySelector(".admin-dash").setAttribute("aria-label", adminLang === "bm" ? "Konsol pentadbir" : "Admin console");
+        document.getElementById("admin-eyebrow").textContent = tr("eyebrow");
+        document.getElementById("admin-subtitle").textContent = tr("subtitle");
+        document.getElementById("admin-greet").innerHTML = tr("welcome") + ", <em>" + esc(myAdminDisplayName) + "</em>.";
+        document.querySelector("#sidebar > .sb-label").textContent = tr("navigate");
+        document.getElementById("sb-admin-label").textContent = tr("administration");
+        setButtonLabel("sb-home", "dashboard"); setButtonLabel("sb-admin", "manageAccounts");
+        document.getElementById("acct-trigger").setAttribute("aria-label", tr("accountMenu"));
+        document.getElementById("acct-trigger").title = tr("accountMenu");
+        document.getElementById("acct-ava").title = tr("changePhoto");
+        document.querySelector(".acct-label").textContent = tr("themeLabel");
+        const themeKeys = ["systemTheme", "darkTheme", "lightTheme"];
+        document.querySelectorAll(".theme-opt").forEach((button, i) => setButtonElementLabel(button, tr(themeKeys[i])));
+        const fontLabel = document.querySelectorAll(".acct-label")[1];
+        if (fontLabel && fontLabel.firstChild) fontLabel.firstChild.nodeValue = tr("fontSize") + " ";
+        setButtonLabel("acct-logout", "logOut");
+        document.getElementById("acct-role").textContent = roleLabel(myRole);
+        const tabKeys = ["overview", "users", "lessons", "timetables", "resources", "announcement"];
+        document.querySelectorAll(".admin-tab").forEach((el, i) => { el.textContent = tr(tabKeys[i]); });
+        document.querySelector('[data-pane="overview"] > p').textContent = tr("overviewNote");
+        document.querySelector('[data-pane="users"] .admin-bar b').textContent = tr("accountHeading");
+        setButtonLabel("btn-admin-add", "addAccount");
+        setFormLabel("au-name", "fullName"); setFormLabel("au-user", "username"); setFormLabel("au-pass", "temporaryPassword"); setFormLabel("au-role", "role");
+        document.getElementById("au-name").placeholder = tr("nameExample");
+        document.getElementById("au-user").placeholder = tr("usernameExample");
+        document.getElementById("au-pass").placeholder = tr("passwordHint");
+        document.querySelectorAll("#au-role option").forEach((o) => { o.textContent = roleLabel(o.value); });
+        setButtonLabel("btn-admin-add-cancel", "cancel"); setButtonLabel("btn-admin-add-save", "createAccount");
+        setHeadings("#admin-users thead th", ["name", "username", "role", "status", "actions"]);
+        const lessonBar = document.querySelector('[data-pane="lessons"] .admin-bar');
+        lessonBar.querySelector("b").textContent = tr("allLessons"); lessonBar.querySelector("span").textContent = tr("lessonOversight");
+        document.getElementById("admin-lesson-search").placeholder = tr("lessonSearch");
+        setHeadings("#admin-lessons thead th", ["title", "class", "date", "theme"]);
+        document.querySelector('[data-pane="timetables"] .admin-bar b').textContent = tr("teacherTimetables");
+        const resourceBars = document.querySelectorAll('[data-pane="resources"] .admin-bar b');
+        ["classroomIds", "studentList", "questionBank"].forEach((key, i) => { if (resourceBars[i]) resourceBars[i].textContent = tr(key); });
+        setButtonLabel("btn-student-add", "addStudent");
+        document.getElementById("admin-bank-search").placeholder = tr("searchQuestions");
+        setHeadings("#admin-bank thead th", ["question", "standard", "level"]);
+        document.querySelector('[data-pane="announce"] .admin-bar b').textContent = tr("announcementHeading");
+        document.querySelector('[data-pane="announce"] > p').textContent = tr("announcementHelp");
+        document.getElementById("admin-announce-text").placeholder = tr("announcementExample");
+        setButtonLabel("btn-announce-save", "saveAnnouncement");
+        for (const code of ["bm", "en"]) {
+          const button = document.getElementById("admin-lang-" + code);
+          const selected = adminLang === code;
+          button.classList.toggle("on", selected); button.setAttribute("aria-pressed", String(selected));
+        }
+      }
+      function changeAdminLanguage(lang) {
+        adminLang = lang === "bm" ? "bm" : "en";
+        localStorage.setItem("niat-admin-lang", adminLang);
+        localStorage.setItem("niat-guide-lang", adminLang);
+        applyAdminLanguage();
+        refreshAdmin();
+        const guideButton = document.getElementById("lang-" + adminLang);
+        if (guideButton) guideButton.click();
+      }
+      document.getElementById("admin-lang-bm").onclick = () => changeAdminLanguage("bm");
+      document.getElementById("admin-lang-en").onclick = () => changeAdminLanguage("en");
 
       async function loadOverview() {
         try {
           const o = await (await fetch("/api/admin/overview")).json();
           const cards = [
-            ["Teachers", o.teachers], ["Admins", o.admins],
-            ["Lessons", o.lessons_total], ["Bank questions", o.bank_total],
+            [tr("teachers"), o.teachers], [tr("activeTeachers"), o.active_teachers],
+            [tr("admins"), o.admins], [tr("savedLessons"), o.lessons_total], [tr("bankQuestions"), o.bank_total],
           ];
           document.getElementById("admin-dash-stats").innerHTML = cards.map(([label, n]) =>
             `<div class="admin-stat"><b>${esc(n)}</b><span>${esc(label)}</span></div>`).join("");
@@ -1249,26 +1489,29 @@
 
       async function loadUsers() {
         const tbody = document.getElementById("admin-users-body");
-        tbody.innerHTML = '<tr><td colspan="4" class="muted small">Loading…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="muted small">' + esc(tr("loading")) + '</td></tr>';
         let data;
         try { data = await (await fetch("/api/admin/users")).json(); }
-        catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="muted small">Could not load users.</td></tr>'; return; }
+        catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="muted small">' + esc(tr("couldNotLoadUsers")) + '</td></tr>'; return; }
         const users = data.users || [];
-        if (!users.length) { tbody.innerHTML = '<tr><td colspan="4" class="muted small">No accounts.</td></tr>'; return; }
+        if (!users.length) { tbody.innerHTML = '<tr><td colspan="5" class="muted small">' + esc(tr("noAccounts")) + '</td></tr>'; return; }
         // A regular admin can't touch super-admin accounts or the super-admin role.
         const canManageSuper = myRole === "super_admin";
         tbody.innerHTML = users.map((u) => {
           const isMe = u.username === myUsername;
           const locked = u.role === "super_admin" && !canManageSuper;
+          const active = u.active !== false;
           const roleOpts = ["teacher", "admin"].concat(canManageSuper ? ["super_admin"] : [])
             .map((r) => `<option value="${r}"${u.role === r ? " selected" : ""}>${roleLabel(r)}</option>`).join("");
           const roleCell = (isMe || locked)
-            ? `<span class="admin-role-badge">${esc(roleLabel(u.role))}</span>${isMe ? '<span class="admin-you">you</span>' : ""}`
+            ? `<span class="admin-role-badge">${esc(roleLabel(u.role))}</span>${isMe ? '<span class="admin-you">' + esc(tr("you")) + '</span>' : ""}`
             : `<select data-act="role" data-user="${esc(u.username)}">${roleOpts}</select>`;
+          const statusCell = `<span class="admin-status ${active ? "on" : "off"}">${esc(active ? tr("active") : tr("inactive"))}</span>`;
           const actions = (isMe || locked) ? '<span class="muted small">—</span>' :
-            `<button class="icon-btn" data-act="pw" data-user="${esc(u.username)}" title="Reset password"><svg class="ico"><use href="#i-key"/></svg></button>
-             <button class="icon-btn danger" data-act="del" data-user="${esc(u.username)}" data-name="${esc(u.full_name)}" title="Delete account"><svg class="ico"><use href="#i-trash"/></svg></button>`;
-          return `<tr><td>${esc(u.full_name)}</td><td>${esc(u.username)}</td><td>${roleCell}</td><td><div class="admin-actions">${actions}</div></td></tr>`;
+            `<button class="icon-btn" data-act="toggle" data-user="${esc(u.username)}" data-active="${active}" title="${esc(active ? tr("deactivate") : tr("reactivate"))}"><svg class="ico"><use href="#i-${active ? "moon" : "sun"}"/></svg></button>
+             <button class="icon-btn" data-act="pw" data-user="${esc(u.username)}" title="${esc(tr("resetPassword"))}"><svg class="ico"><use href="#i-key"/></svg></button>
+             <button class="icon-btn danger" data-act="del" data-user="${esc(u.username)}" data-name="${esc(u.full_name)}" title="${esc(tr("deleteAccount"))}"><svg class="ico"><use href="#i-trash"/></svg></button>`;
+          return `<tr><td>${esc(u.full_name)}</td><td>${esc(u.username)}</td><td>${roleCell}</td><td>${statusCell}</td><td><div class="admin-actions">${actions}</div></td></tr>`;
         }).join("");
       }
 
@@ -1281,25 +1524,30 @@
         const sel = e.target.closest('select[data-act="role"]');
         if (!sel) return;
         const d = await post("/api/admin/set-role", { username: sel.dataset.user, role: sel.value });
-        if (d.ok) { toast("Role updated for " + sel.dataset.user + "."); loadOverview(); }
-        else { toast(d.ralat || "Could not change role.", true); loadUsers(); }
+        if (d.ok) { toast(tr("roleUpdated", { user:sel.dataset.user })); loadOverview(); }
+        else { toast(d.ralat || tr("roleFailed"), true); loadUsers(); }
       });
 
       document.getElementById("admin-users-body").addEventListener("click", async (e) => {
         const btn = e.target.closest("button[data-act]");
         if (!btn) return;
         const uname = btn.dataset.user;
-        if (btn.dataset.act === "pw") {
-          const pw = prompt("New temporary password for " + uname + " (min 6 characters):");
+        if (btn.dataset.act === "toggle") {
+          const wasActive = btn.dataset.active === "true";
+          const d = await post("/api/admin/set-active", { username: uname, active: !wasActive });
+          if (d.ok) { toast(tr(wasActive ? "deactivated" : "reactivated", { user:uname })); loadUsers(); loadOverview(); }
+          else toast(d.ralat || tr("statusFailed"), true);
+        } else if (btn.dataset.act === "pw") {
+          const pw = prompt(tr("newPassword", { user:uname }));
           if (pw === null) return;
-          if (pw.length < 6) { toast("Password must be at least 6 characters.", true); return; }
+          if (pw.length < 6) { toast(tr("passwordShort"), true); return; }
           const d = await post("/api/admin/reset-password", { username: uname, password: pw });
-          toast(d.ok ? "Password reset for " + uname + "." : (d.ralat || "Failed."), !d.ok);
+          toast(d.ok ? tr("passwordReset", { user:uname }) : (d.ralat || tr("failed")), !d.ok);
         } else if (btn.dataset.act === "del") {
-          if (!confirm("Delete the account for " + (btn.dataset.name || uname) + "?\nThis cannot be undone.")) return;
+          if (!confirm(tr("deleteConfirm", { name:btn.dataset.name || uname }))) return;
           const d = await post("/api/admin/delete-user", { username: uname });
-          if (d.ok) { toast("Deleted " + uname + "."); loadUsers(); loadOverview(); }
-          else toast(d.ralat || "Could not delete.", true);
+          if (d.ok) { toast(tr("deleted", { user:uname })); loadUsers(); loadOverview(); }
+          else toast(d.ralat || tr("deleteFailed"), true);
         }
       });
 
@@ -1316,19 +1564,220 @@
           role: document.getElementById("au-role").value,
         });
         if (d.ok) {
-          toast("Account created.");
+          toast(tr("accountCreated"));
           addForm.reset(); addForm.classList.add("hidden");
           loadUsers(); loadOverview();
-        } else toast(d.ralat || "Could not create account.", true);
+        } else toast(d.ralat || tr("createFailed"), true);
       });
 
-      function refreshAdmin() { loadOverview(); loadUsers(); }
+      // ---------- Tabs ----------
+      let activeTab = "overview";
+      const tabLoaders = {}; // filled below
+      function switchTab(name) {
+        activeTab = name;
+        document.querySelectorAll(".admin-tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+        document.querySelectorAll(".admin-pane").forEach((p) => p.classList.toggle("active", p.dataset.pane === name));
+        if (tabLoaders[name]) tabLoaders[name]();
+      }
+      document.querySelectorAll(".admin-tab").forEach((t) => { t.onclick = () => switchTab(t.dataset.tab); });
+
+      // ---------- Lessons oversight (read-only) ----------
+      const lessonSearch = document.getElementById("admin-lesson-search");
+      let lessonTimer;
+      lessonSearch.addEventListener("input", () => { clearTimeout(lessonTimer); lessonTimer = setTimeout(loadLessons, 250); });
+      async function loadLessons() {
+        const tbody = document.getElementById("admin-lessons-body");
+        document.getElementById("admin-lesson-view").classList.add("hidden");
+        tbody.innerHTML = '<tr><td colspan="5" class="muted small">' + esc(tr("loading")) + '</td></tr>';
+        let data;
+        try { data = await (await fetch("/api/admin/lessons?q=" + encodeURIComponent(lessonSearch.value))).json(); }
+        catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="muted small">' + esc(tr("couldNotLoad")) + '</td></tr>'; return; }
+        const ls = data.lessons || [];
+        if (!ls.length) { tbody.innerHTML = '<tr><td colspan="5" class="muted small">' + esc(tr("noLessons")) + '</td></tr>'; return; }
+        tbody.innerHTML = ls.map((l) =>
+          `<tr><td>${esc(l.title || tr("lesson") + " " + l.id)}</td><td>${esc(l.kelas || "")}</td><td>${esc(l.tarikh || "")}</td><td>${esc(l.theme || "")}</td>
+           <td style="text-align:right"><button class="icon-btn" data-lesson="${l.id}" title="${esc(tr("view"))}"><svg class="ico"><use href="#i-eye"/></svg></button></td></tr>`).join("");
+      }
+      document.getElementById("admin-lessons-body").addEventListener("click", async (e) => {
+        const btn = e.target.closest("button[data-lesson]");
+        if (!btn) return;
+        const view = document.getElementById("admin-lesson-view");
+        view.innerHTML = '<p class="muted small">' + esc(tr("loading")) + '</p>'; view.classList.remove("hidden");
+        const l = await (await fetch("/api/admin/lesson?id=" + btn.dataset.lesson)).json();
+        const plan = l.plan || {}, ws = l.worksheet || {};
+        const rows = Object.entries(plan).filter(([k, v]) => typeof v === "string" && v.trim())
+          .map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("");
+        view.innerHTML = `<div class="admin-bar"><b>${esc(l.title || tr("lesson"))}</b><button class="ghost mini" id="btn-lesson-close" type="button">${esc(tr("close"))}</button></div>
+          <table class="rph">${rows || '<tr><td class="muted small">' + esc(tr("noPlan")) + '</td></tr>'}</table>
+          <p class="muted small" style="margin-top:10px">${esc(tr("worksheetQuestions", { count:(ws.soalan || []).length }))}</p>`;
+        document.getElementById("btn-lesson-close").onclick = () => view.classList.add("hidden");
+        view.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+
+      // ---------- Timetables ----------
+      let ttData = { teachers: {} };
+      const ttSelect = document.getElementById("admin-tt-select");
+      const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+      const DAY_KEYS = { Monday:"monday", Tuesday:"tuesday", Wednesday:"wednesday", Thursday:"thursday", Friday:"friday" };
+      async function loadTimetables() {
+        ttData = await (await fetch("/api/admin/timetables")).json();
+        const names = Object.keys(ttData.teachers || {});
+        ttSelect.innerHTML = names.length
+          ? names.map((u) => `<option value="${esc(u)}">${esc((ttData.teachers[u].teacher_name) || u)} (${esc(u)})</option>`).join("")
+          : '<option value="">' + esc(tr("noTeachers")) + '</option>';
+        renderTTEditor();
+      }
+      ttSelect.onchange = renderTTEditor;
+      function renderTTEditor() {
+        const u = ttSelect.value;
+        const ed = document.getElementById("admin-tt-editor");
+        if (!u || !ttData.teachers[u]) { ed.innerHTML = '<p class="muted small">' + esc(tr("noTimetable")) + '</p>'; return; }
+        const t = ttData.teachers[u];
+        const rowsHtml = (t.classes || []).map((c, i) => `
+          <div class="tt-grid" data-i="${i}">
+            <select data-f="day">${DAYS.map((d) => `<option value="${d}"${c.day === d ? " selected" : ""}>${esc(tr(DAY_KEYS[d]))}</option>`).join("")}</select>
+            <input data-f="time" value="${esc(c.time || "")}" placeholder="${esc(tr("time"))}" />
+            <input data-f="class" value="${esc(c.class || "")}" placeholder="${esc(tr("classLower"))}" />
+            <input data-f="duration" type="number" value="${esc(c.duration || 60)}" />
+            <button class="icon-btn danger" data-ttdel="${i}" title="${esc(tr("remove"))}"><svg class="ico"><use href="#i-trash"/></svg></button>
+          </div>`).join("");
+        ed.innerHTML = `
+          <div class="admin-row"><span class="k muted small">${esc(tr("teacherName"))}</span><input id="tt-name" value="${esc(t.teacher_name || "")}" /></div>
+          <div class="admin-row"><span class="k muted small">${esc(tr("school"))}</span><input id="tt-school" value="${esc(t.school || "")}" /></div>
+          <p class="muted small" style="margin:10px 0 4px">${esc(tr("classesHelp"))}</p>
+          ${rowsHtml}
+          <div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="ghost mini" id="tt-addrow" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> ${esc(tr("addClass"))}</button></div>
+          <div class="actions"><button class="primary mini" id="tt-save" type="button">${esc(tr("saveTimetable"))}</button></div>`;
+        ed.querySelector("#tt-addrow").onclick = () => {
+          ttData.teachers[u].classes = readTTRows(u);
+          ttData.teachers[u].classes.push({ day: "Monday", time: "", class: "", duration: 60 });
+          renderTTEditor();
+        };
+        ed.querySelectorAll("button[data-ttdel]").forEach((b) => b.onclick = () => {
+          ttData.teachers[u].classes = readTTRows(u);
+          ttData.teachers[u].classes.splice(+b.dataset.ttdel, 1);
+          renderTTEditor();
+        });
+        ed.querySelector("#tt-save").onclick = async () => {
+          const classes = readTTRows(u);
+          const pupils = {}; classes.forEach((c) => { if (c.class && !(c.class in pupils)) pupils[c.class] = (t.class_pupils || {})[c.class] || 30; });
+          const d = await post("/api/admin/timetable", { username: u, block: {
+            teacher_name: ed.querySelector("#tt-name").value, school: ed.querySelector("#tt-school").value,
+            class_pupils: pupils, classes } });
+          toast(d.ok ? tr("timetableSaved", { user:u }) : (d.ralat || tr("failed")), !d.ok);
+          if (d.ok) loadTimetables();
+        };
+      }
+      function readTTRows(u) {
+        return [...document.querySelectorAll("#admin-tt-editor .tt-grid")].map((g) => ({
+          day: g.querySelector('[data-f="day"]').value,
+          time: g.querySelector('[data-f="time"]').value.trim(),
+          class: g.querySelector('[data-f="class"]').value.trim(),
+          duration: +g.querySelector('[data-f="duration"]').value || 60,
+        }));
+      }
+
+      // ---------- Resources: classrooms + students + bank ----------
+      async function loadResources() {
+        const cr = await (await fetch("/api/admin/classrooms")).json();
+        const crBox = document.getElementById("admin-classrooms");
+        const clsRows = Object.entries(cr.classes || {}).map(([name, id]) => `
+          <div class="admin-row" data-cls><input data-f="name" value="${esc(name)}" placeholder="${esc(tr("className"))}" /><input data-f="id" value="${esc(id)}" placeholder="${esc(tr("classroomId"))}" /><button class="icon-btn danger" data-crdel title="${esc(tr("remove"))}"><svg class="ico"><use href="#i-trash"/></svg></button></div>`).join("");
+        crBox.innerHTML = `
+          <div class="admin-row"><span class="k muted small">${esc(tr("lessonRepo"))}</span><input id="cr-lp" value="${esc(cr.lesson_plan || "")}" placeholder="${esc(tr("classroomId"))}" /></div>
+          <div id="cr-classes">${clsRows}</div>
+          <div class="actions" style="justify-content:flex-start"><button class="ghost mini" id="cr-add" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> ${esc(tr("addClass"))}</button></div>
+          <div class="actions"><button class="primary mini" id="cr-save" type="button">${esc(tr("saveClassroomIds"))}</button></div>`;
+        crBox.querySelector("#cr-add").onclick = () => {
+          const d = document.createElement("div"); d.className = "admin-row"; d.setAttribute("data-cls", "");
+          d.innerHTML = '<input data-f="name" placeholder="' + esc(tr("className")) + '" /><input data-f="id" placeholder="' + esc(tr("classroomId")) + '" /><button class="icon-btn danger" data-crdel title="' + esc(tr("remove")) + '"><svg class="ico"><use href="#i-trash"/></svg></button>';
+          document.getElementById("cr-classes").appendChild(d);
+          d.querySelector("[data-crdel]").onclick = () => d.remove();
+        };
+        crBox.querySelectorAll("[data-crdel]").forEach((b) => b.onclick = () => b.closest("[data-cls]").remove());
+        crBox.querySelector("#cr-save").onclick = async () => {
+          const classes = {};
+          crBox.querySelectorAll("[data-cls]").forEach((r) => {
+            const n = r.querySelector('[data-f="name"]').value.trim();
+            if (n) classes[n] = r.querySelector('[data-f="id"]').value.trim();
+          });
+          const d = await post("/api/admin/classrooms", { lesson_plan: crBox.querySelector("#cr-lp").value.trim(), classes });
+          toast(d.ok ? tr("classroomSaved") : (d.ralat || tr("failed")), !d.ok);
+        };
+
+        const st = await (await fetch("/api/admin/students")).json();
+        renderStudents(st.students || []);
+
+        loadBank();
+      }
+      function renderStudents(list) {
+        const box = document.getElementById("admin-students");
+        box.innerHTML = list.map((s) => `
+          <div class="admin-row" data-stu><input data-f="name" value="${esc(s.name || "")}" placeholder="${esc(tr("studentName"))}" /><input data-f="email" value="${esc(s.email || "")}" placeholder="${esc(tr("email"))}" /><button class="icon-btn danger" data-studel title="${esc(tr("remove"))}"><svg class="ico"><use href="#i-trash"/></svg></button></div>`).join("")
+          + '<div class="actions"><button class="primary mini" id="stu-save" type="button">' + esc(tr("saveStudentList")) + '</button></div>';
+        box.querySelectorAll("[data-studel]").forEach((b) => b.onclick = () => b.closest("[data-stu]").remove());
+        box.querySelector("#stu-save").onclick = async () => {
+          const students = [...box.querySelectorAll("[data-stu]")].map((r) => ({
+            name: r.querySelector('[data-f="name"]').value.trim(), email: r.querySelector('[data-f="email"]').value.trim(),
+          })).filter((s) => s.email.includes("@"));
+          const d = await post("/api/admin/students", { students });
+          toast(d.ok ? tr("studentsSaved") : (d.ralat || tr("failed")), !d.ok);
+        };
+      }
+      document.getElementById("btn-student-add").onclick = () => {
+        const box = document.getElementById("admin-students");
+        const d = document.createElement("div"); d.className = "admin-row"; d.setAttribute("data-stu", "");
+        d.innerHTML = '<input data-f="name" placeholder="' + esc(tr("studentName")) + '" /><input data-f="email" placeholder="' + esc(tr("email")) + '" /><button class="icon-btn danger" data-studel title="' + esc(tr("remove")) + '"><svg class="ico"><use href="#i-trash"/></svg></button>';
+        box.insertBefore(d, box.querySelector(".actions"));
+        d.querySelector("[data-studel]").onclick = () => d.remove();
+      };
+      const bankSearch = document.getElementById("admin-bank-search");
+      let bankTimer;
+      bankSearch.addEventListener("input", () => { clearTimeout(bankTimer); bankTimer = setTimeout(loadBank, 250); });
+      async function loadBank() {
+        const tbody = document.getElementById("admin-bank-body");
+        tbody.innerHTML = '<tr><td colspan="4" class="muted small">' + esc(tr("loading")) + '</td></tr>';
+        const data = await (await fetch("/api/admin/bank?q=" + encodeURIComponent(bankSearch.value))).json();
+        document.getElementById("admin-bank-count").textContent = (data.stats && data.stats.jumlah != null) ? tr("total", { count:data.stats.jumlah }) : "";
+        const qs = data.questions || [];
+        if (!qs.length) { tbody.innerHTML = '<tr><td colspan="4" class="muted small">' + esc(tr("noQuestions")) + '</td></tr>'; return; }
+        tbody.innerHTML = qs.map((q) =>
+          `<tr><td>${esc((q.soalan || "").slice(0, 90))}</td><td>${esc(q.sp_kod || "")}</td><td>${esc(q.aras || "")}</td>
+           <td style="text-align:right"><button class="icon-btn danger" data-bankdel="${q.id}" title="${esc(tr("delete"))}"><svg class="ico"><use href="#i-trash"/></svg></button></td></tr>`).join("");
+      }
+      document.getElementById("admin-bank-body").addEventListener("click", async (e) => {
+        const btn = e.target.closest("button[data-bankdel]");
+        if (!btn) return;
+        if (!confirm(tr("deleteQuestionConfirm"))) return;
+        const d = await post("/api/admin/bank-delete", { id: +btn.dataset.bankdel });
+        if (d.deleted) { toast(tr("questionDeleted")); loadBank(); loadOverview(); }
+      });
+
+      // ---------- Announcement ----------
+      async function loadAnnouncement() {
+        const a = await (await fetch("/api/announcement")).json();
+        document.getElementById("admin-announce-text").value = a.message || "";
+      }
+      document.getElementById("btn-announce-save").onclick = async () => {
+        const d = await post("/api/admin/announcement", { message: document.getElementById("admin-announce-text").value });
+        toast(d.ok ? tr("announcementSaved") : tr("failed"), !d.ok);
+      };
+
+      tabLoaders.overview = loadOverview;
+      tabLoaders.users = loadUsers;
+      tabLoaders.lessons = loadLessons;
+      tabLoaders.timetables = loadTimetables;
+      tabLoaders.resources = loadResources;
+      tabLoaders.announce = loadAnnouncement;
+
+      function refreshAdmin() { switchTab(activeTab); }
 
       // Both "Dashboard" and "Manage accounts" take an admin to the admin
       // landing view (there is no lesson-generation flow for admins).
       function showAdminLanding() {
         document.body.classList.add("landing");
         window.scrollTo({ top: 0 });
+        loadOverview();
         refreshAdmin();
       }
 
@@ -1339,14 +1788,17 @@
         if (myRole !== "admin" && myRole !== "super_admin") return;  // teachers: leave UI untouched
         document.body.classList.add("role-admin");
         document.querySelectorAll(".sb-admin-only").forEach((el) => el.classList.remove("hidden"));
-        const greet = document.getElementById("admin-greet");
-        if (greet) greet.innerHTML = "Welcome, <em>" + esc(p.full_name || p.username) + "</em>.";
+        const adminNumber = myUsername.match(/^admin(?:istrator)?[._-]?0*(\d+)$/i);
+        myAdminDisplayName = adminNumber
+          ? "Administrator " + Number(adminNumber[1])
+          : (p.full_name || p.username);
         // Only a super_admin may grant the super_admin role via the add form.
         const roleSel = document.getElementById("au-role");
         if (myRole === "super_admin" && roleSel && !roleSel.querySelector('option[value="super_admin"]')) {
           const o = document.createElement("option"); o.value = "super_admin"; o.textContent = "Super Admin";
           roleSel.appendChild(o);
         }
+        applyAdminLanguage();
         document.getElementById("sb-admin").onclick = showAdminLanding;
         document.getElementById("sb-home").addEventListener("click", showAdminLanding);
         refreshAdmin();
@@ -1376,11 +1828,16 @@
       setName(localStorage.getItem("niat-user") || "Cikgu");
       fetch("/api/profile").then((r) => (r.ok ? r.json() : null)).then((p) => {
         if (!p) return;
-        setName(p.full_name || p.username);
-        document.getElementById("acct-role").textContent = p.role || "Teacher";
+        const username = (p.username || "").toLowerCase();
+        const adminNumber = username.match(/^admin(?:istrator)?[._-]?0*(\d+)$/i);
+        setName(adminNumber ? "Administrator " + Number(adminNumber[1]) : (p.full_name || p.username));
+        const roleLc = (p.role || "").toLowerCase();
+        const adminUiBm = localStorage.getItem("niat-admin-lang") === "bm";
+        document.getElementById("acct-role").textContent = adminUiBm && roleLc === "admin" ? "Pentadbir"
+          : adminUiBm && (roleLc === "super admin" || roleLc === "super_admin") ? "Super Admin"
+          : (p.role || "Teacher");
         if (p.avatar) setAvatar(p.avatar);
         // Reveal the Admin sidebar item only for admin / super admin.
-        const roleLc = (p.role || "").toLowerCase();
         if (roleLc === "admin" || roleLc === "super admin" || roleLc === "super_admin") {
           document.querySelectorAll(".sb-admin-only").forEach((el) => el.classList.remove("hidden"));
         }
@@ -1447,7 +1904,7 @@
     (() => {
       const TEXTS = {
         en: {
-          sub: "Every page, explained", here: "You are here", fab: "Guide",
+          sub: "Every page, explained", adminSub: "Administrator dashboard, explained", here: "You are here", fab: "Guide",
           stages: [
             { label: "Home", title: "Dashboard", what: "Your starting point — Niat lays out today's teaching context the moment you arrive.",
               items: ["Tomorrow's class, with one-tap “Start AI” preparation", "Recent lessons you can reopen anytime", "Question bank size, saved lessons & AI engine status"] },
@@ -1463,8 +1920,22 @@
               items: ["Export RPH as .doc / PDF, slides as PPTX", "Post the quiz to Google Classroom in one click", "Later: track progress & grade writing from the Dashboard"] },
           ],
         },
+        enAdmin: [
+          { label: "Overview", title: "Administrator Overview", what: "Your control centre for monitoring Niat across all teacher accounts.",
+            items: ["See total teachers and active accounts", "Monitor saved lessons and question-bank size", "Use the tabs to open each management area"] },
+          { label: "Users", title: "Manage Users", what: "Create and maintain teacher and administrator accounts from one place.",
+            items: ["Add a user and assign the correct role", "Activate, deactivate or reset a password", "Only a Super Admin can manage Super Admin accounts"] },
+          { label: "Lessons", title: "Review Lessons", what: "Search and review lesson records created by teachers without changing their work.",
+            items: ["Search by class, topic or theme", "Open a lesson to inspect its plan and worksheet", "This area is read-only for safe oversight"] },
+          { label: "Timetables", title: "Manage Timetables", what: "Maintain each teacher's timetable so reminders and class preparation use the right information.",
+            items: ["Select the teacher account to edit", "Update teacher name, school and class periods", "Save changes after checking every class row"] },
+          { label: "Resources", title: "Manage Shared Resources", what: "Keep the shared teaching data used by Niat accurate and current.",
+            items: ["Update Google Classroom IDs", "Maintain the student list", "Search and remove unsuitable question-bank items"] },
+          { label: "Notice", title: "Post an Announcement", what: "Publish one short notice that all teachers will see on their dashboard.",
+            items: ["Write a clear message for all teachers", "Save to publish the latest announcement", "Remove the text and save to clear the notice"] },
+        ],
         bm: {
-          sub: "Setiap halaman, dijelaskan", here: "Anda di sini", fab: "Panduan",
+          sub: "Setiap halaman, dijelaskan", adminSub: "Dashboard pentadbir, dijelaskan", here: "Anda di sini", fab: "Panduan",
           stages: [
             { label: "Utama", title: "Dashboard", what: "Titik mula anda — Niat menyusun konteks pengajaran hari ini sebaik sahaja anda tiba.",
               items: ["Kelas esok, dengan penyediaan “Start AI” satu ketukan", "Pelajaran terkini yang boleh dibuka semula", "Saiz bank soalan, pelajaran tersimpan & status enjin AI"] },
@@ -1480,9 +1951,26 @@
               items: ["Eksport RPH sebagai .doc / PDF, slaid sebagai PPTX", "Hantar kuiz ke Google Classroom dengan satu klik", "Kemudian: jejak kemajuan & gred penulisan dari Dashboard"] },
           ],
         },
+        bmAdmin: [
+          { label: "Ringkasan", title: "Ringkasan Pentadbir", what: "Pusat kawalan untuk memantau penggunaan Niat bagi semua akaun guru.",
+            items: ["Lihat jumlah guru dan akaun aktif", "Pantau pelajaran tersimpan dan saiz bank soalan", "Gunakan tab untuk membuka setiap bahagian pengurusan"] },
+          { label: "Pengguna", title: "Urus Pengguna", what: "Cipta dan selenggara akaun guru serta pentadbir dari satu tempat.",
+            items: ["Tambah pengguna dan tetapkan peranan yang betul", "Aktifkan, nyahaktifkan atau tetapkan semula kata laluan", "Hanya Super Admin boleh mengurus akaun Super Admin"] },
+          { label: "Pelajaran", title: "Semak Pelajaran", what: "Cari dan semak rekod pelajaran guru tanpa mengubah hasil kerja mereka.",
+            items: ["Cari mengikut kelas, topik atau tema", "Buka pelajaran untuk melihat RPH dan lembaran kerja", "Bahagian ini untuk semakan baca sahaja"] },
+          { label: "Jadual", title: "Urus Jadual Waktu", what: "Selenggara jadual setiap guru supaya peringatan dan persediaan kelas menggunakan maklumat yang betul.",
+            items: ["Pilih akaun guru yang hendak diedit", "Kemas kini nama guru, sekolah dan waktu kelas", "Simpan selepas menyemak setiap baris kelas"] },
+          { label: "Sumber", title: "Urus Sumber Bersama", what: "Pastikan data pengajaran bersama yang digunakan oleh Niat sentiasa tepat.",
+            items: ["Kemas kini ID Google Classroom", "Selenggara senarai murid", "Cari dan buang soalan bank yang tidak sesuai"] },
+          { label: "Notis", title: "Hantar Pengumuman", what: "Terbitkan satu notis ringkas yang akan dilihat oleh semua guru pada dashboard.",
+            items: ["Tulis mesej yang jelas untuk semua guru", "Simpan untuk menerbitkan pengumuman terkini", "Kosongkan teks dan simpan untuk memadam notis"] },
+        ],
       };
       let lang = localStorage.getItem("niat-guide-lang") === "bm" ? "bm" : "en";
-      const STAGES = () => TEXTS[lang].stages;
+      const isAdminGuide = () => document.body.classList.contains("role-admin");
+      const STAGES = () => isAdminGuide()
+        ? (lang === "bm" ? TEXTS.bmAdmin : TEXTS.enAdmin)
+        : TEXTS[lang].stages;
       const guide = document.getElementById("guide");
       const fab = document.getElementById("guide-fab");
       const flow = document.getElementById("guide-flow");
@@ -1492,7 +1980,17 @@
       const pos = document.getElementById("guide-pos");
       let idx = 0;
 
+      const updateFabLabel = () => {
+        fab.querySelector("span").textContent = TEXTS[lang].fab;
+      };
+
       const actual = () => {
+        if (isAdminGuide()) {
+          const tabs = ["overview", "users", "lessons", "timetables", "resources", "announce"];
+          const active = document.querySelector(".admin-tab.active");
+          const position = active ? tabs.indexOf(active.dataset.tab) : 0;
+          return position < 0 ? 0 : position;
+        }
         if (document.body.classList.contains("landing")) return 0;
         const li = document.querySelector(".steps li.active");
         return li ? +li.dataset.step : 1;
@@ -1513,8 +2011,8 @@
         prev.textContent = idx > 0 ? "← " + S[idx - 1].label : "←";
         next.textContent = idx < S.length - 1 ? S[idx + 1].label + " →" : "→";
         pos.textContent = (idx + 1) + " / " + S.length;
-        document.getElementById("guide-sub").textContent = TEXTS[lang].sub;
-        fab.querySelector("span").textContent = TEXTS[lang].fab;
+        document.getElementById("guide-sub").textContent = isAdminGuide() ? TEXTS[lang].adminSub : TEXTS[lang].sub;
+        updateFabLabel();
         document.getElementById("lang-en").classList.toggle("on", lang === "en");
         document.getElementById("lang-bm").classList.toggle("on", lang === "bm");
       };
@@ -1534,10 +2032,13 @@
       prev.onclick = () => { if (idx > 0) { idx--; render(); } };
       next.onclick = () => { if (idx < STAGES().length - 1) { idx++; render(); } };
       // follow the app: re-sync when the page/step changes while open
-      new MutationObserver(() => { if (guide.classList.contains("open")) { idx = actual(); render(); } })
+      new MutationObserver(() => {
+        updateFabLabel();
+        if (guide.classList.contains("open")) { idx = actual(); render(); }
+      })
         .observe(document.body, { attributes: true, attributeFilter: ["class"], subtree: true });
       if (!localStorage.getItem("niat-guide-seen")) fab.classList.add("pulse");
-      fab.querySelector("span").textContent = TEXTS[lang].fab;
+      updateFabLabel();
     })();
 
     // ============ PWA service worker ============

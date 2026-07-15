@@ -1193,6 +1193,8 @@ function openReflectModal(rec) {
   $("reflect-title").textContent = rec.title || "Lesson";
   $("reflect-score").value = "";
   $("reflect-results").value = "";
+  if ($("reflect-quick")) $("reflect-quick").value = "";
+  if ($("results-box")) { $("results-box").classList.add("hidden"); $("results-box").innerHTML = ""; }
   $("reflect-output").classList.add("hidden");
   $("reflect-output").innerHTML = "";
   $("btn-save-reflection").classList.add("hidden");
@@ -1200,56 +1202,49 @@ function openReflectModal(rec) {
 }
 function closeReflectModal() { $("reflect-modal").classList.add("hidden"); reflectLesson = null; }
 
-// #4 Auto-pull results: a script that reads the Form's responses → average + item analysis.
-function buildResultsScript() {
-  const title = (reflectLesson && reflectLesson.worksheet && reflectLesson.worksheet.tajuk) || "Niat quiz";
-  const data = JSON.stringify({ title }, null, 2);
-  return `/**
- * Niat → Get quiz results (average score + weakest questions)
- * 1. Open https://script.google.com → New project, paste this, Run "niatGetResults".
- * 2. Allow permissions, then open the Execution log to see the summary.
- * 3. Copy the Average % and the weakest questions into Niat's Reflect box.
- */
-function niatGetResults() {
-  var DATA = ${data};
-  var files = DriveApp.getFilesByName(DATA.title);
-  if (!files.hasNext()) { Logger.log('No Google Form named: ' + DATA.title); return; }
-  var form = FormApp.openById(files.next().getId());
-  var responses = form.getResponses();
-  if (!responses.length) { Logger.log('No responses yet for: ' + DATA.title); return; }
-  var n = responses.length, totalPct = 0, correct = {};
-  responses.forEach(function (resp) {
-    var g = resp.getGradableItemResponses(), sc = 0, mx = 0;
-    g.forEach(function (item, i) {
-      var s = item.getScore() || 0;
-      sc += s; mx += 1;
-      correct[i] = (correct[i] || 0) + (s > 0 ? 1 : 0);
-    });
-    totalPct += mx ? (sc / mx * 100) : 0;
-  });
-  var avg = Math.round(totalPct / n);
-  var perQ = Object.keys(correct).map(function (k) {
-    return { q: (parseInt(k, 10) + 1), pct: Math.round(correct[k] / n * 100) };
-  });
-  var weakest = perQ.slice().sort(function (a, b) { return a.pct - b.pct; }).slice(0, 3)
-    .map(function (x) { return 'Q' + x.q + ' (' + x.pct + '% correct)'; });
-  Logger.log('=== RESULTS: ' + DATA.title + ' ===');
-  Logger.log('Responses: ' + n + '   Average score: ' + avg + '%');
-  Logger.log('Per question: ' + perQ.map(function (x) { return 'Q' + x.q + '=' + x.pct + '%'; }).join(', '));
-  Logger.log('Weakest: ' + weakest.join(', '));
-  Logger.log('--> In Niat, enter Average = ' + avg + ' and Notes = "weak: ' + weakest.join(', ') + '"');
-}
-`;
-}
-function showResultsScript() {
+// #4 Auto-pull results: read the Form's responses via the Niat Hub, fill the
+// score + notes automatically, and show a class report. No copy-paste scripts.
+async function fetchResults() {
   if (!reflectLesson) return;
-  $("results-script").value = buildResultsScript();
-  $("results-box").classList.remove("hidden");
-}
-async function copyResultsScript() {
-  const ta = $("results-script");
-  try { await navigator.clipboard.writeText(ta.value); toast("Results script copied ✓"); }
-  catch (e) { ta.focus(); ta.select(); try { document.execCommand("copy"); toast("Copied ✓"); } catch (_) { toast("Press Ctrl+C", true); } }
+  const title = (reflectLesson.worksheet && reflectLesson.worksheet.tajuk) || "";
+  const formId = reflectLesson.form_id ||
+    (reflectLesson.worksheet && reflectLesson.worksheet.form_id) || "";
+  const box = $("results-box");
+  const btn = $("btn-get-results");
+  box.classList.remove("hidden");
+  box.textContent = "Fetching results from Google Forms…";
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/quiz-results", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title, form_id: formId }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      box.innerHTML = "⚠️ " + esc(d.error || "Could not read results. Make sure the quiz was distributed and the Niat Hub is deployed.");
+      return;
+    }
+    if (!d.respondents) {
+      box.innerHTML = "No responses yet for “" + esc(d.title || title) + "”. Ask pupils to submit, then try again.";
+      return;
+    }
+    const weak = (d.weakest || []).map((w) => "Q" + w.q + " (" + w.correct_percent + "% correct)").join(", ");
+    $("reflect-score").value = d.average_percent;
+    $("reflect-quick").value = d.respondents + " pupils responded";
+    const notes = "Average " + d.average_percent + "%. Weakest: " + (weak || "—") + ".";
+    if (!$("reflect-results").value.trim()) $("reflect-results").value = notes;
+    const rows = (d.per_student || []).map((s) =>
+      "<tr><td>" + esc(s.email) + "</td><td style='text-align:right'>" + s.score + "/" + s.max + " (" + s.percent + "%)</td></tr>").join("");
+    box.innerHTML =
+      "<b>" + esc(d.title || title) + "</b><br>" + d.respondents + " responses · average <b>" + d.average_percent + "%</b>"
+      + (weak ? "<br>Weakest: " + esc(weak) : "")
+      + (rows ? "<table class='g-table' style='margin-top:8px'><tr><th>Pupil</th><th style='text-align:right'>Score</th></tr>" + rows + "</table>" : "");
+    toast("Results loaded — average " + d.average_percent + "%.");
+  } catch (e) {
+    box.innerHTML = "⚠️ Could not reach the Niat Hub. Check APPSCRIPT_HUB_URL in reminder_config.txt.";
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function generateReflectionUI() {
@@ -1456,8 +1451,7 @@ function wireEvents() {
   $("btn-gen-reflection").onclick = generateReflectionUI;
   $("btn-save-reflection").onclick = saveReflectionUI;
   $("btn-close-reflect").onclick = closeReflectModal;
-  if ($("btn-get-results")) $("btn-get-results").onclick = showResultsScript;
-  if ($("btn-copy-results")) $("btn-copy-results").onclick = copyResultsScript;
+  if ($("btn-get-results")) $("btn-get-results").onclick = fetchResults;
   if ($("btn-edit-ctx")) $("btn-edit-ctx").onclick = () => { const c = $("ctx-card"); if (c) c.classList.toggle("hidden"); };
   // Header ☰ menu: click/tap toggles; hover handled by CSS; closes on outside click or item pick.
   const tm = $("tools-menu"), tt = $("tools-trigger");

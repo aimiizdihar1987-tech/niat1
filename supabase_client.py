@@ -217,3 +217,17 @@ def set_profile_role(username, role):
     Service-role bypasses RLS. Returns the updated rows."""
     return update("profiles", {"username": "eq." + username.strip().lower()},
                   {"role": role}, role="service")
+
+
+def admin_set_banned(auth_user_id, banned):
+    """Deactivate (ban) or reactivate an Auth user. A banned user can no longer
+    sign in — GoTrue rejects them at the token endpoint. Service-role only."""
+    # 100 years ~= permanent; "none" lifts the ban.
+    return _request("PUT", "/auth/v1/admin/users/" + auth_user_id, role="service",
+                     body={"ban_duration": "876000h" if banned else "none"})
+
+
+def is_banned(auth_user):
+    """True if the given Auth user dict is currently deactivated/banned."""
+    bu = auth_user.get("banned_until")
+    return bool(bu)
