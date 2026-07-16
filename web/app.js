@@ -151,13 +151,23 @@ function buildThemes() {
   if (!sel) return;
   sel.innerHTML = '<option value="">— select —</option>';
   (DSKP.themes || []).forEach((t) => sel.add(new Option(t, t)));
+  // When the theme changes, refresh the Topic/Unit list to only the related units.
+  sel.onchange = buildUnits;
 }
 
+// Topic/Unit is filtered by the chosen Theme: each DSKP theme maps to only its
+// related Close-Up units (see "theme_topics" in dskp_english_f3.json).
 function buildUnits() {
   const sel = $("topic");
   if (!sel || sel.tagName !== "SELECT") return;
-  sel.innerHTML = '<option value="">— select unit —</option>';
-  (DSKP.textbook_units || []).forEach((u) => sel.add(new Option(u, u)));
+  const theme = $("theme") ? $("theme").value : "";
+  const map = (DSKP && DSKP.theme_topics) || {};
+  const units = theme ? (map[theme] || DSKP.textbook_units || []) : [];
+  sel.innerHTML = theme
+    ? '<option value="">— select unit —</option>'
+    : '<option value="">— select a theme first —</option>';
+  units.forEach((u) => sel.add(new Option(u, u)));
+  sel.disabled = !theme; // locked until a theme is picked
 }
 
 function buildSkills() {
@@ -274,6 +284,11 @@ function guardrailNotice(g) {
   if (!g) return;
   const fixed = (g.repairs || []).length;
   const removed = (g.dropped || []).length;
+  const vocab = g.vocab || [];
+  if (vocab.length) {
+    const qs = vocab.map(v => `Q${v.no}: ${v.words.join(', ')}`).join(' | ');
+    toast(`📖 Vocabulary above B1 level — ${qs}. Review before sending.`, true);
+  }
   if (removed) {
     toast(`🛡️ Guardrail: ${removed} item(s) removed (invalid), ${fixed} auto-fixed — review before approving.`, true);
   } else if (fixed) {
@@ -1483,11 +1498,40 @@ function goto(step) {
     li.classList.toggle("done", s < step);
   });
   window.scrollTo({ top: 0, behavior: "smooth" });
+  positionAgentBot();
 }
 
+// Park the idle robot on top of the currently active step. Skipped while it's
+// running (working), so the run-across animation covers the whole bar.
+function positionAgentBot() {
+  const steps = document.querySelector(".steps");
+  if (!steps || steps.classList.contains("working")) return;
+  const active = steps.querySelector("li.active");
+  const bot = steps.querySelector(".agent-bot");
+  if (!active || !bot) return;
+  const left = active.offsetLeft + active.offsetWidth / 2 - 23;
+  bot.style.left = Math.max(2, left) + "px";
+}
+window.addEventListener("load", positionAgentBot);
+window.addEventListener("resize", positionAgentBot);
+
 // ====================== UI utilities ======================
-function showOverlay(msg) { $("overlay-msg").textContent = msg || "Generating…"; $("overlay").classList.remove("hidden"); }
-function hideOverlay() { $("overlay").classList.add("hidden"); }
+function showOverlay(msg) {
+  $("overlay-msg").textContent = msg || "Generating…";
+  $("overlay").classList.remove("hidden");
+  const steps = document.querySelector(".steps");
+  const tracker = document.querySelector(".tracker");
+  if (steps) { steps.classList.add("working"); steps.setAttribute("data-msg", msg || "Working…"); }
+  if (tracker) tracker.classList.add("working-pin");
+}
+function hideOverlay() {
+  $("overlay").classList.add("hidden");
+  const steps = document.querySelector(".steps");
+  const tracker = document.querySelector(".tracker");
+  if (steps) { steps.classList.remove("working"); steps.removeAttribute("data-msg"); }
+  if (tracker) tracker.classList.remove("working-pin");
+  positionAgentBot();
+}
 let toastTimer;
 function toast(msg, isErr) {
   const t = $("toast");

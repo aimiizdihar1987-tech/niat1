@@ -116,8 +116,41 @@
     @media (max-width:880px){.next-card,.stats-card,.actions-card,.recent-card{grid-column:span 12;}.stat-cols{grid-template-columns:1fr;}}
 
     /* ---- Tracker: floating uppercase pills ---- */
-    .tracker{display:flex;justify-content:center;margin:30px 16px 0;}
-    .steps{display:flex;gap:6px;list-style:none;margin:0;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow);flex-wrap:wrap;justify-content:center;}
+    .tracker{display:flex;justify-content:center;margin:64px 16px 0;}
+    .steps{position:relative;display:flex;gap:6px;list-style:none;margin:0;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow);flex-wrap:wrap;justify-content:center;}
+
+    /* ===== Cute working-agent robot that runs on top of the stepper ===== */
+    /* Robot is ALWAYS on the bar (idle, standing on the active step); it only RUNS while an agent is working. */
+    .agent-bot{position:absolute;left:6px;top:0;width:46px;height:46px;pointer-events:none;opacity:1;z-index:5;transition:left .45s cubic-bezier(.5,0,.3,1);}
+    .tracker.working-pin{position:fixed;top:56px;left:0;right:0;margin:0 auto;z-index:60;animation:pin-drop .35s ease;}
+    @keyframes pin-drop{from{opacity:0;transform:translateY(-14px);}to{opacity:1;transform:translateY(0);}}
+    .steps.working{z-index:60;}
+    .steps.working::after{content:attr(data-msg);position:absolute;left:50%;top:calc(100% + 10px);transform:translateX(-50%);white-space:nowrap;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--blue);text-shadow:0 0 12px rgba(99,230,194,.4);}
+    /* running across the whole bar while working (overrides the idle left position) */
+    .steps.working .agent-bot{left:0 !important;animation:bot-run-across 3.4s cubic-bezier(.45,0,.55,1) infinite;}
+    .agent-bot svg{width:46px;height:46px;overflow:visible;filter:drop-shadow(0 4px 6px rgba(0,0,0,.28));}
+    /* the inner group holds the vertical bob; idle = gentle breathing, working = fast running bounce */
+    .agent-bot .bot-inner{position:absolute;left:0;bottom:100%;width:46px;height:46px;transform-origin:50% 100%;animation:bot-idle 2.6s ease-in-out infinite;}
+    .steps.working .agent-bot .bot-inner{animation:bot-bob .32s ease-in-out infinite;}
+    /* limbs only pump while running */
+    .agent-bot .leg-l,.agent-bot .leg-r{transform-origin:50% 0;}
+    .agent-bot .arm-l,.agent-bot .arm-r{transform-origin:50% 10%;}
+    .steps.working .agent-bot .leg-l{animation:bot-leg-l .32s ease-in-out infinite;}
+    .steps.working .agent-bot .leg-r{animation:bot-leg-r .32s ease-in-out infinite;}
+    .steps.working .agent-bot .arm-l{animation:bot-leg-r .32s ease-in-out infinite;}
+    .steps.working .agent-bot .arm-r{animation:bot-leg-l .32s ease-in-out infinite;}
+    /* blink even when idle so it feels alive */
+    .agent-bot .bot-eye{animation:bot-blink 3.4s ease-in-out infinite;transform-origin:center;}
+    .agent-bot .puff{opacity:0;transform-origin:center;}
+    .steps.working .agent-bot .puff{animation:bot-puff .5s ease-out infinite;}
+    @keyframes bot-run-across{0%{transform:translateX(6px) scaleX(1);}47%{transform:translateX(calc(100% - 52px)) scaleX(1);}50%{transform:translateX(calc(100% - 52px)) scaleX(-1);}97%{transform:translateX(6px) scaleX(-1);}100%{transform:translateX(6px) scaleX(1);}}
+    @keyframes bot-idle{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-2px) rotate(0deg);}}
+    @keyframes bot-bob{0%,100%{transform:translateY(0) rotate(-2deg);}50%{transform:translateY(-5px) rotate(2deg);}}
+    @keyframes bot-leg-l{0%,100%{transform:rotate(26deg);}50%{transform:rotate(-26deg);}}
+    @keyframes bot-leg-r{0%,100%{transform:rotate(-26deg);}50%{transform:rotate(26deg);}}
+    @keyframes bot-blink{0%,92%,100%{transform:scaleY(1);}96%{transform:scaleY(.15);}}
+    @keyframes bot-puff{0%{opacity:.55;transform:translateX(0) scale(.4);}100%{opacity:0;transform:translateX(-14px) scale(1.1);}}
+    @media (prefers-reduced-motion:reduce){.agent-bot,.agent-bot *{animation-duration:0s !important;}}
     .steps li{display:flex;align-items:center;gap:8px;padding:8px 16px 8px 9px;border-radius:999px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;transition:.2s;}
     .steps .dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--muted);font-size:12px;font-weight:700;border:1px solid var(--line);}
     .steps li.active{background:var(--blue);color:var(--ink-on-accent);box-shadow:var(--glow);}
@@ -883,6 +916,40 @@
   <!-- ============ PROGRESS TRACKER ============ -->
   <nav class="tracker">
     <ol class="steps">
+      <div class="agent-bot" aria-hidden="true">
+        <div class="bot-inner">
+          <svg viewBox="0 0 46 48" xmlns="http://www.w3.org/2000/svg">
+            <!-- brand pixel-square trail -->
+            <g class="puff">
+              <rect x="2" y="6" width="4" height="4" rx="1" fill="#2ec4c6"/>
+              <rect x="8" y="2" width="3.5" height="3.5" rx="1" fill="#2f6bd8"/>
+              <rect x="1" y="14" width="3" height="3" rx="1" fill="#7c3aed"/>
+            </g>
+            <!-- antenna -->
+            <line x1="23" y1="8" x2="23" y2="3" stroke="#12224e" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="23" cy="2.4" r="2.7" fill="#2ec4c6"/>
+            <!-- arms -->
+            <rect class="arm-l" x="5" y="22" width="5" height="12" rx="2.5" fill="#3fbf9e"/>
+            <rect class="arm-r" x="36" y="22" width="5" height="12" rx="2.5" fill="#3fbf9e"/>
+            <!-- legs -->
+            <rect class="leg-l" x="16" y="37" width="6" height="11" rx="3" fill="#2f9d80"/>
+            <rect class="leg-r" x="24" y="37" width="6" height="11" rx="3" fill="#2f9d80"/>
+            <!-- body -->
+            <rect x="12" y="24" width="22" height="16" rx="6" fill="#4fd3af"/>
+            <rect x="18" y="28" width="10" height="6" rx="2" fill="#0d2b24" opacity=".55"/>
+            <!-- ears / headphones -->
+            <rect x="7" y="14" width="5" height="9" rx="2.5" fill="#12224e"/>
+            <rect x="34" y="14" width="5" height="9" rx="2.5" fill="#12224e"/>
+            <!-- head shell -->
+            <rect x="10" y="8" width="26" height="19" rx="9" fill="#16265a"/>
+            <!-- face plate -->
+            <rect x="14" y="12" width="18" height="12" rx="6" fill="#0c1636"/>
+            <!-- happy smiling eyes -->
+            <path class="bot-eye" d="M16 17 Q18.4 20.6 20.8 17" stroke="#2ec4c6" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+            <path class="bot-eye" d="M25.2 17 Q27.6 20.6 30 17" stroke="#2ec4c6" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
       <li data-step="1" class="active"><span class="dot">1</span><span class="lbl">Setup</span></li>
       <li data-step="2"><span class="dot">2</span><span class="lbl">Lesson Plan</span></li>
       <li data-step="3"><span class="dot">3</span><span class="lbl">Materials</span></li>

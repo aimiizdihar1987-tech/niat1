@@ -26,6 +26,34 @@
     "Unit 11: Lessons to Learn",
     "Unit 12: The Body Beautiful"
   ],
+  "_note_theme_topics": "Maps each DSKP theme to the Close-Up (Form 3) units most relevant to it. A unit may appear under more than one theme because units often cover several themes. Teachers can edit this mapping freely.",
+  "theme_topics": {
+    "People and Culture": [
+      "Unit 1: Family Ties",
+      "Unit 4: Special Relationships",
+      "Unit 8: Time to Spare",
+      "Unit 10: That's Entertainment",
+      "Unit 11: Lessons to Learn"
+    ],
+    "Health and Environment": [
+      "Unit 2: Food, Food, Food!",
+      "Unit 3: The Wonders of Nature",
+      "Unit 6: Ready, Steady, Go!",
+      "Unit 7: Extreme Situations",
+      "Unit 12: The Body Beautiful"
+    ],
+    "Science and Technology": [
+      "Unit 3: The Wonders of Nature",
+      "Unit 7: Extreme Situations",
+      "Unit 9: High-Tech World"
+    ],
+    "Consumerism and Financial Awareness": [
+      "Unit 2: Food, Food, Food!",
+      "Unit 5: A Place to Call Home",
+      "Unit 8: Time to Spare",
+      "Unit 10: That's Entertainment"
+    ]
+  },
   "language_focus_examples": [
     "Present and past tenses",
     "Present perfect",
