@@ -1,0 +1,24 @@
+# Keep the Docker image small and free of secrets/PII when building locally.
+private/
+.git/
+.agents/
+.claude/
+.playwright-mcp/
+__pycache__/
+*.pyc
+output/
+n8n/
+*.docx
+*.pdf
+*.ipynb
+apikey.txt
+gamma_apikey.txt
+auth_secret.txt
+supabase_config.txt
+reminder_config.txt
+users.json
+bank_soalan.db
+*.log
+reminders_log.txt
+watchdog_log.txt
+desktop.ini

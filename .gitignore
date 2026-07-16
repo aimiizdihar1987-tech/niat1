@@ -17,21 +17,11 @@ niat_mail_webhook.gs
 
 # ---- Student & personal PII ----
 Email Student Prototype.txt
-ID DELIMA MOE MURID SMKKPs 2026.pdf
 jadualwaktu*.pdf
-datatestsaja.csv
 
-# ---- Copyrighted / third-party reference material (not ours to redistribute) ----
-DSKP KSSM English Form 3.pdf
-Buku Teks - Close-Up English Form 3.pdf
-erphperlis.pdf
-
-# ---- Personal documents unrelated to the app ----
-Agentic AI Article Draft.docx
-Aimi Izdihar Article Draft.docx
-Aimi Izdihar Draft Article.pdf
-Paper PRESTIJ Edit here.docx
-Untitled.ipynb
+# ---- Private folder: personal docs, reference PDFs, school data ----
+# (dokumen-peribadi/, rujukan/, data-sekolah/ — never commit, never deploy)
+private/
 .ipynb_checkpoints/
 
 # ---- Real operational data (school-specific; keep local, not in a public repo) ----
@@ -55,5 +45,3 @@ __pycache__/
 
 # ---- OS / editor junk ----
 desktop.ini
-New Text Document.txt
-local host.txt

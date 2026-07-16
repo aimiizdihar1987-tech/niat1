@@ -47,6 +47,10 @@ No `pip install` needed — the server uses the Python standard library only.
 | `apikey.txt` | Your Google API key (kept out of the code) |
 | `mula.bat` | One-click launcher |
 | `backup_niat.py` | Backup script — zips `bank_soalan.db` + `output/` to `Documents\Niat Backups` |
+| `supabase/` | Supabase schema (see `PATH_B_SETUP.md`) |
+| `n8n/` | n8n reminder workflow (see `n8n/README.md`) |
+| `Dockerfile`, `requirements.txt`, `.gcloudignore` | Cloud deployment files — see `DEPLOY_GCLOUD.md` |
+| `private/` | **Local only, never committed/deployed**: personal documents (`dokumen-peribadi/`), copyrighted reference PDFs (`rujukan/`), school data with student PII (`data-sekolah/`) |
 
 ## Backups
 
