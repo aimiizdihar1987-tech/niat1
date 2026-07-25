@@ -3,8 +3,10 @@
 A web app for teachers to automatically generate a **Daily Lesson Plan (DLP/RPH)** and a
 **multiple-choice worksheet** for **English Language (KSSM Form 3, CEFR B1 Low)**, powered by Google Gemini.
 
-Phase 1 flow: **Agent 1** (setup) → **Agent 2** (lesson plan) → teacher approves →
-**Agent 3** (worksheet) → teacher approves → save & download.
+Flow: **Setup** (teacher fills the form — not an agent) → **Agent 1** (lesson plan) → teacher
+approves → **Agent 2** (materials/slides) → **Agent 3** (worksheet) → teacher approves →
+save & distribute → **Agent 4** (reflection & report) → **Agent 5** (differentiation) →
+**Agent 6** (reminds pupils who haven't submitted).
 
 ## How to run (EASY — recommended for teachers)
 
@@ -36,9 +38,13 @@ No `pip install` needed — the server uses the Python standard library only.
 | File / folder | Role |
 |---------------|------|
 | `server.py` | Lightweight server: serves the app, proxies the Gemini API, saves output |
-| `web/` | Single-page app (Agent 1 UI + lesson plan / worksheet views) |
-| `prompts/agent2_rph.md` | Agent 2 system prompt (lesson plan) — **edit the format here** |
+| `web/` | Single-page app (setup form + lesson plan / materials / worksheet views) |
+| `prompts/agent1_rph.md` | Agent 1 system prompt (lesson plan) — **edit the format here** |
+| `prompts/agent2_materials.md` | Agent 2 system prompt (materials / slides) |
 | `prompts/agent3_worksheet.md` | Agent 3 system prompt (worksheet) |
+| `prompts/agent4_reflection.md` | Agent 4 system prompt (reflection & report) |
+| `prompts/agent5_differentiation.md` | Agent 5 system prompt (differentiated levels) |
+| `prompts/agent6_reminder.md` | Agent 6 system prompt (reminds non-submitters) |
 | `dskp_english_f3.json` | English Form 3 curriculum data (source of the dropdowns) |
 | `bank_soalan.py` | **Question Bank** — SQLite store of approved questions (reuse) |
 | `lessons.py` | **Lesson Library** — stores approved lessons (search/reopen/duplicate) |
@@ -61,6 +67,26 @@ Run a backup manually any time with `python backup_niat.py`.
 - Change the time / remove it: open **Task Scheduler** (search it in Start) → find **Niat Backup**.
 - Or via PowerShell: `Unregister-ScheduledTask -TaskName "Niat Backup"` to remove it.
 
+## Agent 6 auto-reminders (scheduled)
+
+`remind_cron.py` runs **Agent 6** for every assignment whose due date has passed, so pupils who
+haven't submitted get an automatic personalised nudge. The cron is only the trigger — Agent 6 decides
+tone + escalation. It's safe to run daily: escalation counts (`peringatan.py`) and the reminder cap
+stop anyone from being emailed too often. It stays idle until Google (Path B) + the mail hub are set up.
+
+Register it to run **daily at 6:00 PM** (adjust the time/path as needed):
+
+```powershell
+$py = (Get-Command python).Source
+$dir = "C:\Users\HP\Desktop\PRESTIJ KAK AIMI"
+$action = New-ScheduledTaskAction -Execute $py -Argument "remind_cron.py" -WorkingDirectory $dir
+$trigger = New-ScheduledTaskTrigger -Daily -At 6:00PM
+Register-ScheduledTask -TaskName "Niat Agent 6" -Action $action -Trigger $trigger -Description "Auto-remind pupils who haven't submitted"
+```
+
+Run it manually any time with `python remind_cron.py`. Set `WITHIN_DAYS` (default 14) to change how far
+back overdue assignments are chased.
+
 ## Curriculum data
 
 `dskp_english_f3.json` holds the KSSM English Form 3 structure: 5 skills
@@ -73,12 +99,12 @@ Standards → Learning Standards, plus the 4 themes and the textbook (**Close-Up
 
 ## Status & next steps
 
-- ✅ Agent 1, 2, 3 + teacher checkpoints + save + `.doc`/JSON export.
+- ✅ Agent 1 (lesson plan), 2 (materials), 3 (worksheet) + teacher checkpoints + save + `.doc`/JSON export.
 - ✅ **Daily Lesson Plan** in the **official JPN Perlis RPH format** (MINGGU, TARIKH, HARI, MASA,
   TINGKATAN/KELAS, MINIMUM JAM SETAHUN, MATA PELAJARAN, TEMA/BIDANG, TAJUK, STANDARD KANDUNGAN,
   STANDARD PEMBELAJARAN, OBJEKTIF PEMBELAJARAN, AKTIVITI PEMBELAJARAN, REFLEKSI) — BM field
   labels per the standard template, English lesson content. Source template: `erphperlis.pdf`.
-  To change the format, edit `prompts/agent2_rph.md` and `planTableHTML` in `web/app.js`.
+  To change the format, edit `prompts/agent1_rph.md` and `planTableHTML` in `web/app.js`.
 - ✅ **Question Bank** (`bank_soalan.py`): on "Approve", questions are stored (status
   `approved`, de-duplicated). New worksheets use **"bank first, AI fills the rest"** — approved
   questions for the same Learning Standard are taken first (least-used first), and AI only
@@ -90,14 +116,18 @@ Standards → Learning Standards, plus the 4 themes and the textbook (**Close-Up
   and (e) emails a **QR code** of the quiz. Only the Classroom service needs enabling.
 - ✅ **Lesson Library** (`lessons.py`): every approved lesson saved to SQLite — search, reopen,
   re-download, duplicate, delete (📚 My Lessons).
-- ✅ **Reflect & Report agent** (`prompts/agent_reflection.md`, `/api/reflect`): enter the class
+- ✅ **Agent 4 — Reflect & Report** (`prompts/agent4_reflection.md`, `/api/reflect`): enter the class
   score/notes → Gemini writes the RPH **reflection** + a **class report**; reflection saves into the
   lesson. One click then generates an **adaptive remedial worksheet** for the weak areas.
 - ✅ **CEFR Progress dashboard** (📊 Progress, `/api/progress`): per-class score charts + CEFR estimate.
-- ✅ **Writing/Speaking grader** (✍️ Grade, `prompts/agent_rubric.md`, `/api/grade`): paste a pupil's
-  response → CEFR band + 4-criteria scores + feedback.
 - ✅ **Day-before reminder** (`reminder.py`, Windows task) + **one-tap prepare** (reminder link / in-app
   banner pre-fills the class & date from `timetable.json`).
+- ✅ **Agent 6 — reminds non-submitters** (`prompts/agent6_reminder.md`, `/api/remind`, ⏰ Remind): reads
+  Google Classroom submission states, the LLM writes a **personalised** nudge per pupil and **escalates**
+  by how many times each was reminded (gentle → firm → email the teacher on the 3rd), then emails them.
+  Escalation counts live in `peringatan.py`; a cap (default 4) stops the daily cron from spamming.
+  Runs automatically after the due date via **`remind_cron.py`** (see below); the cron only triggers —
+  Agent 6 does the deciding.
 - ⏸ **Offline model fallback** (TinyLlama/Ollama) — deferred pending the local model check.
 - 🔜 Phase 2+ (full hands-off automation): direct Google Forms/Classroom **API** distribution without the
   paste step — needs a Google Cloud project, OAuth, and likely MOE domain-admin approval.

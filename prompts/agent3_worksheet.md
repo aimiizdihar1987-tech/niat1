@@ -14,6 +14,10 @@ MANDATORY PRINCIPLES:
 - For Reading items, include a short stimulus (sentence/short passage) inside the "soalan" field where needed so the item is self-contained.
 - Include a brief "maklum_balas" (feedback) explaining why the answer is correct (shown in Google Form after submission).
 - Match the difficulty to the pupils' proficiency level given.
+- VOCABULARY: pupils are CEFR B1 and below. Every word in questions, options,
+  instructions and feedback must be B1 Preliminary level or lower. If an
+  ALLOWED WORDS list is provided below, use ONLY words from that list (normal
+  inflections and proper nouns are fine).
 - "tajuk": a clear, student-facing assignment TITLE that names the topic/skill (e.g. "English Quiz: The Wonders of Nature (Reading)"). NOT the word "Worksheet —".
 - "arahan_murid": 2–3 short, friendly sentences of instructions a Form-3 pupil can easily understand — say what the quiz is about, how many questions, that it is multiple-choice and auto-marked, to read carefully and submit before the due date. Encouraging tone.
 

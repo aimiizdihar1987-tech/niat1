@@ -127,6 +127,43 @@ alter table public.timetable_classes enable row level security;
 create policy "timetable readable by authenticated users"
   on public.timetable_classes for select using (auth.role() = 'authenticated');
 
+-- ---------- vocab_words (CEFR B1 Preliminary allowed-vocabulary list) ----------
+-- Populated by push_wordlist_supabase.py from data/cefr_b1_wordlist.json
+-- (extracted from "CEFR B1-preliminary-vocabulary-list.pdf"). Worksheet
+-- generation only uses words from this list so questions match pupil level.
+create table if not exists public.vocab_words (
+  id         bigint generated always as identity primary key,
+  word       text not null unique,
+  level      text not null default 'B1',
+  source     text default 'Cambridge B1 Preliminary Vocabulary List (Aug 2025)',
+  created_at timestamptz not null default now()
+);
+alter table public.vocab_words enable row level security;
+create policy "vocab readable by authenticated users"
+  on public.vocab_words for select using (auth.role() = 'authenticated');
+
+-- ---------- prestasi_murid (per-pupil quiz performance; feeds Agent 5) ----------
+-- Each read of a distributed quiz's results banks one row per pupil. Agent 5
+-- averages these across recent lessons to decide a differentiated worksheet level.
+create table if not exists public.prestasi_murid (
+  id         bigint generated always as identity primary key,
+  emel       text not null,
+  nama       text,
+  kelas      text,
+  peratus    real not null,          -- 0..100
+  topik      text,
+  sp         text,                    -- learning standard code(s)
+  lesson_id  text,
+  dicipta    timestamptz not null default now()
+);
+create index if not exists idx_prestasi_emel on public.prestasi_murid (emel);
+create index if not exists idx_prestasi_kelas on public.prestasi_murid (kelas);
+alter table public.prestasi_murid enable row level security;
+create policy "prestasi readable by authenticated users"
+  on public.prestasi_murid for select using (auth.role() = 'authenticated');
+create policy "prestasi writable by authenticated users"
+  on public.prestasi_murid for insert with check (auth.role() = 'authenticated');
+
 -- ---------- auto-create a profile row whenever a new Auth user signs up ----------
 create or replace function public.handle_new_user()
 returns trigger as $$

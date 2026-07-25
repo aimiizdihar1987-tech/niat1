@@ -145,7 +145,9 @@ function fillDay() {
   if (!isNaN(d)) $("hari").value = DAYS[d.getDay()];
 }
 
-// ====================== Agent 1: build the form ======================
+// ============ Step 1 (UI — NOT an agent): build the setup form ============
+// The teacher fills these dropdowns (from DSKP) themselves — this IS the prompt.
+// Clicking "generate" sends the inputs straight to Agent 1 (Lesson Plan).
 function buildThemes() {
   const sel = $("theme");
   if (!sel) return;
@@ -296,7 +298,7 @@ function guardrailNotice(g) {
   }
 }
 
-// ====================== Agent 2: Lesson Plan ======================
+// ====================== Agent 1: Lesson Plan (RPH) ======================
 async function genLessonPlan(note = "") {
   const inp = collectInputs();
   const err = validate(inp);
@@ -343,7 +345,7 @@ function planTableHTML(r) {
   </table>`;
 }
 
-// ====================== Agent: Teaching Materials ======================
+// ====================== Agent 2: Teaching Materials / Slides ======================
 async function genMaterials(note = "") {
   if (!lastPlan) return toast("Generate the lesson plan first.", true);
   const inp = collectInputs();
@@ -462,7 +464,7 @@ function printWorksheet() {
   setTimeout(() => win.print(), 300);
 }
 
-// Agent 3 → Gamma AI: turn the plan + slides into a designed deck / page.
+// Agent 2 → Gamma AI: turn the plan + slides into a designed deck / page.
 async function createWithGamma() {
   if (!lastPlan) return toast("Generate a lesson plan first.", true);
   const fmt = $("gamma-format") ? $("gamma-format").value : "presentation";
@@ -1230,9 +1232,15 @@ async function fetchResults() {
   box.textContent = "Fetching results from Google Forms…";
   btn.disabled = true;
   try {
+    // Pass the class so the server banks each pupil's score into their
+    // cumulative history (feeds Agent 5's differentiation decision).
+    const className = (reflectLesson.plan && reflectLesson.plan.tingkatan_kelas) || "";
+    const topic = (reflectLesson.inputs && reflectLesson.inputs.topic) ||
+      (reflectLesson.plan && reflectLesson.plan.tajuk) || "";
     const r = await fetch("/api/quiz-results", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title, form_id: formId }),
+      body: JSON.stringify({ title, form_id: formId, class_name: className,
+        topic, lesson_id: reflectLesson.id || "" }),
     });
     const d = await r.json();
     if (!d.ok) {
@@ -1243,6 +1251,7 @@ async function fetchResults() {
       box.innerHTML = "No responses yet for “" + esc(d.title || title) + "”. Ask pupils to submit, then try again.";
       return;
     }
+    reflectLesson._results = d;  // keep for the standalone report / email
     const weak = (d.weakest || []).map((w) => "Q" + w.q + " (" + w.correct_percent + "% correct)").join(", ");
     $("reflect-score").value = d.average_percent;
     $("reflect-quick").value = d.respondents + " pupils responded";
@@ -1272,14 +1281,25 @@ async function generateReflectionUI() {
       { plan: reflectLesson.plan, results, score_avg: $("reflect-score").value.trim() },
       "Writing reflection & report…");
     reflectLesson._refleksi = data.refleksi || "";
+    reflectLesson._report = data.report || "";
     $("reflect-output").innerHTML =
       `<h4>Reflection (for the RPH) — edit or add to it, then Save</h4>` +
       `<textarea id="reflect-edit" class="reflect-edit">${esc(data.refleksi || "")}</textarea>` +
       `<h4>Class report</h4><pre class="reflect-box">${esc(data.report || "")}</pre>` +
-      `<div class="actions" style="justify-content:flex-start;margin-top:8px"><button id="btn-remedial" class="ghost">🎯 Generate remedial worksheet for weak areas</button></div>`;
+      `<div class="actions" style="justify-content:flex-start;margin-top:8px;flex-wrap:wrap;gap:8px">` +
+        `<button id="btn-download-report" class="ghost">📄 Save report (.md)</button>` +
+        `<input id="reflect-email" type="email" placeholder="teacher@email.com" style="max-width:190px" />` +
+        `<button id="btn-email-report" class="ghost">✉️ Email report</button>` +
+        `<button id="btn-remedial" class="ghost">🎯 Generate remedial worksheet for weak areas</button>` +
+        `<button id="btn-differentiate" class="ghost">🧩 Differentiate by performance (Agent 5)</button>` +
+      `</div>` +
+      `<div id="diff-output" class="hidden" style="margin-top:10px"></div>`;
     $("reflect-output").classList.remove("hidden");
     $("btn-save-reflection").classList.remove("hidden");
     const rb = $("btn-remedial"); if (rb) rb.onclick = generateRemedial;
+    const xb = $("btn-differentiate"); if (xb) xb.onclick = differentiateAndDistribute;
+    const db = $("btn-download-report"); if (db) db.onclick = downloadReport;
+    const eb = $("btn-email-report"); if (eb) eb.onclick = emailReport;
   } catch (e) { toast(e.message, true); }
 }
 
@@ -1297,7 +1317,18 @@ async function saveReflectionUI() {
         (lastPlan === reflectLesson.plan || lastPlan.tajuk === reflectLesson.plan.tajuk)) {
       lastPlan.refleksi = text;
     }
-    toast("Reflection saved into the lesson plan ✓");
+    // Auto-save a standalone .md report into output/ (no extra click). The
+    // reflection itself is already saved, so a failure here is non-fatal.
+    let saved = "";
+    try {
+      const rr = await fetch("/api/reflection-report", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify(reflectPayload()),
+      });
+      const rd = await rr.json();
+      if (rd && rd.ok) saved = rd.saved || "";
+    } catch (e) { /* keep going — the lesson reflection is saved regardless */ }
+    toast("Reflection saved into the lesson plan ✓" + (saved ? " — report written to " + saved : ""));
     closeReflectModal();
   } catch (e) { toast(e.message, true); }
 }
@@ -1319,29 +1350,190 @@ async function generateRemedial() {
   } catch (e) { toast(e.message, true); }
 }
 
-// ====================== #7 Writing/Speaking rubric grader ======================
-function openGradeModal() {
-  $("grade-task").value = "";
-  $("grade-text").value = "";
-  $("grade-output").classList.add("hidden");
-  $("grade-output").innerHTML = "";
-  $("grade-modal").classList.remove("hidden");
+// #3 Differentiated learning (Agent 5) — decide a worksheet LEVEL per pupil from
+// their cumulative performance, generate one worksheet per level, and (fully
+// automatic) post each level to its own pupils in Google Classroom.
+const BANDS = ["remedial", "core", "extension"];
+const BAND_CEFR = { remedial: "A2", core: "B1", extension: "B1+" };
+const BAND_COLOR = { remedial: "#e57373", core: "#64b5f6", extension: "#81c784" };
+
+function diffBasePayload() {
+  const className = (reflectLesson.plan && reflectLesson.plan.tingkatan_kelas) || "";
+  return Object.assign({}, reflectLesson.inputs || {}, {
+    class_name: className,
+    plan: reflectLesson.plan,
+    worksheet: Object.assign({ bil_soalan: 10 },
+      (reflectLesson.inputs && reflectLesson.inputs.worksheet) || {}),
+  });
 }
-function closeGradeModal() { $("grade-modal").classList.add("hidden"); }
-async function doGrade() {
-  const writing = $("grade-text").value.trim();
-  if (!writing) return toast("Paste the pupil's writing first.", true);
+
+// Step 1: ask Agent 5 to PROPOSE a level per pupil (nothing generated/posted yet),
+// then show an editable table so the teacher can override before distributing.
+async function differentiateAndDistribute() {
+  if (!reflectLesson) return;
+  const className = (reflectLesson.plan && reflectLesson.plan.tingkatan_kelas) || "";
+  if (!className) return toast("This lesson has no class set, so pupils can't be matched.", true);
+  const out = $("diff-output");
   try {
-    const d = await api("/api/grade", { task: $("grade-task").value.trim(), writing }, "Grading against the CEFR rubric…");
-    const crit = (d.criteria || []).map((c) =>
-      `<tr><td>${esc(c.name)}</td><td class="g-score">${esc(c.score)}</td><td>${esc(c.comment)}</td></tr>`).join("");
-    const imp = (d.improvements || []).map((x) => `<li>${esc(x)}</li>`).join("");
-    $("grade-output").innerHTML =
-      `<div class="g-band">Band: <b>${esc(d.band)}</b> &nbsp;·&nbsp; Score: <b>${esc(d.score)}</b></div>` +
-      `<table class="g-table"><tr><th>Criterion</th><th>Score</th><th>Comment</th></tr>${crit}</table>` +
-      `<p class="reflect-box"><b>Strengths:</b> ${esc(d.strengths || "")}</p>` +
-      (imp ? `<h4>How to improve</h4><ul class="g-imp">${imp}</ul>` : "");
-    $("grade-output").classList.remove("hidden");
+    const payload = Object.assign(diffBasePayload(), { decide_only: true });
+    const d = await api("/api/differentiate", payload,
+      "Agent 5: reading performance & proposing levels…");
+    if (!d.ok) { if (out) { out.classList.remove("hidden"); out.innerHTML = "⚠️ " + esc(d.error || "Could not differentiate."); } return; }
+    const rows = (d.assignments || []).map((a) => {
+      const sel = "<select data-emel='" + esc(a.emel) + "' class='diff-band " + esc(a.band) + "'>" +
+        BANDS.map((b) => "<option value='" + b + "'" + (b === a.band ? " selected" : "") +
+          ">" + b + " (" + BAND_CEFR[b] + ")</option>").join("") + "</select>";
+      const pct = a.purata != null ? a.purata : 0;
+      const avg = a.purata != null
+        ? "<span class='diff-avg'>" + a.purata + "%<span class='diff-bar'><i style='width:"
+          + Math.max(4, Math.min(100, pct)) + "%;background:var(--" + esc(a.band) + ")'></i></span></span>"
+        : "—";
+      return "<tr><td>" + esc(a.nama || a.emel) + "</td>"
+        + "<td style='text-align:right'>" + avg + "</td>"
+        + "<td>" + sel + "</td>"
+        + "<td class='why'>" + esc(a.sebab || "") + "</td></tr>";
+    }).join("");
+    if (out) {
+      out.classList.remove("hidden");
+      out.innerHTML =
+        "<h4>🧩 Proposed levels</h4>"
+        + "<p class='diff-ringkasan'>" + esc(d.ringkasan || "") + "</p>"
+        + "<p class='diff-hint'>Agent 5's suggestion — change any pupil's level, then post.</p>"
+        + "<table class='g-table'><tr><th>Pupil</th><th style='text-align:right'>Average</th><th>Level</th><th>Why</th></tr>"
+        + rows + "</table>"
+        + "<div class='actions' style='justify-content:flex-start;margin-top:8px'>"
+        + "<button id='btn-diff-post' class='primary'>✅ Generate & post to Classroom</button></div>";
+      const pb = $("btn-diff-post"); if (pb) pb.onclick = postDifferentiation;
+      // Keep the dropdown colour in sync when the teacher changes a level.
+      document.querySelectorAll("#diff-output .diff-band").forEach((s) => {
+        s.onchange = () => { s.className = "diff-band " + s.value; };
+      });
+    }
+  } catch (e) { toast(e.message, true); }
+}
+
+// Step 2: read the (possibly edited) levels, then generate one worksheet per
+// level and post each to its own pupils.
+async function postDifferentiation() {
+  if (!reflectLesson) return;
+  const out = $("diff-output");
+  const className = (reflectLesson.plan && reflectLesson.plan.tingkatan_kelas) || "";
+  const assignments = Array.from(document.querySelectorAll(".diff-band")).map((s) => ({
+    emel: s.getAttribute("data-emel"), band: s.value,
+  }));
+  try {
+    const payload = Object.assign(diffBasePayload(), { assignments });
+    const d = await api("/api/differentiate", payload,
+      "Generating a worksheet per level & posting to Classroom…");
+    if (!d.ok) { toast(d.error || "Could not distribute.", true); return; }
+    const dist = d.distribute || {};
+    let distMsg = "";
+    if (dist.ok) {
+      const per = (dist.bands || []).map((b) =>
+        "<div class='row'><span class='dot' style='background:var(--" + esc(b.band) + ")'></span> "
+        + esc(b.band) + " (" + esc(b.cefr) + "): " + (b.count || 0) + " pupil(s)"
+        + (b.link ? " — <a href='" + esc(b.link) + "' target='_blank'>open in Classroom ↗</a>" : "") + "</div>").join("");
+      distMsg = "<div class='diff-posted'><b>✅ Posted to " + esc(dist.course || className) + "</b>" + per
+        + ((dist.unmatched && dist.unmatched.length) ? "<div class='unmatched'>Not on roster: " + esc(dist.unmatched.join(", ")) + "</div>" : "") + "</div>";
+      toast("🧩 Differentiated worksheets posted to Google Classroom ✓");
+    } else {
+      distMsg = "<div class='diff-posted' style='background:none;padding:0'>ℹ️ " + esc(dist.error || "Not posted.")
+        + (dist.dry_run ? " <b style='color:inherit'>(preview only — levels decided & worksheets generated, nothing sent)</b>" : "") + "</div>";
+      toast(dist.dry_run ? "Worksheets generated (preview) — Google not set up, nothing posted." : "Posting failed.", true);
+    }
+    const bands = (d.bands || []).map((b) =>
+      "<li><span class='pill " + esc(b.band) + "'>" + esc(b.band) + " · " + esc(b.cefr) + "</span>"
+      + "<span class='meta'>" + b.bil_murid + " pupil(s) · "
+      + ((b.worksheet && b.worksheet.jumlah_soalan) || "?") + " questions</span></li>").join("");
+    if (out) out.innerHTML =
+      "<h4>🧩 Differentiation done</h4>"
+      + "<p class='diff-ringkasan'>" + esc(d.ringkasan || "") + "</p>"
+      + (bands ? "<ul class='diff-list'>" + bands + "</ul>" : "") + distMsg;
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---- Standalone report file (.md) + email the report ----
+// Gather everything the report needs: the edited reflection, the class report,
+// the score/notes, and the fetched per-pupil results (if any).
+function reflectPayload() {
+  const r = (reflectLesson && reflectLesson._results) || {};
+  return {
+    plan: reflectLesson.plan,
+    refleksi: $("reflect-edit") ? $("reflect-edit").value.trim() : (reflectLesson._refleksi || ""),
+    report: reflectLesson._report || "",
+    score: $("reflect-score").value.trim(),
+    results: $("reflect-results").value.trim(),
+    respondents: r.respondents || "",
+    weakest: r.weakest || [],
+    per_student: r.per_student || [],
+    school: (profile && profile.school) || "",
+  };
+}
+
+async function downloadReport() {
+  if (!reflectLesson) return;
+  try {
+    // The server saves a copy into output/ and returns the Markdown text,
+    // which we also hand to the browser as a download.
+    const data = await api("/api/reflection-report", reflectPayload(), "Building report…");
+    const blob = new Blob([data.markdown || ""], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = data.filename || "reflection.md";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast("Report saved to " + (data.saved || "output/") + " and downloaded ✓");
+  } catch (e) { toast(e.message, true); }
+}
+
+async function emailReport() {
+  if (!reflectLesson) return;
+  const to = $("reflect-email") ? $("reflect-email").value.trim() : "";
+  if (to.indexOf("@") < 0) return toast("Enter a recipient email address first.", true);
+  try {
+    const payload = reflectPayload(); payload.to = to;
+    const data = await api("/api/email-reflection", payload, "Emailing report…");
+    if (data.ok) toast("Report emailed to " + to + " ✓");
+    else toast(data.error || "Could not send the email.", true);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ====================== Agent 6: Reminder (non-submitters) ======================
+function openRemindModal() {
+  // Pre-fill the class from the current lesson / profile if we have one.
+  const cls = (lastPlan && lastPlan.tingkatan_kelas) ||
+    (reflectLesson && reflectLesson.plan && reflectLesson.plan.tingkatan_kelas) || "";
+  if (cls && !$("remind-class").value) $("remind-class").value = cls;
+  if (profile && profile.email && !$("remind-teacher").value) $("remind-teacher").value = profile.email;
+  $("remind-output").classList.add("hidden");
+  $("remind-output").innerHTML = "";
+  $("remind-modal").classList.remove("hidden");
+}
+function closeRemindModal() { $("remind-modal").classList.add("hidden"); }
+async function doRemind() {
+  const className = $("remind-class").value.trim();
+  if (!className) return toast("Enter the class first.", true);
+  const out = $("remind-output");
+  const arasColor = { gentle: "#7fce9a", firm: "#f0b45a", notify_teacher: "#f39a94" };
+  try {
+    const d = await api("/api/remind", {
+      class_name: className,
+      coursework_title: $("remind-title").value.trim(),
+      teacher_email: $("remind-teacher").value.trim(),
+    }, "Agent 6: checking submissions & sending nudges…");
+    if (!d.ok) { out.classList.remove("hidden"); out.innerHTML = "⚠️ " + esc(d.error || "Could not run reminders."); return; }
+    const rows = (d.reminders || []).map((r) =>
+      "<tr><td>" + esc(r.nama || r.emel) + "</td>"
+      + "<td><b style='color:" + (arasColor[r.aras] || "#888") + "'>" + esc(r.aras || "") + "</b></td>"
+      + "<td>" + (r.hantar ? (r.sent ? "✅ sent" : "⚠️ " + esc(r.error || "failed")) : "— skipped") + "</td>"
+      + "<td style='font-size:.85em;opacity:.85'>" + esc(r.mesej || "") + "</td></tr>").join("");
+    out.classList.remove("hidden");
+    out.innerHTML =
+      "<h4 style='margin:.2em 0'>" + esc(d.ringkasan || "") + "</h4>"
+      + "<p class='muted small'>" + esc(d.coursework || "") + (d.overdue_days ? " · " + d.overdue_days + " day(s) overdue" : "") + "</p>"
+      + (rows ? "<table class='g-table'><tr><th>Pupil</th><th>Level</th><th>Status</th><th>Message</th></tr>" + rows + "</table>" : "");
+    if (d.sent) toast("⏰ " + d.sent + " reminder email(s) sent.");
+    else toast("No reminders sent — " + esc(d.ringkasan || "everyone submitted."));
   } catch (e) { toast(e.message, true); }
 }
 
@@ -1475,11 +1667,11 @@ function wireEvents() {
     document.addEventListener("click", (e) => { if (!tm.contains(e.target)) tm.classList.remove("open"); });
     tm.querySelectorAll(".pop-item").forEach((b) => b.addEventListener("click", () => tm.classList.remove("open")));
   }
-  $("btn-grade").onclick = openGradeModal;
-  $("btn-do-grade").onclick = doGrade;
-  $("btn-close-grade").onclick = closeGradeModal;
   $("btn-progress").onclick = openProgress;
   $("btn-close-progress").onclick = closeProgress;
+  if ($("btn-remind")) $("btn-remind").onclick = openRemindModal;
+  if ($("btn-do-remind")) $("btn-do-remind").onclick = doRemind;
+  if ($("btn-close-remind")) $("btn-close-remind").onclick = closeRemindModal;
 }
 
 function checkLevels() {

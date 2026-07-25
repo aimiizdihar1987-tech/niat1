@@ -37,6 +37,9 @@ import export_docx
 import export_pptx
 import guardrail
 import lessons
+import peringatan
+import prestasi_murid
+import wordlist
 
 # When launched with pythonw.exe (windowless, e.g. the auto-start task),
 # stdout/stderr are None — guard so prints and request logging don't crash.
@@ -311,7 +314,7 @@ def build_context_block(inputs, cur):
 
 def generate_rph(inputs):
     cur = find_curriculum(inputs)
-    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent2_rph.md"))
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent1_rph.md"))
     context = build_context_block(inputs, cur)
     nota = inputs.get("nota_guru", "").strip()
     user_prompt = "== LESSON CONTEXT ==\n" + context
@@ -326,11 +329,11 @@ def generate_rph(inputs):
 
 
 def generate_materials(inputs):
-    """Agent 4: turn the approved lesson plan into ready-to-teach slides
+    """Agent 2: turn the approved lesson plan into ready-to-teach slides
     (teaching aids / 'bahan bantu mengajar')."""
     cur = find_curriculum(inputs)
     plan = inputs.get("plan", {}) or {}
-    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent4_materials.md"))
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent2_materials.md"))
     sp = "; ".join(plan.get("standard_pembelajaran", []) or [])
     obj = "\n".join("- " + o for o in (plan.get("objektif_pembelajaran", []) or []))
     act = "\n".join("- " + a for a in (plan.get("aktiviti_pembelajaran", []) or []))
@@ -376,7 +379,7 @@ GAMMA_URL = "https://public-api.gamma.app/v1.0/generations"
 
 
 def generate_gamma(inputs):
-    """Agent 3+ : send the lesson plan + slides to Gamma AI, which designs a
+    """Agent 2 (Gamma helper): send the lesson plan + slides to Gamma AI, which designs a
     polished presentation / document / webpage. Polls until the deck is ready.
     Needs a Gamma Pro API key in gamma_apikey.txt (or GAMMA_API_KEY env var)."""
     key = _gamma_key()
@@ -527,6 +530,9 @@ def generate_worksheet(inputs):
     ai_arahan = ""
     if gap_total > 0:
         system_prompt = read_text(os.path.join(PROMPT_DIR, "agent3_worksheet.md"))
+        # Constrain vocabulary to the Cambridge B1 Preliminary list (and below)
+        # so questions match the pupils' CEFR level.
+        system_prompt += wordlist.prompt_block()
         elak = "\n".join("- " + q["soalan"] for q in dari_bank) or "(none)"
         user_prompt = (
             "Learning Standard(s) to be tested:\n{sp}\n\n"
@@ -586,6 +592,10 @@ def generate_worksheet(inputs):
         "_sumber": {"dari_bank": len(dari_bank), "dijana_ai": len(dijana_ai)},
     }
     worksheet, laporan = guardrail.check_worksheet(worksheet, sp_kods)
+    # Flag any words above CEFR B1 so the teacher can review them before sending.
+    vocab_flags = wordlist.check_worksheet(worksheet)
+    if vocab_flags:
+        laporan["vocab"] = vocab_flags
     return {"worksheet": worksheet, "konteks": cur_summary(cur, inputs),
             "_guardrail": laporan, "_enjin": last_engine()}
 
@@ -638,11 +648,11 @@ def delete_lesson_route(body):
 
 
 def generate_reflection(inputs):
-    """Agent: turn class results + the lesson into an RPH reflection + a teacher report."""
+    """Agent 4: turn class results + the lesson into an RPH reflection + a teacher report."""
     plan = inputs.get("plan", {}) or {}
     results = (inputs.get("results", "") or "").strip()
     score = (inputs.get("score_avg", "") or "").strip()
-    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent_reflection.md"))
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent4_reflection.md"))
     sp = "; ".join(plan.get("standard_pembelajaran", []) or [])
     obj = "; ".join(plan.get("objektif_pembelajaran", []) or [])
     user_prompt = (
@@ -661,6 +671,125 @@ def generate_reflection(inputs):
     return extract_json(raw)
 
 
+def build_reflection_markdown(body):
+    """Render a standalone, human-readable reflection report (Markdown) from a
+    lesson plan + the AI/teacher reflection + class report + quiz results.
+    Shared by the 'save report file' and 'email report' actions."""
+    plan = body.get("plan", {}) or {}
+    refleksi = (body.get("refleksi") or "").strip()
+    report = (body.get("report") or "").strip()
+    score = str(body.get("score") or "").strip()
+    respondents = str(body.get("respondents") or "").strip()
+    results = (body.get("results") or "").strip()
+    weakest = body.get("weakest") or []
+    per_student = body.get("per_student") or []
+    school = (body.get("school") or "").strip()
+
+    sp = plan.get("standard_pembelajaran") or []
+    obj = plan.get("objektif_pembelajaran") or []
+
+    lines = []
+    if school:
+        lines.append("**{}**".format(school))
+    lines.append("# Reflection & Class Report — {}".format(
+        plan.get("tajuk") or "English Lesson"))
+    lines.append("")
+
+    meta = []
+    if plan.get("tingkatan_kelas"):
+        meta.append("**Class:** " + plan["tingkatan_kelas"])
+    if plan.get("tarikh"):
+        meta.append("**Date:** " + plan["tarikh"])
+    if plan.get("tema_bidang"):
+        meta.append("**Theme:** " + plan["tema_bidang"])
+    if meta:
+        lines.append("  ·  ".join(meta))
+    if sp:
+        lines.append("**Learning Standards:** " + "; ".join(sp))
+    if obj:
+        lines.append("**Objectives:** " + "; ".join(obj))
+    perf = []
+    if score:
+        perf.append("**Average score:** {}%".format(score))
+    if respondents:
+        perf.append(respondents + " pupils responded")
+    if perf:
+        lines.append("  ·  ".join(perf))
+    lines.append("")
+
+    lines.append("## Reflection (for the RPH)")
+    lines.append(refleksi or "_(no reflection written yet)_")
+    lines.append("")
+
+    if report:
+        lines.append("## Class report")
+        lines.append(report)
+        lines.append("")
+
+    if weakest:
+        lines.append("## Weakest questions")
+        for w in weakest:
+            lines.append("- Q{} — {}% correct".format(
+                w.get("q", "?"), w.get("correct_percent", "?")))
+        lines.append("")
+
+    if per_student:
+        lines.append("## Per-pupil results")
+        lines.append("| Pupil | Score | % |")
+        lines.append("| --- | ---: | ---: |")
+        for s in per_student:
+            lines.append("| {} | {}/{} | {}% |".format(
+                s.get("email", "(anonymous)"), s.get("score", ""),
+                s.get("max", ""), s.get("percent", "")))
+        lines.append("")
+
+    if results and not report:
+        lines.append("## Notes")
+        lines.append(results)
+        lines.append("")
+
+    lines.append("---")
+    lines.append("_Generated by Niat on {}._".format(
+        datetime.now().strftime("%Y-%m-%d %H:%M")))
+    return "\n".join(lines).strip() + "\n"
+
+
+def reflection_report(body):
+    """Build a standalone Markdown reflection report, save a copy to output/,
+    and return its text so the browser can download it too."""
+    md = build_reflection_markdown(body)
+    plan = body.get("plan", {}) or {}
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    kelas = re.sub(r"[^A-Za-z0-9]+", "-",
+                   plan.get("tingkatan_kelas", "")).strip("-")
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = "reflection_{}_{}.md".format(kelas or "class", stamp)
+    with open(os.path.join(OUTPUT_DIR, filename), "w", encoding="utf-8") as f:
+        f.write(md)
+    return {"ok": True, "filename": filename, "markdown": md,
+            "saved": "output/" + filename}
+
+
+def email_reflection(body):
+    """Email the reflection report to the teacher (via the Niat Hub's mail
+    action — the same HTTPS path used for reminders). The recipient is supplied
+    explicitly by the teacher; nothing is sent without an address."""
+    to = (body.get("to") or "").strip()
+    if "@" not in to or "." not in to.split("@")[-1]:
+        return {"ok": False, "error": "Please enter a valid recipient email address."}
+    md = build_reflection_markdown(body)
+    plan = body.get("plan", {}) or {}
+    subject = "Reflection & Class Report"
+    bits = [plan.get("tingkatan_kelas"), plan.get("tajuk")]
+    tail = " — ".join(b for b in bits if b)
+    if tail:
+        subject += " — " + tail
+    res = _post_hub({"action": "mail", "to": to, "subject": subject, "body": md})
+    if res.get("ok"):
+        res["to"] = to
+    return res
+
+
 def lesson_reflection_route(body):
     return lessons.update_reflection(int(body.get("id")), body.get("refleksi", ""), body.get("score"))
 
@@ -677,6 +806,205 @@ def distribute_direct(body):
     return niat_google.distribute(
         body.get("worksheet", {}), body.get("class_name", ""),
         body.get("due_iso", ""), body.get("max_points"))
+
+
+# ==========================================================================
+# Agent 5 — Differentiated distribution
+# Reads each pupil's cumulative performance, DECIDES a level per pupil, then
+# generates one worksheet per level and (fully automatic) posts each level to
+# its own pupils in the same Google Classroom.
+# ==========================================================================
+BAND_ORDER = ["remedial", "core", "extension"]
+BAND_CEFR = {"remedial": "A2", "core": "B1", "extension": "B1+"}
+
+# Per-band worksheet shaping: cognitive-level split + proficiency label + a note
+# the worksheet agent folds into its prompt. Vocabulary stays within the project's
+# Cambridge B1 constraint for every band — differentiation is by cognitive demand
+# and scaffolding, not by breaking the vocabulary rule.
+_BAND_SHAPE = {
+    "remedial": {
+        "lots": 70, "mots": 30, "hots": 0,
+        "tahap": "Lower — CEFR A2; pupils are struggling and need support",
+        "nota": ("DIFFERENTIATION — REMEDIAL (A2): Use the simplest B1-or-below "
+                 "vocabulary, short sentences, and clear scaffolding. Focus on recall "
+                 "and basic understanding. Keep stems short and add a small hint where "
+                 "helpful. Avoid inference-heavy or multi-step questions."),
+    },
+    "core": {
+        "lots": 40, "mots": 40, "hots": 20,
+        "tahap": "On-level — CEFR B1 (expected Form 3 standard)",
+        "nota": ("DIFFERENTIATION — CORE (B1): Standard Form 3 pitch. Balanced mix of "
+                 "recall, understanding and some application."),
+    },
+    "extension": {
+        "lots": 10, "mots": 40, "hots": 50,
+        "tahap": "Higher — CEFR B1+; pupils are secure and ready for a challenge",
+        "nota": ("DIFFERENTIATION — EXTENSION (B1+): Keep within B1 vocabulary but "
+                 "raise the cognitive demand — richer/longer texts, inference, "
+                 "analysis, and 'why/how' reasoning. More HOTS questions."),
+    },
+}
+
+
+def _decide_bands(cumulative):
+    """Agent 5: given cumulative per-pupil performance, return
+    {emel: {band, cefr, sebab}} plus a summary. LLM first; if it fails or returns
+    junk, fall back to a deterministic threshold rule so distribution still works."""
+    lines = []
+    for s in cumulative:
+        lines.append(
+            "- {emel} | name: {nama} | average: {purata}% over {bil} quiz(zes) | "
+            "recent: {terkini} | trend: {trend}".format(
+                emel=s["emel"], nama=s["nama"], purata=s["purata"],
+                bil=s["bil"], terkini=s["terkini"], trend=s["trend"]))
+    roster = "\n".join(lines)
+    decided, summary = {}, ""
+    try:
+        system_prompt = read_text(os.path.join(PROMPT_DIR, "agent5_differentiation.md"))
+        user_prompt = ("Assign a differentiation band to every pupil below.\n\n"
+                       "== CLASS PERFORMANCE ==\n" + roster +
+                       "\n\nReturn JSON only.")
+        raw = call_llm(system_prompt, user_prompt, max_tokens=3000)
+        data = extract_json(raw)
+        if isinstance(data, dict):
+            summary = (data.get("ringkasan") or "").strip()
+            for a in data.get("assignments", []) or []:
+                emel = (a.get("emel") or "").strip().lower()
+                band = (a.get("band") or "").strip().lower()
+                if emel and band in _BAND_SHAPE:
+                    decided[emel] = {"band": band,
+                                     "cefr": BAND_CEFR[band],
+                                     "sebab": (a.get("sebab") or "").strip()}
+    except Exception:  # noqa: BLE001 — any failure drops to the rule below
+        decided = {}
+
+    # Deterministic fallback / fill gaps for any pupil the agent skipped.
+    for s in cumulative:
+        if s["emel"] in decided:
+            continue
+        p = s["purata"]
+        band = "remedial" if p < 50 else ("core" if p < 80 else "extension")
+        decided[s["emel"]] = {"band": band, "cefr": BAND_CEFR[band],
+                              "sebab": "Average {}% (auto by threshold).".format(p)}
+    if not summary:
+        counts = {b: 0 for b in BAND_ORDER}
+        for v in decided.values():
+            counts[v["band"]] += 1
+        summary = ", ".join("{} {}".format(counts[b], b) for b in BAND_ORDER)
+    return decided, summary
+
+
+def _worksheet_for_band(base_inputs, band):
+    """Generate one worksheet pitched at `band` by reshaping the worksheet config
+    and letting Agent 3 (generate_worksheet) do the work."""
+    shape = _BAND_SHAPE[band]
+    inputs = dict(base_inputs)
+    ws = dict(inputs.get("worksheet", {}) or {})
+    ws["lots"], ws["mots"], ws["hots"] = shape["lots"], shape["mots"], shape["hots"]
+    inputs["worksheet"] = ws
+    inputs["tahap_murid"] = shape["tahap"]
+    # Prepend the level instruction to any existing teacher note. A note also
+    # tells generate_worksheet to generate fresh (not reuse the bank), which is
+    # what we want so each level is genuinely different.
+    nota = (base_inputs.get("nota_guru") or "").strip()
+    inputs["nota_guru"] = shape["nota"] + (("\n\n" + nota) if nota else "")
+    out = generate_worksheet(inputs)
+    ws_out = out.get("worksheet", {}) or {}
+    base_title = ws_out.get("tajuk") or "Worksheet"
+    ws_out["tajuk"] = "{} — {} ({})".format(base_title, band.title(), BAND_CEFR[band])
+    return ws_out
+
+
+def differentiate(body):
+    """Fully-automatic differentiated distribution (Agent 5).
+
+    Steps: read the class's cumulative performance → decide a band per pupil →
+    generate one worksheet per band that has pupils → post each band to its own
+    pupils in Google Classroom. If Google (Path B) is not set up, everything up
+    to posting still runs and is returned as a preview (dry run)."""
+    class_name = (body.get("class_name") or body.get("kelas") or "").strip()
+    if not class_name:
+        return {"ok": False, "error": "No class specified."}
+
+    cumulative = prestasi_murid.cumulative_by_student(class_name)
+    if not cumulative:
+        return {"ok": False, "error": "No performance data yet for \"{}\". Read at "
+                "least one quiz's results for this class first (Reflect step).".format(class_name)}
+
+    # Teacher override: if the caller supplies its own band per pupil (from the
+    # editable preview table), honour it instead of re-running the agent. Any
+    # pupil left out is filled from the agent/threshold decision.
+    override = {}
+    for a in body.get("assignments") or []:
+        emel = (a.get("emel") or "").strip().lower()
+        band = (a.get("band") or "").strip().lower()
+        if emel and band in _BAND_SHAPE:
+            override[emel] = band
+    if override:
+        decided = {}
+        for s in cumulative:
+            band = override.get(s["emel"])
+            if band:
+                decided[s["emel"]] = {"band": band, "cefr": BAND_CEFR[band],
+                                      "sebab": "Teacher-set level."}
+        # fill anyone the teacher didn't touch
+        for emel, d in _decide_bands(cumulative)[0].items():
+            decided.setdefault(emel, d)
+        summary = "Teacher-adjusted differentiation plan."
+    else:
+        decided, summary = _decide_bands(cumulative)
+
+    # Group pupils by band and attach the rationale for the teacher-facing table.
+    by_band = {b: [] for b in BAND_ORDER}
+    assignments = []
+    perf = {s["emel"]: s for s in cumulative}
+    for emel, d in decided.items():
+        by_band[d["band"]].append(emel)
+        assignments.append({
+            "emel": emel, "nama": perf.get(emel, {}).get("nama", emel),
+            "purata": perf.get(emel, {}).get("purata"),
+            "band": d["band"], "cefr": d["cefr"], "sebab": d["sebab"],
+        })
+    assignments.sort(key=lambda a: (BAND_ORDER.index(a["band"]), a["emel"]))
+
+    # Step 1 (preview): return the proposed levels so the teacher can adjust
+    # before anything is generated or posted. Nothing irreversible happens here.
+    if body.get("decide_only"):
+        return {"ok": True, "class_name": class_name, "ringkasan": summary,
+                "assignments": assignments, "decided_only": True}
+
+    # Generate one worksheet per band that actually has pupils.
+    bands_payload = []
+    for band in BAND_ORDER:
+        emails = by_band[band]
+        if not emails:
+            continue
+        worksheet = _worksheet_for_band(body, band)
+        bands_payload.append({"band": band, "cefr": BAND_CEFR[band],
+                              "emails": emails, "worksheet": worksheet})
+
+    result = {"ok": True, "class_name": class_name, "ringkasan": summary,
+              "assignments": assignments,
+              "bands": [{"band": b["band"], "cefr": b["cefr"],
+                         "bil_murid": len(b["emails"]),
+                         "worksheet": b["worksheet"]} for b in bands_payload]}
+
+    # Fully automatic: post to Google Classroom if Path B is ready.
+    try:
+        import niat_google
+    except Exception as e:  # noqa: BLE001
+        result["distribute"] = {"ok": False, "error": "Path B module error: " + str(e)}
+        return result
+    if not niat_google.available():
+        result["distribute"] = {"ok": False, "dry_run": True,
+                                 "error": "Google (Path B) not set up — levels decided "
+                                 "and worksheets generated, but nothing was posted. "
+                                 "See PATH_B_SETUP.md."}
+        return result
+    result["distribute"] = niat_google.distribute_differentiated(
+        class_name, bands_payload,
+        due_iso=body.get("due_iso", ""), max_points=body.get("max_points"))
+    return result
 
 
 def _read_reminder_cfg():
@@ -834,12 +1162,28 @@ def classroom_worksheet(body):
 
 def quiz_results(body):
     """Read a distributed quiz's Google Form responses via the hub and return
-    the class report (average %, weakest questions, per-student scores)."""
-    return _post_hub({
+    the class report (average %, weakest questions, per-student scores).
+
+    Side effect: when the caller tells us which class this quiz belongs to, each
+    pupil's score is banked in prestasi_murid.py so Agent 5 can later decide
+    differentiated worksheet levels from the cumulative history."""
+    res = _post_hub({
         "action": "results",
         "formId": (body.get("form_id") or "").strip(),
         "title": (body.get("title") or "").strip(),
     })
+    class_name = (body.get("class_name") or body.get("kelas") or "").strip()
+    if class_name and isinstance(res, dict) and res.get("per_student"):
+        try:
+            saved = prestasi_murid.record_scores(
+                class_name, res.get("per_student"),
+                topic=(body.get("topic") or "").strip(),
+                sp=body.get("sp") or "",
+                lesson_id=body.get("lesson_id") or "")
+            res["prestasi_disimpan"] = saved
+        except Exception as e:  # noqa: BLE001 — recording must never break results
+            res["prestasi_ralat"] = str(e)
+    return res
 
 
 def _load_timetable(username):
@@ -923,9 +1267,22 @@ VALID_ROLES = ("teacher", "admin", "super_admin")
 USERNAME_RE = re.compile(r"^[a-z0-9_.-]{3,32}$")
 
 
+def _teacher_school_map():
+    """username -> school name, read from the (shared) timetable blocks. This is
+    the authoritative teacher->school link the admin console groups data by."""
+    try:
+        with open(os.path.join(ROOT, "timetable.json"), encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+    return {u.lower(): (blk.get("school") or "").strip()
+            for u, blk in (data.get("teachers") or {}).items()}
+
+
 def admin_list_all_users():
-    """Every account: username, full_name, role, created_at. Supabase is the
-    source of truth for accounts; local users.json is a fallback."""
+    """Every account: username, full_name, role, created_at, school. Supabase is
+    the source of truth for accounts; local users.json is a fallback."""
+    school_of = _teacher_school_map()
     out = []
     if sb.configured():
         try:
@@ -942,6 +1299,7 @@ def admin_list_all_users():
                     "role": (prof.get("role") or "teacher").lower(),
                     "created_at": u.get("created_at", ""),
                     "active": not sb.is_banned(u),
+                    "school": school_of.get(uname.lower(), ""),
                 })
         except sb.SupabaseError as e:
             return {"users": [], "error": str(e)}
@@ -949,7 +1307,7 @@ def admin_list_all_users():
         for uname, rec in auth._load_users().items():
             out.append({"username": uname, "full_name": rec.get("full_name") or uname,
                         "role": (rec.get("role") or "teacher").lower(), "created_at": "",
-                        "active": True})
+                        "active": True, "school": school_of.get(uname.lower(), "")})
     order = {"super_admin": 0, "admin": 1, "teacher": 2}
     out.sort(key=lambda r: (order.get(r["role"], 3), r["full_name"].lower()))
     return {"users": out}
@@ -967,6 +1325,10 @@ def admin_overview():
     except Exception:  # noqa: BLE001
         lesson_total = 0
     active_teachers = sum(1 for u in users if u["role"] == "teacher" and u.get("active", True))
+    try:
+        schools_total = len(admin_get_schools().get("schools", []))
+    except Exception:  # noqa: BLE001
+        schools_total = 0
     return {
         "users_total": len(users),
         "teachers": sum(1 for u in users if u["role"] == "teacher"),
@@ -974,6 +1336,7 @@ def admin_overview():
         "admins": sum(1 for u in users if u["role"] in ("admin", "super_admin")),
         "lessons_total": lesson_total,
         "bank_total": bank_total,
+        "schools_total": schools_total,
     }
 
 
@@ -1141,6 +1504,56 @@ def admin_save_timetable(body):
     return {"ok": True}
 
 
+# ---- Schools registry (super admin: the AI Powered Classroom 1M schools) ----
+# The program spans many schools; the super admin keeps the master list here so
+# teachers and timetables can be tied to a real school. Stored in schools.json.
+def _schools_path():
+    return os.path.join(ROOT, "schools.json")
+
+
+def admin_get_schools():
+    try:
+        with open(_schools_path(), encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {"schools": []}
+    if not isinstance(data.get("schools"), list):
+        data = {"schools": []}
+    return data
+
+
+def admin_save_schools(body):
+    """Replace the whole school list. body = {schools:[{code,name,district,state,
+    principal}]}. Super-admin only (enforced in the handler)."""
+    schools = body.get("schools")
+    if not isinstance(schools, list):
+        return {"ok": False, "ralat": "Invalid schools data."}
+    clean = []
+    seen_codes = set()
+    for s in schools:
+        if not isinstance(s, dict):
+            continue
+        name = str(s.get("name", "")).strip()[:160]
+        if not name:
+            continue
+        code = str(s.get("code", "")).strip()[:40]
+        # Keep codes unique (they key teachers/timetables to a school).
+        if code and code.lower() in seen_codes:
+            continue
+        if code:
+            seen_codes.add(code.lower())
+        clean.append({
+            "code": code,
+            "name": name,
+            "district": str(s.get("district", "")).strip()[:120],
+            "state": str(s.get("state", "")).strip()[:80],
+            "principal": str(s.get("principal", "")).strip()[:120],
+        })
+    with open(_schools_path(), "w", encoding="utf-8") as f:
+        json.dump({"schools": clean}, f, indent=2, ensure_ascii=False)
+    return {"ok": True, "count": len(clean)}
+
+
 # ---- Shared resources: Classroom IDs + student list ----
 def _classrooms_path():
     return os.path.join(ROOT, "classrooms.json")
@@ -1195,31 +1608,162 @@ def _announcement_path():
 def get_announcement():
     try:
         with open(_announcement_path(), encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except (FileNotFoundError, ValueError):
-        return {"message": "", "at": ""}
+        return {"message": "", "items": [], "at": ""}
+    # Backward compatibility: derive an items list from a legacy single message,
+    # and keep `message` populated from items for any old client still reading it.
+    items = data.get("items")
+    if not isinstance(items, list):
+        items = [ln.strip() for ln in str(data.get("message", "")).splitlines() if ln.strip()]
+    data["items"] = items
+    data["message"] = "\n".join(items)
+    return data
 
 
 def admin_set_announcement(body):
-    msg = str(body.get("message", "")).strip()[:500]
-    data = {"message": msg, "at": datetime.now().isoformat(timespec="seconds")}
+    # Accept either an `items` list or a newline-separated `message`; each
+    # non-empty line becomes one rotating announcement in the carousel.
+    raw_items = body.get("items")
+    if not isinstance(raw_items, list):
+        raw_items = str(body.get("message", "")).splitlines()
+    items = [str(ln).strip()[:500] for ln in raw_items if str(ln).strip()][:20]
+    data = {
+        "items": items,
+        "message": "\n".join(items),
+        "at": datetime.now().isoformat(timespec="seconds"),
+    }
     with open(_announcement_path(), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
     return {"ok": True}
 
 
-def grade_writing(inputs):
-    """Agent: grade a pupil's writing/speaking transcript against the CEFR rubric."""
-    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent_rubric.md"))
-    task = (inputs.get("task", "") or "").strip()
-    writing = (inputs.get("writing", "") or "").strip()
-    user_prompt = (
-        "== MARKING TASK (if any) ==\n{task}\n\n"
-        "== PUPIL'S RESPONSE ==\n{writing}\n\n"
-        "Grade it and return JSON as instructed."
-    ).format(task=task or "(general writing)", writing=writing)
-    raw = call_llm(system_prompt, user_prompt, max_tokens=4000)
-    return extract_json(raw)
+def _days_overdue(due_iso):
+    """Whole days past the due date/time (0 if not yet due or unknown)."""
+    if not due_iso:
+        return 0
+    try:
+        due = datetime.fromisoformat(due_iso)
+    except ValueError:
+        return 0
+    delta = datetime.now() - due
+    return max(0, delta.days)
+
+
+def remind_agent(body):
+    """Agent 6 — remind pupils who have NOT submitted an assignment.
+
+    Reads submission states from Google Classroom (who turned in, who didn't),
+    then for each non-submitter the LLM decides tone + escalation from the pupil's
+    performance and how many times they've already been reminded, writes a
+    personalised message, and emails it via the hub. On the 3rd+ reminder it also
+    emails the teacher to follow up. Fully automatic once triggered.
+    """
+    class_name = (body.get("class_name") or body.get("kelas") or "").strip()
+    tugasan = (body.get("coursework_title") or body.get("tugasan") or "").strip()
+    if not class_name:
+        return {"ok": False, "error": "No class specified."}
+
+    # Who hasn't submitted? From Classroom, or from a caller-supplied list (offline/manual).
+    if body.get("students"):
+        states = {"ok": True, "course": class_name, "coursework": tugasan,
+                  "due_iso": body.get("due_iso", ""), "students": body["students"]}
+    else:
+        try:
+            import niat_google
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": "Path B module error: " + str(e)}
+        states = niat_google.list_submission_states(class_name, tugasan)
+        if not states.get("ok"):
+            return states
+
+    tugasan = tugasan or states.get("coursework", "") or "the assignment"
+    due_iso = body.get("due_iso") or states.get("due_iso", "")
+    overdue = _days_overdue(due_iso)
+
+    missing = [s for s in states.get("students", [])
+               if not s.get("submitted") and (s.get("email"))]
+    if not missing:
+        return {"ok": True, "class_name": class_name, "coursework": tugasan,
+                "ringkasan": "Everyone has submitted — no reminders needed.",
+                "reminders": [], "sent": 0}
+
+    emails = [s["email"] for s in missing]
+    perf = {p["emel"]: p for p in prestasi_murid.cumulative_by_student(class_name)}
+    reminded = peringatan.counts_for(tugasan, emails)
+
+    # Cap: once a pupil has had MAX_REMINDERS nudges (teacher already alerted),
+    # stop auto-emailing so a daily cron never spams them forever.
+    MAX_REMINDERS = int(body.get("max_reminders") or 4)
+    capped = [s for s in missing if reminded.get(s["email"].strip().lower(), 0) >= MAX_REMINDERS]
+    missing = [s for s in missing if reminded.get(s["email"].strip().lower(), 0) < MAX_REMINDERS]
+    if not missing:
+        return {"ok": True, "class_name": class_name, "coursework": tugasan,
+                "ringkasan": "All non-submitters have reached the reminder cap ({}); "
+                "teacher already notified.".format(MAX_REMINDERS),
+                "reminders": [], "sent": 0, "capped": len(capped)}
+
+    # Build the per-pupil roster for Agent 6.
+    lines = []
+    for s in missing:
+        e = s["email"].strip().lower()
+        p = perf.get(e, {})
+        lines.append(
+            "- {emel} | name: {nama} | average: {avg} | reminded so far: {kali} | "
+            "days overdue: {od} | assignment: {tug}".format(
+                emel=e, nama=s.get("name") or e.split("@")[0],
+                avg=(str(p.get("purata")) + "%") if p.get("purata") is not None else "unknown",
+                kali=reminded.get(e, 0), od=overdue, tug=tugasan))
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent6_reminder.md"))
+    user_prompt = ("Decide and write reminders for these pupils who have NOT submitted:\n\n"
+                   + "\n".join(lines) + "\n\nReturn JSON only.")
+    decided, summary = {}, ""
+    try:
+        data = extract_json(call_llm(system_prompt, user_prompt, max_tokens=3000))
+        if isinstance(data, dict):
+            summary = (data.get("ringkasan") or "").strip()
+            for r in data.get("reminders", []) or []:
+                em = (r.get("emel") or "").strip().lower()
+                if em:
+                    decided[em] = r
+    except Exception:  # noqa: BLE001 — fall back to a plain nudge below
+        decided = {}
+
+    teacher_email = (body.get("teacher_email") or "").strip()
+    results, sent = [], 0
+    for s in missing:
+        e = s["email"].strip().lower()
+        d = decided.get(e) or {
+            "hantar": True, "aras": "gentle",
+            "subjek": "Reminder: " + tugasan,
+            "mesej": "Hi {}, please remember to submit \"{}\". Your English teacher".format(
+                s.get("name") or e.split("@")[0], tugasan)}
+        if not d.get("hantar", True) or not (d.get("mesej") or "").strip():
+            results.append({"emel": e, "nama": s.get("name"), "hantar": False,
+                            "aras": d.get("aras", "gentle")})
+            continue
+        mail = _post_hub({"action": "mail", "to": e,
+                          "subject": d.get("subjek") or ("Reminder: " + tugasan),
+                          "body": d.get("mesej", "")})
+        ok = bool(mail.get("ok"))
+        if ok:
+            sent += 1
+            peringatan.record(e, class_name, tugasan, d.get("aras", "gentle"))
+        # Escalation: on notify_teacher, also alert the teacher.
+        if d.get("aras") == "notify_teacher" and teacher_email:
+            _post_hub({"action": "mail", "to": teacher_email,
+                       "subject": "Pupil not submitting — {} ({})".format(tugasan, class_name),
+                       "body": "{} ({}) still hasn't submitted \"{}\" after repeated reminders. "
+                               "Please follow up personally.".format(s.get("name") or e, e, tugasan)})
+        results.append({"emel": e, "nama": s.get("name"), "hantar": True,
+                        "aras": d.get("aras", "gentle"), "mesej": d.get("mesej", ""),
+                        "sent": ok, "error": None if ok else mail.get("error", "mail failed")})
+
+    if not summary:
+        summary = "{} pupil(s) not submitted; {} reminder email(s) sent.".format(len(missing), sent)
+    return {"ok": True, "class_name": class_name, "coursework": tugasan,
+            "overdue_days": overdue, "ringkasan": summary, "sent": sent,
+            "reminders": results}
 
 
 ROUTES = {
@@ -1233,10 +1777,13 @@ ROUTES = {
     "/api/save-lesson": save_lesson_route,
     "/api/delete-lesson": delete_lesson_route,
     "/api/reflect": generate_reflection,
+    "/api/reflection-report": reflection_report,
+    "/api/email-reflection": email_reflection,
     "/api/quiz-results": quiz_results,
     "/api/lesson-reflection": lesson_reflection_route,
-    "/api/grade": grade_writing,
     "/api/distribute-direct": distribute_direct,
+    "/api/differentiate": differentiate,
+    "/api/remind": remind_agent,
 }
 
 CONTENT_TYPES = {
@@ -1310,6 +1857,16 @@ class Handler(BaseHTTPRequestHandler):
         role = self._role_of(user)
         if role not in ("admin", "super_admin"):
             self._send(403, {"ralat": "Admins only."})
+            return None, None
+        return user, role
+
+    def _require_super_admin(self):
+        """Like _require_admin, but only a super_admin passes. Used for
+        program-wide management (schools) that a plain admin may only view."""
+        user = self._current_user()
+        role = self._role_of(user)
+        if role != "super_admin":
+            self._send(403, {"ralat": "Super admins only."})
             return None, None
         return user, role
 
@@ -1444,6 +2001,11 @@ class Handler(BaseHTTPRequestHandler):
             if not self._require_admin()[0]:
                 return
             self._send(200, admin_get_timetables())
+            return
+        if path == "/api/admin/schools":
+            if not self._require_admin()[0]:
+                return
+            self._send(200, admin_get_schools())
             return
         if path == "/api/admin/classrooms":
             if not self._require_admin()[0]:
@@ -1619,6 +2181,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/admin/timetable":
                 if self._require_admin()[0]:
                     self._send(200, admin_save_timetable(body))
+            elif path == "/api/admin/schools":
+                if self._require_super_admin()[0]:
+                    self._send(200, admin_save_schools(body))
             elif path == "/api/admin/classrooms":
                 if self._require_admin()[0]:
                     self._send(200, admin_save_classrooms(body))
