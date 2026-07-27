@@ -235,6 +235,20 @@ def extract_json(text):
     raise ValueError("Respons model bukan JSON sah:\n" + text[:500])
 
 
+def call_llm_json(system_prompt, user_prompt, max_tokens=8000, retries=1):
+    """call_llm + extract_json, retrying the whole call if the model's reply isn't
+    valid JSON (occasional truncated/malformed output) — otherwise one bad reply
+    crashes the whole agent instead of just costing one extra call."""
+    last_err = None
+    for _ in range(retries + 1):
+        raw = call_llm(system_prompt, user_prompt, max_tokens)
+        try:
+            return extract_json(raw)
+        except (ValueError, json.JSONDecodeError) as e:
+            last_err = e
+    raise last_err
+
+
 def read_text(path, fallback=""):
     try:
         with open(path, encoding="utf-8") as f:
@@ -321,8 +335,7 @@ def generate_rph(inputs):
     if nota:
         user_prompt += "\n\n== TEACHER IMPROVEMENT NOTES ==\n" + nota
     user_prompt += "\n\nGenerate a complete Daily Lesson Plan in JSON format as instructed."
-    raw = call_llm(system_prompt, user_prompt, max_tokens=8000)
-    rph = extract_json(raw)
+    rph = call_llm_json(system_prompt, user_prompt, max_tokens=8000)
     rph, laporan = guardrail.check_rph(rph, inputs, cur)
     return {"rph": rph, "konteks": cur_summary(cur, inputs),
             "_guardrail": laporan, "_enjin": last_engine()}
@@ -355,8 +368,8 @@ def generate_materials(inputs):
     note = inputs.get("nota_guru", "").strip()
     if note:
         user_prompt += "\n\n== TEACHER IMPROVEMENT NOTES ==\n" + note
-    raw = call_llm(system_prompt, user_prompt, max_tokens=6000)
-    return {"materials": extract_json(raw), "konteks": cur_summary(cur, inputs)}
+    materials = call_llm_json(system_prompt, user_prompt, max_tokens=6000)
+    return {"materials": materials, "konteks": cur_summary(cur, inputs)}
 
 
 def _gamma_key():
@@ -572,8 +585,7 @@ def generate_worksheet(inputs):
         if nota:
             user_prompt += "\n== TEACHER IMPROVEMENT NOTES ==\n" + nota
         user_prompt += "\n\nGenerate the multiple-choice worksheet in JSON format as instructed."
-        raw = call_llm(system_prompt, user_prompt, max_tokens=8000)
-        ws_ai = extract_json(raw)
+        ws_ai = call_llm_json(system_prompt, user_prompt, max_tokens=8000)
         if isinstance(ws_ai, dict):
             dijana_ai = ws_ai.get("soalan", []) or []
             ai_tajuk = (ws_ai.get("tajuk") or "").strip()
@@ -667,8 +679,7 @@ def generate_reflection(inputs):
         tema=plan.get("tema_bidang", ""), sp=sp, obj=obj,
         score=score or "(not given)", results=results or "(no extra notes)",
     )
-    raw = call_llm(system_prompt, user_prompt, max_tokens=2000)
-    return extract_json(raw)
+    return call_llm_json(system_prompt, user_prompt, max_tokens=2000)
 
 
 def build_reflection_markdown(body):
@@ -864,8 +875,7 @@ def _decide_bands(cumulative):
         user_prompt = ("Assign a differentiation band to every pupil below.\n\n"
                        "== CLASS PERFORMANCE ==\n" + roster +
                        "\n\nReturn JSON only.")
-        raw = call_llm(system_prompt, user_prompt, max_tokens=3000)
-        data = extract_json(raw)
+        data = call_llm_json(system_prompt, user_prompt, max_tokens=3000)
         if isinstance(data, dict):
             summary = (data.get("ringkasan") or "").strip()
             for a in data.get("assignments", []) or []:
