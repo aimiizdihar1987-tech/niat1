@@ -28,6 +28,7 @@ import time
 ROOT = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE = os.path.join(ROOT, "users.json")
 SECRET_FILE = os.path.join(ROOT, "auth_secret.txt")
+CONTAINER_MODE = os.environ.get("NIAT_CONTAINER", "").strip().lower() in ("1", "true", "yes")
 
 ROUNDS = 260_000
 SESSION_DAYS = 30
@@ -39,6 +40,13 @@ _USER_RE = re.compile(r"^[a-z0-9_.-]{3,32}$")
 # Secret + users store
 # --------------------------------------------------------------------------
 def _secret():
+    env_secret = os.environ.get("NIAT_AUTH_SECRET", "").strip()
+    if env_secret:
+        if len(env_secret) < 32:
+            raise RuntimeError("NIAT_AUTH_SECRET must contain at least 32 characters.")
+        return env_secret.encode("utf-8")
+    if CONTAINER_MODE:
+        raise RuntimeError("NIAT_AUTH_SECRET is required in container mode.")
     try:
         with open(SECRET_FILE, encoding="utf-8") as f:
             s = f.read().strip()
@@ -71,7 +79,7 @@ def _hash_pw(password, salt_hex):
     return dk.hex()
 
 
-def add_user(username, password):
+def add_user(username, password, full_name=None, role=None):
     username = (username or "").strip().lower()
     if not _USER_RE.match(username):
         raise ValueError("Username must be 3-32 chars: a-z 0-9 _ . -")
@@ -79,7 +87,13 @@ def add_user(username, password):
         raise ValueError("Password must be at least 6 characters.")
     users = _load_users()
     salt = secrets.token_hex(16)
-    users[username] = {"salt": salt, "hash": _hash_pw(password, salt)}
+    rec = {"salt": salt, "hash": _hash_pw(password, salt)}
+    # Preserve any existing name/role unless the caller overrides them.
+    prev = users.get(username, {})
+    if full_name or prev.get("full_name"):
+        rec["full_name"] = full_name or prev.get("full_name")
+    rec["role"] = role or prev.get("role") or "teacher"
+    users[username] = rec
     _save_users(users)
     return True
 
@@ -145,12 +159,18 @@ def user_from_cookie(cookie_header):
 
 
 def session_cookie(token):
-    return ("{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}"
-            .format(COOKIE_NAME, token, SESSION_DAYS * 86400))
+    secure = os.environ.get("NIAT_COOKIE_SECURE", "").strip().lower()
+    is_secure = secure in ("1", "true", "yes") or (not secure and CONTAINER_MODE)
+    suffix = "; Secure" if is_secure else ""
+    return ("{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}{}"
+            .format(COOKIE_NAME, token, SESSION_DAYS * 86400, suffix))
 
 
 def clear_cookie():
-    return "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0".format(COOKIE_NAME)
+    secure = os.environ.get("NIAT_COOKIE_SECURE", "").strip().lower()
+    is_secure = secure in ("1", "true", "yes") or (not secure and CONTAINER_MODE)
+    return ("{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{}"
+            .format(COOKIE_NAME, "; Secure" if is_secure else ""))
 
 
 # --------------------------------------------------------------------------

@@ -11,7 +11,14 @@ gamma_apikey.txt
 auth_secret.txt
 reminder_config.txt
 supabase_config.txt
+PROJECT_ID*.txt
 users.json
+client_secret.json
+token.json
+oauth_agent5_*
+.env
+.env.*
+!.env.example
 niat_hub.gs
 niat_mail_webhook.gs
 
@@ -27,6 +34,7 @@ private/
 # ---- Real operational data (school-specific; keep local, not in a public repo) ----
 classrooms.json
 timetable.json
+schools.json
 
 # ---- Generated data & runtime artifacts ----
 bank_soalan.db
@@ -36,12 +44,20 @@ announcement.json
 *.log
 watchdog_log.txt
 reminders_log.txt
+reminder_alert.json
 __pycache__/
 *.pyc
 
 # ---- Local tooling (not needed to run the app) ----
 .claude/
 .playwright-mcp/
+
+# ---- Unrelated side projects / scratch output living in this folder ----
+# classroom-simulator/ is its own Node/Next.js repo (has its own .git) —
+# never nest it into Niat's history. outputs/ is one-off generated scratch
+# (dummy roster spreadsheets, previews), not app source.
+classroom-simulator/
+outputs/
 
 # ---- OS / editor junk ----
 desktop.ini

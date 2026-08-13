@@ -30,6 +30,17 @@ create policy "users update their own profile"
   using (auth.uid() = id)
   with check (auth.uid() = id and role = (select role from public.profiles where id = auth.uid()));
 
+-- ---------- app_settings (durable server-side JSON configuration) ----------
+-- Timetables are stored under timetable:<username>; schools and announcements
+-- use singleton keys. No client policy is intentional: only the Niat backend's
+-- service role may read or write these operational settings.
+create table if not exists public.app_settings (
+  key        text primary key,
+  value      jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.app_settings enable row level security;
+
 -- ---------- soalan (question bank) ----------
 create table if not exists public.soalan (
   id                bigint generated always as identity primary key,
@@ -163,6 +174,28 @@ create policy "prestasi readable by authenticated users"
   on public.prestasi_murid for select using (auth.role() = 'authenticated');
 create policy "prestasi writable by authenticated users"
   on public.prestasi_murid for insert with check (auth.role() = 'authenticated');
+
+-- ---------- peringatan (reminder escalation tracker; feeds Agent 6) ----------
+-- One row per (pupil, assignment). `kali` is how many reminders that pupil has
+-- already had for that assignment — Agent 6 reads it to pick the escalation
+-- level (gentle -> firm -> notify_teacher) so nobody gets the same nudge twice.
+create table if not exists public.peringatan (
+  emel       text not null,
+  kelas      text,
+  tugasan    text not null,
+  kali       integer not null default 0,
+  aras_akhir text,                     -- gentle | firm | notify_teacher
+  terakhir   timestamptz,
+  primary key (emel, tugasan)
+);
+create index if not exists idx_peringatan_tugasan on public.peringatan (tugasan);
+alter table public.peringatan enable row level security;
+create policy "peringatan readable by authenticated users"
+  on public.peringatan for select using (auth.role() = 'authenticated');
+create policy "peringatan writable by authenticated users"
+  on public.peringatan for insert with check (auth.role() = 'authenticated');
+create policy "peringatan updatable by authenticated users"
+  on public.peringatan for update using (auth.role() = 'authenticated');
 
 -- ---------- auto-create a profile row whenever a new Auth user signs up ----------
 create or replace function public.handle_new_user()

@@ -65,10 +65,10 @@
     .pill.solid sup{color:var(--ink-on-accent);}
 
     /* ---- Topbar: white glass, sticky ---- */
-    .topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);color:var(--ink);padding:13px 30px;position:sticky;top:0;z-index:20;border-bottom:2px solid var(--line);}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--bg);color:var(--ink);padding:13px 30px;position:sticky;top:0;z-index:20;}
     .brand{display:flex;align-items:center;gap:14px;}
     .logo-img{width:54px;height:54px;object-fit:contain;background:#fff;border-radius:16px;padding:3px;box-shadow:0 4px 12px rgba(34,51,62,.10);}
-    .brand-text h1{font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;font-size:29px;margin:0;font-weight:900;color:var(--ink);letter-spacing:-.01em;line-height:1;}
+    .brand-text h1{font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;font-size:29px;margin:0;font-weight:900;color:var(--ink);letter-spacing:-.01em;line-height:1;text-transform:uppercase;}
     .brand-text h1 span{color:var(--blue);}
     .brand-text p{font-size:12.5px;margin:3px 0 0;color:var(--muted);font-weight:600;font-style:normal;}
 
@@ -357,13 +357,13 @@
     .toast.err{background:#fef2f2;color:#b91c1c;border-color:#fecaca;}
 
     /* ---- Left sidebar ---- */
-    .sidebar{position:fixed;left:0;top:0;bottom:0;width:242px;background:var(--panel);border-right:2px solid var(--line);padding:0 14px 16px;display:flex;flex-direction:column;gap:4px;z-index:25;overflow-y:auto;}
-    /* Brand header: matches the topbar height so its divider lines up with the announcement strip */
-    .sb-brand{display:flex;flex-direction:row;align-items:center;text-align:left;gap:12px;height:72px;box-sizing:border-box;padding:0 6px;cursor:pointer;border-bottom:2px solid var(--line);margin-bottom:10px;}
-    .sb-brand img{width:48px;height:48px;object-fit:contain;background:#fff;border-radius:15px;padding:4px;flex:none;box-shadow:0 6px 16px rgba(20,184,166,.18);}
-    .sb-brand b{font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;font-size:26px;font-weight:900;color:var(--ink);line-height:1;display:block;}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:242px;background:var(--panel);border-right:2px solid var(--line);padding:18px 14px 16px;display:flex;flex-direction:column;gap:4px;z-index:25;overflow-y:auto;}
+    /* Brand sits at the top of the sidebar: cute stacked logo, no empty gap */
+    .sb-brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:6px 8px 20px;cursor:pointer;border-bottom:2px dashed var(--line);margin-bottom:10px;}
+    .sb-brand img{width:78px;height:78px;object-fit:contain;background:#fff;border-radius:22px;padding:6px;flex:none;box-shadow:0 8px 20px rgba(20,184,166,.18);}
+    .sb-brand b{font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;font-size:34px;font-weight:900;color:var(--ink);line-height:1;display:block;text-transform:uppercase;}
     .sb-brand b span{color:var(--blue);}
-    .sb-brand p{margin:2px 0 0;font-size:9px;font-weight:700;color:var(--muted);line-height:1.25;white-space:normal;letter-spacing:.01em;}
+    .sb-brand p{margin:2px 0 0;font-size:10.5px;font-weight:700;color:var(--muted);line-height:1.35;white-space:nowrap;}
     .sb-label{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8ba0ac;padding:14px 10px 6px;margin:0;text-align:left;}
     .sb-item{display:flex;align-items:center;justify-content:flex-start;gap:11px;width:100%;background:transparent;border:2px solid transparent;border-radius:14px;padding:10px 14px;min-height:44px;font:inherit;font-size:13px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);cursor:pointer;text-align:left;transition:.15s;position:relative;}
     .sb-item:hover{background:var(--card);color:var(--ink);border-color:var(--line);}
@@ -374,7 +374,7 @@
     @media(min-width:881px){
       body{padding-left:242px;}
       .topbar .brand{display:none;}
-      .topbar{justify-content:flex-end;}
+      .topbar{justify-content:space-between;}
     }
     @media(max-width:880px){
       .sidebar{position:static;width:auto;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:2px solid var(--line);padding:10px 12px;gap:6px;overflow:visible;}
@@ -505,30 +505,31 @@
     .announce-banner .ico{width:18px;height:18px;flex:none;margin-top:1px;}
 
     /* ---- Interactive announcement ticker (slim strip under the header) ---- */
-    .announce-carousel{position:relative;z-index:19;display:flex;align-items:center;gap:11px;
+    .announce-carousel{position:relative;flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:16px;
       background:linear-gradient(120deg,#fdeecd 0%,#fde3ee 100%);
-      border-bottom:2px solid #f3d894;padding:7px 30px;overflow:hidden;
-      box-shadow:0 4px 12px rgba(246,185,59,.14);}
-    .announce-carousel::before{content:"";position:absolute;right:-46px;top:-70px;width:150px;height:150px;border-radius:50%;background:rgba(238,111,160,.14);pointer-events:none;}
-    .announce-carousel .ac-mega{width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;
-      background:var(--sun);color:#513a00;box-shadow:0 3px 0 #cf9420;z-index:1;animation:ac-ring 3.6s ease-in-out infinite;transform-origin:50% 15%;}
-    .announce-carousel .ac-mega .ico{width:16px;height:16px;}
+      border:2px solid #f3d894;border-radius:999px;padding:12px 22px 12px 14px;overflow:hidden;
+      box-shadow:0 4px 14px rgba(246,185,59,.16);}
+    .announce-carousel::before{content:"";position:absolute;right:-40px;top:-55px;width:150px;height:150px;border-radius:50%;background:rgba(238,111,160,.12);pointer-events:none;}
+    .announce-carousel .ac-mega{width:42px;height:42px;flex:none;border-radius:13px;display:grid;place-items:center;
+      background:var(--sun);color:#513a00;box-shadow:0 4px 0 #cf9420;z-index:1;animation:ac-ring 3.6s ease-in-out infinite;transform-origin:50% 15%;}
+    .announce-carousel .ac-mega .ico{width:22px;height:22px;}
     @keyframes ac-ring{0%,86%,100%{transform:rotate(0);}90%{transform:rotate(-13deg);}94%{transform:rotate(11deg);}}
-    .ac-viewport{position:relative;flex:1;min-width:0;height:24px;overflow:hidden;z-index:1;}
-    .ac-slide{position:absolute;inset:0;display:flex;align-items:center;gap:8px;
+    .ac-viewport{position:relative;flex:1;min-width:0;height:32px;overflow:hidden;z-index:1;}
+    .ac-slide{position:absolute;inset:0;display:flex;align-items:center;gap:11px;
       opacity:0;transform:translateY(10px);transition:opacity .45s ease,transform .45s ease;pointer-events:none;}
     .ac-slide.on{opacity:1;transform:translateY(0);pointer-events:auto;}
     .ac-slide.out{opacity:0;transform:translateY(-10px);}
-    .ac-eyebrow{flex:none;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--pink);border-radius:999px;padding:3px 9px;line-height:1;}
-    .ac-msg{font-size:14px;font-weight:700;color:var(--sun-deep);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .ac-nav{display:flex;align-items:center;gap:3px;flex:none;z-index:1;}
-    .ac-arrow{width:26px;height:26px;min-height:0;padding:0;border-radius:50%;border:2px solid #f0cf8a;background:rgba(255,255,255,.7);color:var(--sun-deep);font-weight:900;font-size:14px;line-height:1;cursor:pointer;transition:.15s;}
+    .ac-eyebrow{flex:none;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--pink);border-radius:999px;padding:5px 13px;line-height:1;}
+    .ac-msg{font-size:18px;font-weight:700;color:var(--sun-deep);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ac-nav{display:flex;align-items:center;gap:5px;flex:none;z-index:1;}
+    .ac-arrow{width:36px;height:36px;min-height:0;padding:0;border-radius:50%;border:2px solid #f0cf8a;background:rgba(255,255,255,.7);color:var(--sun-deep);font-weight:900;font-size:19px;line-height:1;cursor:pointer;transition:.15s;}
     .ac-arrow:hover{background:#fff;border-color:var(--sun);transform:translateY(-1px);}
-    .ac-dots{display:flex;align-items:center;gap:5px;margin:0 3px;}
-    .ac-dot{width:7px;height:7px;border-radius:50%;padding:0;min-height:0;border:none;background:rgba(122,82,0,.28);cursor:pointer;transition:.2s;}
-    .ac-dot.on{background:var(--sun-deep);width:18px;border-radius:999px;}
+    .ac-dots{display:flex;align-items:center;gap:6px;margin:0 5px;}
+    .ac-dot{width:9px;height:9px;border-radius:50%;padding:0;min-height:0;border:none;background:rgba(122,82,0,.28);cursor:pointer;transition:.2s;}
+    .ac-dot.on{background:var(--sun-deep);width:24px;border-radius:999px;}
     .announce-carousel.single .ac-nav{display:none;}
-    @media(max-width:560px){.announce-carousel{padding:7px 16px;}.ac-eyebrow{display:none;}}
+    @media(max-width:880px){.announce-carousel{flex-basis:100%;order:3;}}
+    @media(max-width:560px){.ac-eyebrow{display:none;}}
     html[data-theme="dark"] .announce-carousel{background:linear-gradient(120deg,#2c2410 0%,#2e1a24 100%);border-color:#5c4a1e;}
     html[data-theme="dark"] .ac-msg{color:#f7dfa6;}
     html[data-theme="dark"] .ac-arrow{background:rgba(0,0,0,.2);border-color:#5c4a1e;color:#f7dfa6;}
@@ -563,7 +564,7 @@
         var(--bg);
       background-size:auto,auto,auto,28px 28px,auto;
     }
-    html[data-theme="dark"] .topbar{background:rgba(20,33,42,.85);}
+    html[data-theme="dark"] .topbar{background:var(--bg);}
     html[data-theme="dark"] .pill{box-shadow:none;}
     html[data-theme="dark"] .chip{box-shadow:none;}
     html[data-theme="dark"] .chip.on{background:var(--pink);color:#3c1024;border-color:var(--pink);box-shadow:0 4px 0 #b95580;}
@@ -716,6 +717,16 @@
         <p>From Intention to Intervention</p>
       </div>
     </div>
+    <!-- Announcement ticker lives in the top row, inline with the avatar -->
+    <div id="announce-carousel" class="announce-carousel hidden" role="region" aria-label="Announcements" aria-roledescription="carousel">
+      <span class="ac-mega" aria-hidden="true"><svg class="ico"><use href="#i-mega"/></svg></span>
+      <div class="ac-viewport" id="ac-viewport" aria-live="polite"></div>
+      <div class="ac-nav">
+        <button type="button" class="ac-arrow" id="ac-prev" aria-label="Previous announcement">‹</button>
+        <div class="ac-dots" id="ac-dots" role="tablist"></div>
+        <button type="button" class="ac-arrow" id="ac-next" aria-label="Next announcement">›</button>
+      </div>
+    </div>
     <div class="tools-menu" id="tools-menu" style="display:none" aria-hidden="true">
       <button class="tools-trigger" id="tools-trigger" type="button" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg></button>
       <div class="tools-pop">
@@ -759,17 +770,6 @@
     </div>
   </header>
 
-  <!-- ============ ANNOUNCEMENT TICKER (slim strip under the header) ============ -->
-  <div id="announce-carousel" class="announce-carousel hidden" role="region" aria-label="Announcements" aria-roledescription="carousel">
-    <span class="ac-mega" aria-hidden="true"><svg class="ico"><use href="#i-mega"/></svg></span>
-    <div class="ac-viewport" id="ac-viewport" aria-live="polite"></div>
-    <div class="ac-nav">
-      <button type="button" class="ac-arrow" id="ac-prev" aria-label="Previous announcement">‹</button>
-      <div class="ac-dots" id="ac-dots" role="tablist"></div>
-      <button type="button" class="ac-arrow" id="ac-next" aria-label="Next announcement">›</button>
-    </div>
-  </div>
-
   <!-- ============ LEFT SIDEBAR ============ -->
   <aside class="sidebar" id="sidebar" aria-label="Main navigation">
     <div class="sb-brand" id="sb-brand" title="Back to home">
@@ -784,7 +784,7 @@
     <button class="sb-item teacher-only" id="sb-progress" type="button"><span class="sb-emo">📊</span> Class progress</button>
     <p class="sb-label teacher-only">Resources</p>
     <button class="sb-item teacher-only" id="sb-textbook" type="button"><span class="sb-emo">📖</span> Textbook</button>
-    <div class="sb-item teacher-only" style="cursor:default" title="Questions in the offline bank"><span class="sb-emo">🗂️</span> Question bank <span class="sb-count" id="sb-bank">…</span></div>
+    <div class="sb-item teacher-only" style="cursor:default" title="Questions in the offline bank"><span class="sb-emo">🗂️</span> Question bank</div>
     <p class="sb-label sb-admin-only hidden" id="sb-admin-label">Administration</p>
     <button class="sb-item sb-admin-only hidden" id="sb-admin" type="button"><span class="sb-emo">👤</span> Manage accounts</button>
   </aside>
@@ -1091,11 +1091,8 @@
       document.getElementById("ac-next").onclick = () => { go(cur + 1); bump(); };
       document.getElementById("ac-prev").onclick = () => { go(cur - 1); bump(); };
       dotEls.forEach((d) => d.onclick = () => { go(+d.dataset.i); bump(); });
-      // Pause while the user is reading/interacting; resume on leave.
-      wrap.addEventListener("mouseenter", stop);
-      wrap.addEventListener("mouseleave", start);
-      wrap.addEventListener("focusin", stop);
-      wrap.addEventListener("focusout", start);
+      // Always keep moving — never wait for the teacher. The manual controls
+      // still work (bump() just resets the timer so it keeps auto-advancing).
       start();
     }
   </script>
@@ -1212,6 +1209,13 @@
 
       <fieldset class="card accent-curr">
         <legend>Curriculum (DSKP)</legend>
+        <div class="grid">
+          <label>Form (Tingkatan) <select id="tingkatan"></select></label>
+          <label>Curriculum info <span id="form-badge" class="hint" style="display:block;padding-top:8px"></span></label>
+        </div>
+        <label class="block" id="rpt-wrap" style="display:none">RPT quick-fill <span class="hint">(Rancangan Pengajaran Tahunan — pick a week to auto-fill theme &amp; unit)</span>
+          <select id="rpt-week"></select>
+        </label>
         <div class="grid">
           <label>Theme <select id="theme"></select></label>
           <label>Topic / Unit <select id="topic"></select></label>
@@ -1507,10 +1511,13 @@
       <input id="remind-class" type="text" placeholder="e.g. 3 Delima" />
       <label class="block">Assignment title <span class="hint">(leave blank for the latest)</span></label>
       <input id="remind-title" type="text" placeholder="e.g. Unit 3 Worksheet" />
+      <label class="block">Your name <span class="hint">(how the pupils' emails are signed)</span></label>
+      <input id="remind-name" type="text" placeholder="e.g. Cikgu Aimi" />
       <label class="block">Your email <span class="hint">(for escalation follow-ups)</span></label>
       <input id="remind-teacher" type="email" placeholder="teacher@email.com" />
       <div class="actions" style="justify-content:flex-start">
-        <button id="btn-do-remind" class="primary">Check & send reminders</button>
+        <button id="btn-preview-remind" class="primary">Preview the messages</button>
+        <button id="btn-do-remind" class="ghost hidden">Send these to pupils</button>
       </div>
       <div id="remind-output" class="hidden" style="margin-top:12px"></div>
       <div class="actions"><button id="btn-close-remind" class="ghost">Close</button></div>
@@ -2255,8 +2262,11 @@
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ image: dataUrl }),
           }).then((r) => r.json()).then((d) => {
-            if (d.ok) setAvatar(dataUrl);
-            else alert(d.ralat || "Could not save the photo.");
+            if (!d.ok) { alert(d.ralat || "Could not save the photo."); return; }
+            setAvatar(dataUrl);
+            // Saved, but only on this machine — say so rather than let it
+            // look permanent and quietly disappear on the next restart.
+            if (d.amaran) alert(d.amaran);
           }).catch(() => alert("Could not save the photo — is the server running?"));
         };
         img.src = URL.createObjectURL(f);

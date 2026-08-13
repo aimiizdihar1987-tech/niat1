@@ -8,6 +8,8 @@ const CCE = ["Language", "Values", "Patriotism & Citizenship", "Creativity & Inn
 
 // ====================== State ======================
 let DSKP = null;
+let currentForm = 3;        // selected Form (1-5); drives which DSKP is loaded
+let availableForms = [3];   // forms that actually have a data file on the server
 let lastPlan = null;        // generated lesson plan (object)
 let lastWorksheet = null;   // generated worksheet (object)
 let lastContext = null;
@@ -23,13 +25,11 @@ init();
 
 async function init() {
   try {
-    DSKP = await (await fetch("/dskp_english_f3.json")).json();
-  } catch (e) {
-    return toast("Failed to load dskp_english_f3.json", true);
-  }
-  buildThemes();
-  buildUnits();
-  buildSkills();
+    availableForms = ((await (await fetch("/api/dskp-forms")).json()).forms) || [3];
+  } catch (e) { availableForms = [3]; }
+  if (!availableForms.includes(currentForm)) currentForm = availableForms[0] || 3;
+  buildFormSelector();
+  if (!(await loadDskp(currentForm))) return;   // loads DSKP + builds theme/unit/skill
   buildChips($("strategi"), STRATEGIES);
   buildChips($("emk"), CCE);
   $("tarikh").value = new Date().toISOString().slice(0, 10);
@@ -77,9 +77,23 @@ function updateClassSummary(slot, date) {
     (slot.pupils ? slot.pupils + " pupils" : "")].filter(Boolean).join(" · ");
   el.innerHTML = "👩‍🏫 " + esc(who) + "<br>📅 " + esc(what);
 }
+// Derive the Form from a class name (e.g. "1 Amanah", "Form 4 Bestari" -> 1 / 4)
+// and switch the loaded DSKP to match, if that form's data is available.
+async function autoSelectForm(className) {
+  if (!className) return;
+  const m = String(className).match(/\b([1-5])\b/);
+  if (!m) return;
+  const n = Number(m[1]);
+  if (n === currentForm || !availableForms.includes(n)) return;
+  const sel = $("tingkatan");
+  if (sel) sel.value = String(n);
+  await loadDskp(n);
+}
+
 function applySlot(slot, date) {
   if (!slot) return;
   setSelect("nama_kelas", slot.class, true);
+  autoSelectForm(slot.class);
   if (date) { setSelect("tarikh", date); fillDay(); }
   if (slot.time) setSelect("masa", slot.time, true);
   if (slot.duration) setSelect("tempoh", String(slot.duration), true);
@@ -120,7 +134,7 @@ async function prefillFromLink() {
     if (r.teacher) profile.teacher = r.teacher;
     if (r.school) profile.school = r.school;
     if (r.found && r.slot) applySlot(r.slot, pDate || profile.date);
-    else { setSelect("nama_kelas", pClass, true); if (pDate) { setSelect("tarikh", pDate); fillDay(); } setTeacherSchool(); }
+    else { setSelect("nama_kelas", pClass, true); autoSelectForm(pClass); if (pDate) { setSelect("tarikh", pDate); fillDay(); } setTeacherSchool(); }
     toast("Auto-filled " + pClass + " — now choose theme & standards 👋");
   } catch (e) { setSelect("nama_kelas", pClass, true); }
 }
@@ -148,6 +162,72 @@ function fillDay() {
 // ============ Step 1 (UI — NOT an agent): build the setup form ============
 // The teacher fills these dropdowns (from DSKP) themselves — this IS the prompt.
 // Clicking "generate" sends the inputs straight to Agent 1 (Lesson Plan).
+// Load the DSKP data file for a given Form (1-5) and rebuild the dependent
+// dropdowns. Returns true on success. The Form selector calls this on change.
+async function loadDskp(form) {
+  try {
+    DSKP = await (await fetch("/dskp_english_f" + form + ".json")).json();
+  } catch (e) {
+    toast("Failed to load DSKP for Form " + form, true);
+    return false;
+  }
+  currentForm = Number(DSKP.form) || Number(form) || 3;
+  buildThemes();
+  buildUnits();
+  buildSkills();
+  buildRpt();
+  updateFormBadge();
+  return true;
+}
+
+// Build the RPT (yearly scheme of work) quick-fill dropdown from DSKP.rpt.
+// Picking a week auto-fills Week + Theme + Topic/Unit so the teacher starts
+// from the planned pacing. All fields stay editable.
+function buildRpt() {
+  const wrap = $("rpt-wrap"), sel = $("rpt-week");
+  if (!sel || !wrap) return;
+  const rows = (DSKP && DSKP.rpt) || [];
+  if (!rows.length) { wrap.style.display = "none"; return; }
+  wrap.style.display = "";
+  sel.innerHTML = '<option value="">— pick a week —</option>';
+  rows.forEach((r, i) => {
+    const label = "Minggu " + (r.minggu || (i + 1)) +
+      (r.tema ? " · " + r.tema : "") + (r.unit ? " · " + r.unit : "");
+    sel.add(new Option(label, String(i)));
+  });
+  sel.onchange = () => {
+    const r = rows[+sel.value];
+    if (!r) return;
+    // Form 4's RPT pages a range per row ("2-3"); #minggu is <input type=number>,
+    // which silently blanks on a non-numeric value. Fill the first week of the range.
+    const wk = String(r.minggu || "").match(/\d+/);
+    if (wk) setSelect("minggu", wk[0]);
+    if (r.tema && $("theme")) { setSelect("theme", r.tema, true); buildUnits(); }
+    if (r.unit && $("topic")) setSelect("topic", r.unit, true);
+    toast("Filled from RPT — adjust the standards & pedagogy as needed 📅");
+  };
+}
+
+// Build the Form (Tingkatan) selector, showing only forms that have data.
+function buildFormSelector() {
+  const sel = $("tingkatan");
+  if (!sel) return;
+  sel.innerHTML = "";
+  availableForms.forEach((n) => sel.add(new Option("Tingkatan " + n, String(n))));
+  sel.value = String(currentForm);
+  sel.onchange = async () => { await loadDskp(sel.value); };
+}
+
+// Show the loaded curriculum's CEFR target / textbook next to the selector.
+function updateFormBadge() {
+  const el = $("form-badge");
+  if (!el || !DSKP) return;
+  const bits = [];
+  if (DSKP.cefr_target) bits.push("CEFR " + DSKP.cefr_target);
+  if (DSKP.textbook) bits.push(DSKP.textbook);
+  el.textContent = bits.join(" · ");
+}
+
 function buildThemes() {
   const sel = $("theme");
   if (!sel) return;
@@ -231,6 +311,7 @@ function collectInputs() {
     tempoh: $("tempoh").value,
     bil_murid: $("bil_murid").value,
     tahap_murid: $("tahap_murid").value,
+    form: currentForm,
     theme: $("theme").value,
     topic: $("topic").value.trim(),
     bidang_kod: $("bidang").value,
@@ -1359,11 +1440,17 @@ const BAND_COLOR = { remedial: "#e57373", core: "#64b5f6", extension: "#81c784" 
 
 function diffBasePayload() {
   const className = (reflectLesson.plan && reflectLesson.plan.tingkatan_kelas) || "";
-  return Object.assign({}, reflectLesson.inputs || {}, {
+  const inp = reflectLesson.inputs || {};
+  // Pitch differentiation to the class's Form. Prefer the saved input; else
+  // derive it from the class name digit (e.g. "4 Bestari" -> 4); else default 3.
+  let form = inp.form;
+  if (!form) { const m = String(className).match(/\b([1-5])\b/); form = m ? Number(m[1]) : 3; }
+  return Object.assign({}, inp, {
     class_name: className,
+    form: form,
     plan: reflectLesson.plan,
     worksheet: Object.assign({ bil_soalan: 10 },
-      (reflectLesson.inputs && reflectLesson.inputs.worksheet) || {}),
+      (inp && inp.worksheet) || {}),
   });
 }
 
@@ -1505,37 +1592,63 @@ function openRemindModal() {
     (reflectLesson && reflectLesson.plan && reflectLesson.plan.tingkatan_kelas) || "";
   if (cls && !$("remind-class").value) $("remind-class").value = cls;
   if (profile && profile.email && !$("remind-teacher").value) $("remind-teacher").value = profile.email;
+  if (profile && profile.teacher && !$("remind-name").value) $("remind-name").value = profile.teacher;
   $("remind-output").classList.add("hidden");
   $("remind-output").innerHTML = "";
+  $("btn-do-remind").classList.add("hidden");   // send only unlocks after a preview
   $("remind-modal").classList.remove("hidden");
 }
 function closeRemindModal() { $("remind-modal").classList.add("hidden"); }
-async function doRemind() {
+
+// These emails go to real pupils, so the teacher previews them first: the
+// Preview run drafts the messages without sending or counting a reminder,
+// and only then does the Send button appear.
+async function runRemind(dryRun) {
   const className = $("remind-class").value.trim();
   if (!className) return toast("Enter the class first.", true);
   const out = $("remind-output");
   const arasColor = { gentle: "#7fce9a", firm: "#f0b45a", notify_teacher: "#f39a94" };
+  const arasLabel = { gentle: "gentle nudge", firm: "firmer", notify_teacher: "see them in person" };
   try {
     const d = await api("/api/remind", {
       class_name: className,
       coursework_title: $("remind-title").value.trim(),
       teacher_email: $("remind-teacher").value.trim(),
-    }, "Agent 6: checking submissions & sending nudges…");
-    if (!d.ok) { out.classList.remove("hidden"); out.innerHTML = "⚠️ " + esc(d.error || "Could not run reminders."); return; }
+      teacher_name: $("remind-name").value.trim(),
+      dry_run: !!dryRun,
+    }, dryRun ? "Agent 6: checking Classroom & drafting messages…"
+              : "Agent 6: sending the nudges…");
+    if (!d.ok) {
+      out.classList.remove("hidden");
+      out.innerHTML = "⚠️ " + esc(d.error || "Could not run reminders.");
+      $("btn-do-remind").classList.add("hidden");
+      return;
+    }
     const rows = (d.reminders || []).map((r) =>
       "<tr><td>" + esc(r.nama || r.emel) + "</td>"
-      + "<td><b style='color:" + (arasColor[r.aras] || "#888") + "'>" + esc(r.aras || "") + "</b></td>"
-      + "<td>" + (r.hantar ? (r.sent ? "✅ sent" : "⚠️ " + esc(r.error || "failed")) : "— skipped") + "</td>"
-      + "<td style='font-size:.85em;opacity:.85'>" + esc(r.mesej || "") + "</td></tr>").join("");
+      + "<td><b style='color:" + (arasColor[r.aras] || "#888") + "'>" + esc(arasLabel[r.aras] || r.aras || "") + "</b></td>"
+      + "<td>" + (r.hantar ? (d.dry_run ? "✏️ draft" : (r.sent ? "✅ sent" : "⚠️ " + esc(r.error || "failed"))) : "— skipped") + "</td>"
+      + "<td style='font-size:.85em;opacity:.85;white-space:pre-wrap'>" + esc(r.mesej || "") + "</td></tr>").join("");
     out.classList.remove("hidden");
     out.innerHTML =
       "<h4 style='margin:.2em 0'>" + esc(d.ringkasan || "") + "</h4>"
       + "<p class='muted small'>" + esc(d.coursework || "") + (d.overdue_days ? " · " + d.overdue_days + " day(s) overdue" : "") + "</p>"
-      + (rows ? "<table class='g-table'><tr><th>Pupil</th><th>Level</th><th>Status</th><th>Message</th></tr>" + rows + "</table>" : "");
-    if (d.sent) toast("⏰ " + d.sent + " reminder email(s) sent.");
-    else toast("No reminders sent — " + esc(d.ringkasan || "everyone submitted."));
+      + (rows ? "<table class='g-table'><tr><th>Pupil</th><th>Tone</th><th>Status</th><th>Message</th></tr>" + rows + "</table>" : "");
+
+    const anyToSend = (d.reminders || []).some((r) => r.hantar);
+    if (d.dry_run) {
+      $("btn-do-remind").classList.toggle("hidden", !anyToSend);
+      toast(anyToSend ? "Read the drafts, then press “Send these to pupils”."
+                      : "Nothing to send — " + esc(d.ringkasan || "everyone submitted."));
+    } else {
+      $("btn-do-remind").classList.add("hidden");
+      if (d.sent) toast("⏰ " + d.sent + " reminder email(s) sent.");
+      else toast("No reminders sent — " + esc(d.ringkasan || "everyone submitted."));
+    }
   } catch (e) { toast(e.message, true); }
 }
+const previewRemind = () => runRemind(true);
+const doRemind = () => runRemind(false);
 
 // ====================== #5 CEFR progress dashboard ======================
 async function openProgress() {
@@ -1670,6 +1783,7 @@ function wireEvents() {
   $("btn-progress").onclick = openProgress;
   $("btn-close-progress").onclick = closeProgress;
   if ($("btn-remind")) $("btn-remind").onclick = openRemindModal;
+  if ($("btn-preview-remind")) $("btn-preview-remind").onclick = previewRemind;
   if ($("btn-do-remind")) $("btn-do-remind").onclick = doRemind;
   if ($("btn-close-remind")) $("btn-close-remind").onclick = closeRemindModal;
 }

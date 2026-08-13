@@ -16,16 +16,17 @@ Usage (run from this folder):
                                                terminal — hidden input, sent only to
                                                your own Supabase project, never shown
                                                on screen or logged anywhere else)
-    python migrate_to_supabase.py --data      push question bank + lessons + classrooms
-                                               + students + timetable
+    python migrate_to_supabase.py --data --owner USERNAME
+                                             push question bank + lessons + classrooms,
+                                             students, per-teacher timetables and settings
+    python migrate_to_supabase.py --timetable push only durable timetable settings
     python migrate_to_supabase.py --all       both of the above
 
-Safe to re-run: questions/classrooms/students are upserted by their unique key
-(hash / class_name / email), so running twice won't create duplicates. Lessons
-and timetable rows do NOT have a natural unique key in the old schema, so running
---data twice will duplicate those two — that's why each step prints a count and
-you should only run --data once per table (or truncate the table in Supabase
-first if you need a clean re-import).
+Safe to re-run: questions/classrooms/students/timetables/settings are upserted
+by stable keys. Lessons are matched against their existing content before being
+inserted. ``--owner`` assigns imported lessons to an existing Supabase profile;
+when it is omitted, migration can infer the owner only if exactly one profile
+exists.
 """
 import argparse
 import getpass
@@ -37,6 +38,7 @@ import sys
 import supabase_client as sb
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+MIGRATION_OWNER = ""
 
 
 def _iso_or_none(v):
@@ -50,6 +52,7 @@ def check_connection():
         return False
     try:
         sb.select("classrooms", params={"select": "class_name", "limit": "1"})
+        sb.select("app_settings", params={"select": "key", "limit": "1"})
         print("Connected to Supabase OK.")
         return True
     except sb.SupabaseError as e:
@@ -110,13 +113,18 @@ def migrate_students():
         print("No 'Email Student Prototype.txt' found -- skipped.")
         return
     rows = []
+    last_name = ""
     for line in lines:
         if ":" in line:
             label, email = line.split(":", 1)
         elif "," in line:
             label, email = line.split(",", 1)
+        elif "@" in line:
+            label, email = last_name or "Student", line
+            last_name = ""
         else:
-            label, email = "Student", line
+            last_name = line
+            continue
         email = email.strip()
         if "@" in email:
             rows.append({"label": label.strip(), "email": email})
@@ -139,10 +147,44 @@ def migrate_timetable():
     except FileNotFoundError:
         print("No timetable.json found -- skipped.")
         return
-    rows = (data.get("teachers") or {}).get("aimiizdihar", {}).get("classes") or []
-    if rows:
-        sb.insert("timetable_classes", rows)
-        print("Migrated {} timetable rows.".format(len(rows)))
+    teachers = data.get("teachers") or {}
+    for username, block in teachers.items():
+        sb.insert("app_settings", {
+            "key": "timetable:" + username.strip().lower(), "value": block,
+        }, upsert_on="key")
+    print("Migrated {} teacher timetable(s).".format(len(teachers)))
+
+
+def migrate_app_settings():
+    """Move singleton JSON settings to durable storage."""
+    for filename, key, default in (
+            ("schools.json", "schools", {"schools": []}),
+            ("announcement.json", "announcement",
+             {"items": [], "message": "", "at": ""})):
+        path = os.path.join(ROOT, filename)
+        try:
+            with open(path, encoding="utf-8") as handle:
+                value = json.load(handle)
+        except FileNotFoundError:
+            value = default
+        sb.insert("app_settings", {"key": key, "value": value}, upsert_on="key")
+    print("Migrated schools and announcement settings.")
+
+
+def _lesson_owner_id():
+    username = MIGRATION_OWNER.strip().lower()
+    if not username:
+        try:
+            with open(os.path.join(ROOT, "users.json"), encoding="utf-8") as handle:
+                usernames = list(json.load(handle))
+        except (FileNotFoundError, ValueError):
+            usernames = []
+        if len(usernames) == 1:
+            username = usernames[0].strip().lower()
+    if not username:
+        return None
+    rows = sb.select("profiles", params={"select": "id", "username": "eq." + username})
+    return rows[0].get("id") if rows else None
 
 
 def migrate_question_bank():
@@ -170,6 +212,61 @@ def migrate_question_bank():
     print("Migrated {} questions.".format(len(batch)))
 
 
+def sync_bank_and_lessons():
+    """SAFE-to-rerun catch-up sync (for the Supabase cutover): push any local
+    questions/lessons that are not in Supabase yet, without ever duplicating.
+
+    - soalan: INSERT ... ON CONFLICT (hash) DO NOTHING
+    - lessons: skipped if a Supabase row already has the same (created_at, title)
+    """
+    db_file = os.path.join(ROOT, "bank_soalan.db")
+    if not os.path.isfile(db_file):
+        print("No local bank_soalan.db -- nothing to sync.")
+        return
+    conn = sqlite3.connect(db_file)
+    conn.row_factory = sqlite3.Row
+
+    # --- questions: dedup handled by the hash column ---
+    rows = conn.execute("SELECT * FROM soalan").fetchall()
+    added_q = 0
+    batch = []
+    for r in rows:
+        d = dict(r)
+        d["pilihan"] = json.loads(d["pilihan"])
+        d["tarikh_cipta"] = _iso_or_none(d.get("tarikh_cipta"))
+        d["tarikh_akhir_guna"] = _iso_or_none(d.get("tarikh_akhir_guna"))
+        d.pop("id", None)
+        batch.append(d)
+    for i in range(0, len(batch), 200):
+        added_q += len(sb.insert("soalan", batch[i:i + 200], ignore_on="hash") or [])
+    print("Questions: {} local, {} were new -> pushed.".format(len(batch), added_q))
+
+    # --- lessons: dedup by (created_at, title) since there is no natural key ---
+    owner_id = _lesson_owner_id()
+    if not owner_id:
+        conn.close()
+        print("Lessons skipped: use --owner USERNAME after that Supabase account exists.")
+        return
+    existing = sb.select("lessons", params={"select": "created_at,title",
+                                            "limit": "100000"})
+    seen = {((e.get("created_at") or "")[:19], e.get("title") or "") for e in existing}
+    lrows = conn.execute("SELECT * FROM lessons").fetchall()
+    conn.close()
+    added_l = 0
+    for r in lrows:
+        d = dict(r)
+        key = ((d.get("created_at") or "")[:19], d.get("title") or "")
+        if key in seen:
+            continue
+        d.pop("id", None)
+        d["owner"] = owner_id
+        for k in ("plan_json", "worksheet_json", "inputs_json"):
+            d[k] = json.loads(d[k]) if d.get(k) else None
+        sb.insert("lessons", d)
+        added_l += 1
+    print("Lessons: {} local, {} were new -> pushed.".format(len(lrows), added_l))
+
+
 def migrate_lessons():
     db_file = os.path.join(ROOT, "bank_soalan.db")
     if not os.path.isfile(db_file):
@@ -181,10 +278,15 @@ def migrate_lessons():
     if not rows:
         print("No saved lessons -- nothing to migrate.")
         return
+    owner_id = _lesson_owner_id()
+    if not owner_id:
+        print("Lessons skipped: use --owner USERNAME after that Supabase account exists.")
+        return
     batch = []
     for r in rows:
         d = dict(r)
         d.pop("id", None)
+        d["owner"] = owner_id
         for key in ("plan_json", "worksheet_json", "inputs_json"):
             d[key] = json.loads(d[key]) if d.get(key) else None
         batch.append(d)
@@ -194,15 +296,24 @@ def migrate_lessons():
 
 
 def main():
+    global MIGRATION_OWNER
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true", help="verify the Supabase connection only")
     ap.add_argument("--users", action="store_true", help="create teacher accounts in Supabase Auth")
     ap.add_argument("--data", action="store_true", help="push bank/lessons/classrooms/students/timetable")
     ap.add_argument("--all", action="store_true", help="--users + --data")
+    ap.add_argument("--sync", action="store_true",
+                    help="catch-up sync: push local questions/lessons missing in "
+                         "Supabase (safe to re-run, never duplicates)")
+    ap.add_argument("--timetable", action="store_true",
+                    help="upsert every teacher timetable into app_settings")
+    ap.add_argument("--owner", default="",
+                    help="Supabase username that owns migrated local lessons")
     args = ap.parse_args()
+    MIGRATION_OWNER = args.owner
 
-    if not any([args.check, args.users, args.data, args.all]):
+    if not any([args.check, args.users, args.data, args.all, args.sync, args.timetable]):
         ap.print_help()
         return
 
@@ -217,8 +328,13 @@ def main():
         migrate_classrooms()
         migrate_students()
         migrate_timetable()
+        migrate_app_settings()
         migrate_question_bank()
         migrate_lessons()
+    if args.sync:
+        sync_bank_and_lessons()
+    if args.timetable and not (args.data or args.all):
+        migrate_timetable()
     print("\nDone.")
 
 

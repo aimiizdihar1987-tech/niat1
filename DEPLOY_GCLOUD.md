@@ -1,86 +1,130 @@
-# Niat — Panduan Deploy ke Google Cloud (Cloud Run)
+# Niat: container and Cloud Run deployment
 
-Panduan ini untuk bila anda bersedia meletakkan Niat di cloud supaya boleh
-diakses dari mana-mana peranti (bukan hanya PC ini). Servis yang paling sesuai
-ialah **Cloud Run** — bayar ikut guna, ada tier percuma, dan cukup untuk
-aplikasi sekolah.
+The repository is prepared for a production container. The image contains only
+runtime code and public curriculum assets; local credentials, student files,
+databases, generated outputs, prototypes and tests are excluded.
 
-> Belum bersedia? Tak mengapa — setup sedia ada (auto-start pada PC ini,
-> port 8050) kekal berfungsi seperti biasa. Lihat `HOSTING.md`.
-
-## Fail-fail yang telah disediakan
-
-| Fail | Fungsi |
-|------|--------|
-| `Dockerfile` | Resipi bekas (container) — Cloud Run bina imej dari sini |
-| `requirements.txt` | Senarai pakej Python (server teras: tiada — stdlib sahaja) |
-| `.gcloudignore` | Fail yang **TIDAK** dimuat naik semasa deploy (rahsia, PII, `private/`) |
-| `.dockerignore` | Sama, untuk build Docker secara lokal |
-
-## Langkah-langkah
-
-### 1. Sediakan akaun & projek
-1. Pergi ke [console.cloud.google.com](https://console.cloud.google.com) dan log masuk.
-2. Cipta projek baharu (contoh nama: `niat-smkkps`).
-3. Aktifkan billing (tier percuma Cloud Run biasanya mencukupi untuk seorang guru).
-
-### 2. Pasang gcloud CLI (sekali sahaja)
-Muat turun dari <https://cloud.google.com/sdk/docs/install>, kemudian dalam PowerShell:
+## 1. Verify locally
 
 ```powershell
-gcloud init                      # log masuk & pilih projek niat-smkkps
-gcloud config set run/region asia-southeast1   # Singapura (paling hampir)
+python container_check.py
+python -m unittest discover -s tests -v
+docker build -t niat:local .
+Copy-Item .env.example .env
+# Fill .env with your own secret values, then:
+docker run --rm --env-file .env -p 8080:8080 niat:local
 ```
 
-> Alternatif tanpa pasang apa-apa: guna **Cloud Shell** (butang terminal di
-> penjuru atas Console) dan muat naik folder ini ke situ.
+Check `http://localhost:8080/api/health` for process liveness and
+`http://localhost:8080/api/ready` for Supabase readiness. Delete `.env` after
+testing; it is ignored by Git, Docker and gcloud.
 
-### 3. Simpan API key sebagai rahsia (JANGAN muat naik apikey.txt)
-Server membaca `GOOGLE_API_KEY` dari environment variable dahulu sebelum
-mencari `apikey.txt`, jadi di cloud kita guna **Secret Manager**:
+## 2. Prepare durable Supabase storage
+
+1. For a new project, run `supabase/schema.sql` in Supabase SQL Editor.
+2. For an existing project, also run
+   `supabase/migration_container_readiness.sql`.
+3. Verify and migrate from this PC:
 
 ```powershell
-gcloud services enable secretmanager.googleapis.com
-gcloud secrets create gemini-api-key --data-file=apikey.txt
+python migrate_to_supabase.py --check
+python migrate_to_supabase.py --users
+python migrate_to_supabase.py --data --owner YOUR_USERNAME
 ```
 
-*(Ini menghantar kandungan fail terus ke Secret Manager — fail itu sendiri
-tetap tidak dimuat naik semasa deploy kerana disenaraikan dalam `.gcloudignore`.)*
+The container deliberately refuses to start with local storage. Question bank,
+lessons, teacher-owned timetables, classroom mappings, student records, schools,
+announcements, Agent 5 performance and Agent 6 reminder history are therefore
+not lost when an instance restarts.
 
-### 4. Deploy!
-Dari folder projek ini:
+## 3. Prepare Google integrations
+
+Agent 6 can read submissions and send mail through the Apps Script hub. Deploy
+the hub using the operational account `jpn-perlis-cm16@moe-dl.edu.my`, then keep
+its URL and key as secrets named `apps-script-hub-url` and
+`apps-script-hub-key`.
+
+Agent 5 automatic Google Forms/Classroom posting needs one-time OAuth consent.
+On this PC, use the same operational account:
 
 ```powershell
-gcloud run deploy niat --source . `
-  --allow-unauthenticated `
-  --set-secrets GOOGLE_API_KEY=gemini-api-key:latest
+python -m pip install -r requirements.txt
+python niat_google.py --authorize
+gcloud secrets create google-oauth-token --data-file=token.json
 ```
 
-Selepas 2–3 minit anda akan dapat URL seperti
-`https://niat-xxxxx-as.a.run.app` — itu alamat Niat anda, boleh dibuka dari
-mana-mana peranti. Deploy semula selepas ubah kod: jalankan arahan yang sama.
+Never add `client_secret.json` or `token.json` to the image. Re-authorize after
+changing Google scopes. The domain administrator may still need to approve the
+requested Classroom/Forms scopes.
 
-## Perkara penting untuk difahami sebelum deploy
+## 4. Create Cloud secrets
 
-1. **SQLite (`bank_soalan.db`) tidak kekal di Cloud Run.** Storan bekas
-   adalah sementara — setiap kali servis restart, data dalam fail hilang.
-   Bank soalan & perpustakaan RPH perlu berada di **Supabase** dahulu
-   (migrasi sudah disediakan — `migrate_to_supabase.py`). Siapkan itu dulu.
-2. **Rahsia Supabase** juga perlu masuk sebagai env var/secret, bukan fail
-   `supabase_config.txt`. Semak nama pembolehubah yang dibaca oleh
-   `supabase_client.py` dan tetapkan dengan `--set-secrets` juga.
-3. **Fallback Ollama tidak wujud di cloud** (tiada model tempatan di sana) —
-   jika kuota Gemini habis, penjanaan akan gagal dan bukan bertukar ke model
-   tempatan seperti di PC ini.
-4. **Data sekolah** (`timetable.json`, `classrooms.json`) tidak dimuat naik
-   secara lalai. Jika mahu ia ada di cloud, buka `.gcloudignore` dan buang
-   tanda `#` pada dua baris `!timetable.json` / `!classrooms.json`.
-5. **`--allow-unauthenticated`** bermaksud URL itu terbuka kepada sesiapa yang
-   tahu alamatnya — log masuk Niat (Supabase auth) menjadi satu-satunya
-   pagar. Pastikan akaun ujian/lemah dipadam sebelum kongsi URL.
+Use Secret Manager to create these secret names and pin a concrete version when
+deploying:
 
-## Kos anggaran
-Cloud Run mengecaj hanya semasa permintaan diproses. Untuk kegunaan seorang
-guru / sebuah sekolah kecil, kebiasaannya **kekal dalam tier percuma**
-(2 juta permintaan/bulan). Tetapkan *budget alert* dalam Console → Billing
-sebagai langkah berjaga-jaga.
+| Secret name | Runtime variable |
+|---|---|
+| `gemini-api-key` | `GOOGLE_API_KEY` |
+| `supabase-url` | `SUPABASE_URL` |
+| `supabase-anon-key` | `SUPABASE_ANON_KEY` |
+| `supabase-service-key` | `SUPABASE_SERVICE_ROLE_KEY` |
+| `niat-auth-secret` | `NIAT_AUTH_SECRET` (at least 32 random characters) |
+| `apps-script-hub-url` | `APPSCRIPT_HUB_URL` |
+| `apps-script-hub-key` | `APPSCRIPT_HUB_KEY` |
+| `google-oauth-token` | `GOOGLE_OAUTH_TOKEN_JSON` |
+| `niat-cron-secret` | `NIAT_CRON_SECRET` |
+
+Google recommends Secret Manager for Cloud Run secrets and recommends pinning
+environment-variable secrets to a specific version. See the official
+[Cloud Run secrets guide](https://docs.cloud.google.com/run/docs/configuring/services/secrets).
+
+## 5. Deploy from source
+
+Install and initialize gcloud, select your project, then run from this folder:
+
+```powershell
+gcloud config set run/region asia-southeast1
+gcloud run deploy niat --source . --allow-unauthenticated `
+  --set-env-vars "NIAT_REQUIRE_HUB=1,NIAT_REQUIRE_GOOGLE_OAUTH=1,TEACHER_EMAIL=jpn-perlis-cm16@moe-dl.edu.my" `
+  --set-secrets "GOOGLE_API_KEY=gemini-api-key:1,SUPABASE_URL=supabase-url:1,SUPABASE_ANON_KEY=supabase-anon-key:1,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:1,NIAT_AUTH_SECRET=niat-auth-secret:1,APPSCRIPT_HUB_URL=apps-script-hub-url:1,APPSCRIPT_HUB_KEY=apps-script-hub-key:1,GOOGLE_OAUTH_TOKEN_JSON=google-oauth-token:1,NIAT_CRON_SECRET=niat-cron-secret:1"
+```
+
+Cloud Run uses the repository Dockerfile when deploying with `--source .`; see
+the official [source deployment guide](https://docs.cloud.google.com/run/docs/deploying-source-code).
+Public access is needed for the browser UI, while Niat itself still requires a
+valid signed-in application session.
+
+After deployment, open `SERVICE_URL/api/ready`. Do not proceed to production if
+it returns HTTP 503.
+
+## 6. Schedule Agent 6
+
+Create a five-minute HTTP job. Replace the placeholders with the deployed URL
+and load the same cron secret value stored in Secret Manager into a temporary
+PowerShell environment variable (so it does not appear literally in history):
+
+```powershell
+gcloud services enable cloudscheduler.googleapis.com
+$env:NIAT_CRON_SECRET = Read-Host "Cron secret"
+gcloud scheduler jobs create http niat-agent6 `
+  --location=asia-southeast1 `
+  --schedule="*/5 * * * *" `
+  --time-zone="Asia/Kuala_Lumpur" `
+  --uri="SERVICE_URL/api/internal/reminders" `
+  --http-method=POST `
+  --headers="X-Niat-Cron-Secret=$env:NIAT_CRON_SECRET"
+Remove-Item Env:\NIAT_CRON_SECRET
+```
+
+The endpoint rejects calls without the shared secret, and reminder history is
+stored in Supabase to make retries safe. The flags above follow the official
+[Cloud Scheduler HTTP job reference](https://docs.cloud.google.com/sdk/gcloud/reference/scheduler/jobs/create/http).
+
+## Go-live gate
+
+- `/api/health` returns HTTP 200.
+- `/api/ready` returns HTTP 200 and `database_reachable: true`.
+- A Supabase teacher account can sign in.
+- Agent 5 completes one controlled Classroom post.
+- Agent 6 completes one controlled overdue-submission check.
+- No local data or credential file appears in the Docker build context.

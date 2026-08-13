@@ -1,0 +1,261 @@
+{
+  "subject": "English",
+  "level": "KSSM",
+  "form": 5,
+  "cefr_target": "B1 High",
+  "textbook": "English Download [B1+] (Form 5, KSSM) — Express Publishing, KPM edition",
+  "source": "DSKP KSSM Bahasa Inggeris Tingkatan 5 — Bahagian Pembangunan Kurikulum (BPK), Kementerian Pendidikan Malaysia. || VERIFICATION STATUS: (a) CEFR target 'B1 High' — VERIFIED from the official DSKP CEFR Form 4/5 document (anyflip.com/oaquq/vtju 'DSKP BI Form 5'; fliphtml5.com/vgbzt/mqmr 'DSKP CEFR FORM 5_6 Jan 2021 latest'). (b) Content & Learning Standards (bidang 1.0-4.0) — wording EXTRACTED from the official DSKP CEFR Form 5 flipbook (anyflip.com/oaquq/vtju); HIGH confidence on Content Standard names and the Form-5-specific 'extended texts / wide range of familiar topics / reasonable accuracy' phrasing that distinguishes B1 High from Form 3's B1 Low. Some individual learning-standard code lists may be slightly incomplete because the flipbook is image-based and only partially machine-readable — MEDIUM-HIGH confidence on the full code enumeration. (c) Literature in Action (5.0) — the Content Standard structure (5.1 Engage/respond/interpret, 5.2 Analyse/evaluate, 5.3 Imaginative response) is stable across KSSM forms; the Form-5 learning-standard wording here is RECONSTRUCTED (the Literature pages 51-74 of the DSKP flipbook were not machine-readable) — MEDIUM confidence, teachers should verify against the printed DSKP. (d) Textbook & unit titles — the KSSM Form 5 textbook is Express Publishing's 'English Download [B1+]'. Units 1-3 (It's Personal!, Life's Great Mysteries, The World of Sport) VERIFIED from the textbook flipbook (anyflip.com/bitrl/fvhn) and Unit 6=Crime from Wordwall community resources; Units 4-12 titles reconstructed from a Form 5 SOW summary (pdfcoffee.com/form-5-sow-summary) cross-checked against the standard Express Publishing 'Download B1+' contents list — HIGH confidence on titles, but theme-to-unit mapping is the compiler's best-effort and freely editable. (e) theme_topics mapping and the 'rpt' (Rancangan Pengajaran Tahunan) week-by-week array — RECONSTRUCTED from the 12 units and the standard ~40-week Malaysian academic year (no single official RPT PDF was captured); treat as an editable template, not a verbatim ministry document.",
+  "min_hours_per_year": 144,
+  "themes": [
+    "People and Culture",
+    "Health and Environment",
+    "Science and Technology",
+    "Consumerism and Financial Awareness"
+  ],
+  "textbook_units": [
+    "Unit 1: It's Personal!",
+    "Unit 2: Life's Great Mysteries",
+    "Unit 3: The World of Sport",
+    "Unit 4: Shopping Therapy",
+    "Unit 5: The Environment",
+    "Unit 6: Crime",
+    "Unit 7: The Media",
+    "Unit 8: A Hard Day's Work",
+    "Unit 9: Getting Away",
+    "Unit 10: Where on Earth?",
+    "Unit 11: High-Tech World",
+    "Unit 12: Happy to Help!"
+  ],
+  "_note_theme_topics": "Maps each DSKP theme to the English Download [B1+] (Form 5) units most relevant to it. A unit may appear under more than one theme because units often cover several themes. This mapping is the compiler's best-effort reconstruction and teachers can edit it freely.",
+  "theme_topics": {
+    "People and Culture": [
+      "Unit 1: It's Personal!",
+      "Unit 6: Crime",
+      "Unit 8: A Hard Day's Work",
+      "Unit 9: Getting Away",
+      "Unit 10: Where on Earth?",
+      "Unit 12: Happy to Help!"
+    ],
+    "Health and Environment": [
+      "Unit 3: The World of Sport",
+      "Unit 5: The Environment"
+    ],
+    "Science and Technology": [
+      "Unit 2: Life's Great Mysteries",
+      "Unit 7: The Media",
+      "Unit 11: High-Tech World"
+    ],
+    "Consumerism and Financial Awareness": [
+      "Unit 4: Shopping Therapy",
+      "Unit 8: A Hard Day's Work"
+    ]
+  },
+  "language_focus_examples": [
+    "Present tenses (simple, continuous, perfect) review",
+    "Past tenses and used to / would",
+    "Future forms (will, going to, present continuous, future perfect)",
+    "Modals and modal perfects (deduction, obligation, regret)",
+    "Conditionals (zero, first, second, third) and mixed conditionals",
+    "The passive voice (all tenses) and causative have",
+    "Reported speech and reporting verbs",
+    "Relative clauses (defining and non-defining)",
+    "Gerunds and infinitives",
+    "Connectors, linkers and discourse markers for extended texts"
+  ],
+  "_note_structure": "Keys 'bidang' (=Skill), 'standard_kandungan' (=Content Standard) and 'standard_pembelajaran' (=Learning Standard) reuse the engine's keys. Wording targets the official DSKP Form 5 (CEFR B1 High). See 'source' for per-section verification status.",
+  "bidang": [
+    {
+      "kod": "1.0",
+      "nama": "Listening",
+      "standard_kandungan": [
+        {
+          "kod": "1.1",
+          "nama": "Understand meaning in a variety of familiar and unfamiliar contexts",
+          "standard_pembelajaran": [
+            { "kod": "1.1.1", "huraian": "Understand independently the main ideas in extended texts on a wide range of familiar topics and some unfamiliar topics." },
+            { "kod": "1.1.2", "huraian": "Understand independently specific information and details in extended texts on a wide range of familiar topics and some unfamiliar topics." },
+            { "kod": "1.1.3", "huraian": "Recognise independently attitudes or opinions in extended texts on a wide range of familiar topics and some unfamiliar topics." },
+            { "kod": "1.1.4", "huraian": "Understand independently longer sequences of supported classroom instructions." },
+            { "kod": "1.1.5", "huraian": "Understand independently a wide range of more complex questions." },
+            { "kod": "1.1.6", "huraian": "Understand independently longer, more complex narratives on a wide range of familiar topics." }
+          ]
+        },
+        {
+          "kod": "1.2",
+          "nama": "Use appropriate listening strategies in a variety of contexts",
+          "standard_pembelajaran": [
+            { "kod": "1.2.1", "huraian": "Guess the meaning of unfamiliar words from clues provided by other words and by context on a wide range of familiar topics and some unfamiliar topics." }
+          ]
+        },
+        {
+          "kod": "1.3",
+          "nama": "Recognise features of spoken genres on familiar and some unfamiliar topics",
+          "standard_pembelajaran": [
+            { "kod": "1.3.1", "huraian": "Recognise with little or no support typical features at word, sentence and text levels of a range of spoken genres." }
+          ]
+        }
+      ]
+    },
+    {
+      "kod": "2.0",
+      "nama": "Speaking",
+      "standard_kandungan": [
+        {
+          "kod": "2.1",
+          "nama": "Communicate information, ideas, opinions and feelings intelligibly on familiar topics",
+          "standard_pembelajaran": [
+            { "kod": "2.1.1", "huraian": "Explain information on familiar topics from diagrams, charts, tables, graphs or other visuals." },
+            { "kod": "2.1.2", "huraian": "Ask about and explain advantages and disadvantages of ideas, plans and arrangements." },
+            { "kod": "2.1.3", "huraian": "Explain and justify plans and ambitions." },
+            { "kod": "2.1.4", "huraian": "Explain and justify the point of view of classmates or others." },
+            { "kod": "2.1.5", "huraian": "Explain and justify own feelings or those of others." }
+          ]
+        },
+        {
+          "kod": "2.2",
+          "nama": "Use register appropriately",
+          "standard_pembelajaran": [
+            { "kod": "2.2.1", "huraian": "Use formal and informal registers appropriately in most familiar and some unfamiliar contexts." }
+          ]
+        },
+        {
+          "kod": "2.3",
+          "nama": "Use appropriate communication strategies",
+          "standard_pembelajaran": [
+            { "kod": "2.3.1", "huraian": "Keep interaction going in discourse-level exchanges by asking for and giving clarification, and by paraphrasing and rephrasing." }
+          ]
+        },
+        {
+          "kod": "2.4",
+          "nama": "Communicate appropriately to a small or large group on familiar topics",
+          "standard_pembelajaran": [
+            { "kod": "2.4.1", "huraian": "Explain the main points of an idea or argument to a small or large group." }
+          ]
+        }
+      ]
+    },
+    {
+      "kod": "3.0",
+      "nama": "Reading",
+      "standard_kandungan": [
+        {
+          "kod": "3.1",
+          "nama": "Understand a variety of texts by using a range of appropriate reading strategies to construct meaning",
+          "standard_pembelajaran": [
+            { "kod": "3.1.1", "huraian": "Understand the main points in extended texts on a wide range of familiar topics and some unfamiliar topics." },
+            { "kod": "3.1.2", "huraian": "Understand specific details and information in extended texts on a wide range of familiar topics and some unfamiliar topics." },
+            { "kod": "3.1.3", "huraian": "Guess the meaning of unfamiliar words from clues provided by other words and by context on a wide range of familiar topics and some unfamiliar topics." },
+            { "kod": "3.1.4", "huraian": "Use independently a range of familiar and some unfamiliar print and digital resources to check meaning and extend understanding." },
+            { "kod": "3.1.5", "huraian": "Recognise independently the attitude or opinion of the writer in extended texts on a wide range of familiar topics and some unfamiliar topics." },
+            { "kod": "3.1.6", "huraian": "Recognise with little or no support typical features at word, sentence and text levels of a wide range of genres." }
+          ]
+        },
+        {
+          "kod": "3.2",
+          "nama": "Explore and expand ideas for personal development by reading independently and widely",
+          "standard_pembelajaran": [
+            { "kod": "3.2.1", "huraian": "Read a variety of suitable print and digital texts to investigate and analyse global issues, and give a personal response." }
+          ]
+        }
+      ]
+    },
+    {
+      "kod": "4.0",
+      "nama": "Writing",
+      "standard_kandungan": [
+        {
+          "kod": "4.1",
+          "nama": "Communicate intelligibly through print and digital media on familiar topics",
+          "standard_pembelajaran": [
+            { "kod": "4.1.1", "huraian": "Explain and evaluate information that is (i) seen (ii) read (iii) heard." },
+            { "kod": "4.1.2", "huraian": "Explain advantages and disadvantages of (i) ideas (ii) plans or (iii) arrangements." },
+            { "kod": "4.1.3", "huraian": "Explain the main points for and against an idea or argument." },
+            { "kod": "4.1.4", "huraian": "Express and respond to real or imagined opinions and feelings." },
+            { "kod": "4.1.5", "huraian": "Organise, sequence and develop ideas within a text of several paragraphs on familiar and some unfamiliar topics." }
+          ]
+        },
+        {
+          "kod": "4.2",
+          "nama": "Communicate with appropriate language, form and style",
+          "standard_pembelajaran": [
+            { "kod": "4.2.1", "huraian": "Punctuate written work on a range of text types with reasonable accuracy." },
+            { "kod": "4.2.2", "huraian": "Spell written work on a range of text types with reasonable accuracy." },
+            { "kod": "4.2.3", "huraian": "Produce a plan or draft of three paragraphs or more and modify this appropriately, either independently or in response to feedback." },
+            { "kod": "4.2.4", "huraian": "Use formal and informal registers appropriate to the target audience in most familiar and some unfamiliar situations." }
+          ]
+        }
+      ]
+    },
+    {
+      "kod": "5.0",
+      "nama": "Literature in Action",
+      "standard_kandungan": [
+        {
+          "kod": "5.1",
+          "nama": "Engage with, respond to and interpret a variety of literary text types",
+          "standard_pembelajaran": [
+            { "kod": "5.1.1", "huraian": "Respond to and explain in some detail how a text is relevant to one's own or others' lives." },
+            { "kod": "5.1.2", "huraian": "Explain in some detail the development of plot, characters, themes and setting in a text." }
+          ]
+        },
+        {
+          "kod": "5.2",
+          "nama": "Analyse and evaluate a variety of literary text types",
+          "standard_pembelajaran": [
+            { "kod": "5.2.1", "huraian": "Identify and explain in some detail the key stylistic features of a text and evaluate the effect they create." }
+          ]
+        },
+        {
+          "kod": "5.3",
+          "nama": "Express an imaginative response to literary texts",
+          "standard_pembelajaran": [
+            { "kod": "5.3.1", "huraian": "Respond imaginatively and intelligibly by creating a range of print and digital products such as presentations, visuals, posters, blogs and webpages." }
+          ]
+        }
+      ]
+    }
+  ],
+  "_note_rpt": "Rancangan Pengajaran Tahunan (yearly scheme of work) RECONSTRUCTED from the 12 English Download [B1+] units mapped across a standard ~40-week Malaysian academic year. No single official ministry RPT PDF was captured, so this is an editable template: each unit gets ~3 teaching weeks rotating the five skills, with orientation, mid/end-of-year assessment and revision weeks inserted. Teachers should adjust dates and week counts to their school calendar. 'standard_kandungan' lists the Content Standard codes emphasised that week.",
+  "rpt": [
+    { "minggu": 1, "tema": "-", "unit": "Orientation / Language Awareness", "fokus_kemahiran": "Introduction, diagnostics", "standard_kandungan": ["1.1", "3.1"], "catatan": "Minggu orientasi; diagnostik CEFR B1; pengenalan buku teks English Download." },
+    { "minggu": 2, "tema": "People and Culture", "unit": "Unit 1: It's Personal!", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Family, relationships and personal identity." },
+    { "minggu": 3, "tema": "People and Culture", "unit": "Unit 1: It's Personal!", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Present tenses review; describing people." },
+    { "minggu": 4, "tema": "People and Culture", "unit": "Unit 1: It's Personal!", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.1"], "catatan": "Informal email/letter; personal response to a literary text." },
+    { "minggu": 5, "tema": "Science and Technology", "unit": "Unit 2: Life's Great Mysteries", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Unexplained phenomena; speculating and deduction." },
+    { "minggu": 6, "tema": "Science and Technology", "unit": "Unit 2: Life's Great Mysteries", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Modals of deduction; narrative texts." },
+    { "minggu": 7, "tema": "Science and Technology", "unit": "Unit 2: Life's Great Mysteries", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.2"], "catatan": "Narrative/story writing; stylistic features." },
+    { "minggu": 8, "tema": "Health and Environment", "unit": "Unit 3: The World of Sport", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.4"], "catatan": "Sport, fitness and careers; group discussion." },
+    { "minggu": 9, "tema": "Health and Environment", "unit": "Unit 3: The World of Sport", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Past tenses; used to / would." },
+    { "minggu": 10, "tema": "Health and Environment", "unit": "Unit 3: The World of Sport", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.1"], "catatan": "Article writing; interpreting a poem/short story." },
+    { "minggu": 11, "tema": "-", "unit": "Assessment & Revision", "fokus_kemahiran": "Integrated skills", "standard_kandungan": ["1.1", "2.1", "3.1", "4.1"], "catatan": "Ujian 1 / penilaian pertengahan penggal; ulang kaji Unit 1-3." },
+    { "minggu": 12, "tema": "Consumerism and Financial Awareness", "unit": "Unit 4: Shopping Therapy", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Shopping, consumerism and money; expressing preferences." },
+    { "minggu": 13, "tema": "Consumerism and Financial Awareness", "unit": "Unit 4: Shopping Therapy", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Comparatives/superlatives; countable and uncountable nouns." },
+    { "minggu": 14, "tema": "Consumerism and Financial Awareness", "unit": "Unit 4: Shopping Therapy", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.3"], "catatan": "Review writing; imaginative response product." },
+    { "minggu": 15, "tema": "Health and Environment", "unit": "Unit 5: The Environment", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Environmental issues; giving opinions and justifying." },
+    { "minggu": 16, "tema": "Health and Environment", "unit": "Unit 5: The Environment", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "The passive voice; cause and effect linkers." },
+    { "minggu": 17, "tema": "Health and Environment", "unit": "Unit 5: The Environment", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.2"], "catatan": "Opinion/for-and-against essay; theme analysis." },
+    { "minggu": 18, "tema": "People and Culture", "unit": "Unit 6: Crime", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Crime and justice; narrating events." },
+    { "minggu": 19, "tema": "-", "unit": "Mid-Year Examination", "fokus_kemahiran": "Integrated skills", "standard_kandungan": ["1.1", "2.1", "3.1", "4.1"], "catatan": "Peperiksaan pertengahan tahun." },
+    { "minggu": 20, "tema": "-", "unit": "Mid-Year Examination / Review", "fokus_kemahiran": "Integrated skills", "standard_kandungan": ["3.1", "4.1"], "catatan": "Perbincangan skrip; maklum balas." },
+    { "minggu": 21, "tema": "People and Culture", "unit": "Unit 6: Crime", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Reported speech; relative clauses." },
+    { "minggu": 22, "tema": "People and Culture", "unit": "Unit 6: Crime", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.1"], "catatan": "Narrative/report writing; character interpretation." },
+    { "minggu": 23, "tema": "Science and Technology", "unit": "Unit 7: The Media", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.4"], "catatan": "Media, news and advertising; presenting to a group." },
+    { "minggu": 24, "tema": "Science and Technology", "unit": "Unit 7: The Media", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "The passive (reporting); discourse markers." },
+    { "minggu": 25, "tema": "Science and Technology", "unit": "Unit 7: The Media", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.3"], "catatan": "Formal letter / blog post; digital imaginative product." },
+    { "minggu": 26, "tema": "Consumerism and Financial Awareness", "unit": "Unit 8: A Hard Day's Work", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Jobs, careers and the workplace; interview role-play." },
+    { "minggu": 27, "tema": "Consumerism and Financial Awareness", "unit": "Unit 8: A Hard Day's Work", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Present perfect vs past simple; gerunds and infinitives." },
+    { "minggu": 28, "tema": "Consumerism and Financial Awareness", "unit": "Unit 8: A Hard Day's Work", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.2"], "catatan": "CV and application letter; evaluating a text." },
+    { "minggu": 29, "tema": "-", "unit": "Assessment & Revision", "fokus_kemahiran": "Integrated skills", "standard_kandungan": ["2.1", "3.1", "4.1"], "catatan": "Ujian 2; ulang kaji Unit 4-8." },
+    { "minggu": 30, "tema": "People and Culture", "unit": "Unit 9: Getting Away", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Travel and holidays; making arrangements." },
+    { "minggu": 31, "tema": "People and Culture", "unit": "Unit 9: Getting Away", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Future forms; conditionals (first and second)." },
+    { "minggu": 32, "tema": "People and Culture", "unit": "Unit 9: Getting Away", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.1"], "catatan": "Descriptive/travel writing; setting in a text." },
+    { "minggu": 33, "tema": "People and Culture", "unit": "Unit 10: Where on Earth?", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Places, geography and cultures; describing locations." },
+    { "minggu": 34, "tema": "People and Culture", "unit": "Unit 10: Where on Earth?", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Relative clauses (non-defining); articles and quantifiers." },
+    { "minggu": 35, "tema": "People and Culture", "unit": "Unit 10: Where on Earth?", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.3"], "catatan": "Factual/descriptive text; imaginative response." },
+    { "minggu": 36, "tema": "Science and Technology", "unit": "Unit 11: High-Tech World", "fokus_kemahiran": "Listening & Speaking", "standard_kandungan": ["1.1", "2.1"], "catatan": "Technology and innovation; discussing advantages/disadvantages." },
+    { "minggu": 37, "tema": "Science and Technology", "unit": "Unit 11: High-Tech World", "fokus_kemahiran": "Reading & Language Awareness", "standard_kandungan": ["3.1", "4.2"], "catatan": "Modal perfects; conditionals (third and mixed)." },
+    { "minggu": 38, "tema": "Science and Technology", "unit": "Unit 11: High-Tech World", "fokus_kemahiran": "Writing & Literature in Action", "standard_kandungan": ["4.1", "5.2"], "catatan": "Argumentative essay; analysing writer's stance." },
+    { "minggu": 39, "tema": "People and Culture", "unit": "Unit 12: Happy to Help!", "fokus_kemahiran": "Integrated skills", "standard_kandungan": ["1.1", "2.1", "3.1", "4.1"], "catatan": "Volunteering and community; charity and helping others." },
+    { "minggu": 40, "tema": "-", "unit": "End-of-Year Examination & Review", "fokus_kemahiran": "Integrated skills", "standard_kandungan": ["1.1", "2.1", "3.1", "4.1", "5.1"], "catatan": "Peperiksaan akhir tahun; ulang kaji menyeluruh Unit 1-12." }
+  ]
+}

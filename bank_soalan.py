@@ -2,8 +2,10 @@
 """
 Bank Soalan — storan soalan worksheet yang diluluskan guru (Agent 0 / Memori).
 
-Guna SQLite (modul `sqlite3` — sebahagian Python stdlib, jadi TIADA pip install).
-Satu fail pangkalan data: bank_soalan.db di folder projek.
+DUA backend, fungsi awam sama:
+  - Supabase (jadual `soalan`) — digunakan bila supabase_config.txt / env var
+    diisi. Ini yang KEKAL di cloud (Cloud Run storan sementara sahaja).
+  - SQLite (bank_soalan.db) — fallback lokal bila Supabase tiada / NIAT_STORAGE=local.
 
 Peranan dalam sistem:
   - Apabila guru tekan "Setuju" pada worksheet, soalan disimpan ke sini
@@ -17,9 +19,12 @@ Peranan dalam sistem:
 import hashlib
 import json
 import os
+import random
 import re
 import sqlite3
 from datetime import datetime
+
+import supabase_client as sb
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(ROOT, "bank_soalan.db")
@@ -34,7 +39,11 @@ def _conn():
 
 
 def init_db():
-    """Cipta jadual jika belum wujud. Selamat dipanggil berulang kali."""
+    """Cipta jadual SQLite jika belum wujud. Selamat dipanggil berulang kali.
+    (Dalam mod Supabase, jadual dicipta oleh supabase/schema.sql — tiada apa
+    perlu dibuat di sini.)"""
+    if sb.use_cloud():
+        return
     with _conn() as c:
         c.execute(
             """
@@ -77,17 +86,20 @@ def _hash(soalan):
 
 
 def _row_to_q(r):
-    """Tukar baris pangkalan data → objek soalan (format Agent 3)."""
-    try:
-        pilihan = json.loads(r["pilihan"])
-    except (ValueError, TypeError):
-        pilihan = []
+    """Tukar baris pangkalan data → objek soalan (format Agent 3).
+    `pilihan` mungkin string JSON (SQLite) atau list sedia (Supabase jsonb)."""
+    pilihan = r["pilihan"]
+    if isinstance(pilihan, str):
+        try:
+            pilihan = json.loads(pilihan)
+        except (ValueError, TypeError):
+            pilihan = []
     return {
         "id": r["id"],
         "sp_rujukan": r["sp_kod"],
         "aras": r["aras"],
         "soalan": r["soalan"],
-        "pilihan": pilihan,
+        "pilihan": pilihan or [],
         "jawapan_betul": r["jawapan_betul"],
         "markah": r["markah"],
         "maklum_balas": r["maklum_balas"],
@@ -95,18 +107,50 @@ def _row_to_q(r):
     }
 
 
+def _clean_filter_text(q):
+    """Buang aksara yang istimewa dalam sintaks penapis PostgREST or=(...)."""
+    return re.sub(r"[,()\\*]", " ", q or "").strip()
+
+
+# ==========================================================================
+# add_questions
+# ==========================================================================
 def add_questions(questions, status="diluluskan", topic="", theme=""):
     """Tambah soalan ke bank (dengan topik/tema lesson asal supaya penggunaan
     semula hanya berlaku untuk topik yang sama). Duplikasi (hash) diabaikan."""
-    init_db()
     now = datetime.now().isoformat(timespec="seconds")
+    rows = []
+    for q in questions or []:
+        sp = q.get("sp_rujukan") or q.get("sp_kod") or ""
+        soalan = (q.get("soalan") or "").strip()
+        if not soalan or not sp:
+            continue
+        rows.append({
+            "sp_kod": sp,
+            "aras": _norm_aras(q.get("aras")),
+            "soalan": soalan,
+            "pilihan": q.get("pilihan", []),
+            "jawapan_betul": q.get("jawapan_betul", ""),
+            "maklum_balas": q.get("maklum_balas", ""),
+            "markah": int(q.get("markah", 1) or 1),
+            "hash": _hash(soalan),
+            "status": status,
+            "tarikh_cipta": now,
+            "topic": (topic or "").strip(),
+            "theme": (theme or "").strip(),
+        })
+    if not rows:
+        return 0
+
+    if sb.use_cloud():
+        # ON CONFLICT (hash) DO NOTHING — respons hanya baris yang benar-benar masuk.
+        inserted = sb.insert("soalan", rows, ignore_on="hash") or []
+        return len(inserted)
+
+    init_db()
     ditambah = 0
     with _conn() as c:
-        for q in questions or []:
-            sp = q.get("sp_rujukan") or q.get("sp_kod") or ""
-            soalan = (q.get("soalan") or "").strip()
-            if not soalan or not sp:
-                continue
+        for r in rows:
             try:
                 c.execute(
                     """INSERT INTO soalan
@@ -114,18 +158,11 @@ def add_questions(questions, status="diluluskan", topic="", theme=""):
                         markah, hash, status, tarikh_cipta, topic, theme)
                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
-                        sp,
-                        _norm_aras(q.get("aras")),
-                        soalan,
-                        json.dumps(q.get("pilihan", []), ensure_ascii=False),
-                        q.get("jawapan_betul", ""),
-                        q.get("maklum_balas", ""),
-                        int(q.get("markah", 1) or 1),
-                        _hash(soalan),
-                        status,
-                        now,
-                        (topic or "").strip(),
-                        (theme or "").strip(),
+                        r["sp_kod"], r["aras"], r["soalan"],
+                        json.dumps(r["pilihan"], ensure_ascii=False),
+                        r["jawapan_betul"], r["maklum_balas"], r["markah"],
+                        r["hash"], r["status"], r["tarikh_cipta"],
+                        r["topic"], r["theme"],
                     ),
                 )
                 ditambah += 1
@@ -134,6 +171,9 @@ def add_questions(questions, status="diluluskan", topic="", theme=""):
     return ditambah
 
 
+# ==========================================================================
+# fetch_for_generation
+# ==========================================================================
 def fetch_for_generation(sp_kods, per_aras, topic=""):
     """Ambil soalan diluluskan untuk SP yang dipilih, mengikut sasaran setiap aras.
 
@@ -143,11 +183,34 @@ def fetch_for_generation(sp_kods, per_aras, topic=""):
     tidak diguna semula.
     Pilih yang PALING JARANG diguna dahulu (putar soalan; elak berulang).
     """
-    init_db()
     topic = (topic or "").strip()
     if not sp_kods or not topic:
         return []
     hasil = []
+
+    if sb.use_cloud():
+        in_list = "in.({})".format(",".join('"{}"'.format(k.replace('"', "")) for k in sp_kods))
+        for aras, mahu in per_aras.items():
+            if not mahu or mahu <= 0:
+                continue
+            # ilike tanpa wildcard = padanan penuh tak sensitif huruf (macam
+            # LOWER(topic) = LOWER(?) dalam versi SQLite).
+            rows = sb.select("soalan", params={
+                "select": "*",
+                "status": "eq.diluluskan",
+                "aras": "eq." + aras,
+                "sp_kod": in_list,
+                "topic": "ilike." + topic.replace("*", " "),
+                "order": "kali_diguna.asc",
+                "limit": str(max(int(mahu) * 4, 12)),
+            })
+            # ORDER BY kali_diguna ASC, RANDOM(): kocok dalam Python sebagai
+            # pemutus seri rawak, kemudian ambil bilangan yang diminta.
+            rows.sort(key=lambda r: (r.get("kali_diguna") or 0, random.random()))
+            hasil.extend(_row_to_q(r) for r in rows[: int(mahu)])
+        return hasil
+
+    init_db()
     ph = ",".join("?" * len(sp_kods))
     with _conn() as c:
         for aras, mahu in per_aras.items():
@@ -165,12 +228,28 @@ def fetch_for_generation(sp_kods, per_aras, topic=""):
     return hasil
 
 
+# ==========================================================================
+# mark_used
+# ==========================================================================
 def mark_used(ids):
     """Tambah kiraan guna untuk soalan yang benar-benar diluluskan dalam worksheet."""
     ids = [i for i in (ids or []) if i]
     if not ids:
         return
     now = datetime.now().isoformat(timespec="seconds")
+
+    if sb.use_cloud():
+        # PostgREST tiada "SET x = x + 1" — baca nilai semasa, kemudian PATCH satu-satu.
+        rows = sb.select("soalan", params={
+            "select": "id,kali_diguna",
+            "id": "in.({})".format(",".join(str(int(i)) for i in ids)),
+        })
+        for r in rows:
+            sb.update("soalan", {"id": "eq.{}".format(r["id"])},
+                      {"kali_diguna": (r.get("kali_diguna") or 0) + 1,
+                       "tarikh_akhir_guna": now})
+        return
+
     with _conn() as c:
         c.executemany(
             "UPDATE soalan SET kali_diguna = kali_diguna + 1, tarikh_akhir_guna=? WHERE id=?",
@@ -178,12 +257,27 @@ def mark_used(ids):
         )
 
 
+# ==========================================================================
+# list_questions (admin browse)
+# ==========================================================================
 def list_questions(q="", limit=300):
     """Admin browse: return question rows (newest first), optional text filter."""
-    init_db()
     q = (q or "").strip()
-    sql = ("SELECT id, sp_kod, aras, soalan, jawapan_betul, markah, topic, theme, "
-           "kali_diguna, status FROM soalan")
+    cols = ("id", "sp_kod", "aras", "soalan", "jawapan_betul", "markah",
+            "topic", "theme", "kali_diguna", "status")
+
+    if sb.use_cloud():
+        params = {"select": ",".join(cols), "order": "id.desc", "limit": str(int(limit))}
+        if q:
+            safe = _clean_filter_text(q)
+            if safe:
+                pat = "ilike.*{}*".format(safe)
+                params["or"] = "({})".format(",".join(
+                    "{}.{}".format(col, pat) for col in ("soalan", "sp_kod", "topic", "theme")))
+        return sb.select("soalan", params=params)
+
+    init_db()
+    sql = "SELECT {} FROM soalan".format(", ".join(cols))
     params = []
     if q:
         like = "%" + q + "%"
@@ -195,16 +289,42 @@ def list_questions(q="", limit=300):
         return [dict(r) for r in c.execute(sql, params).fetchall()]
 
 
+# ==========================================================================
+# delete_question (admin)
+# ==========================================================================
 def delete_question(qid):
     """Admin remove one question from the bank by id."""
+    qid = int(qid)
+    if sb.use_cloud():
+        sb.delete("soalan", {"id": "eq.{}".format(qid)})
+        return {"deleted": True, "id": qid}
     init_db()
     with _conn() as c:
-        c.execute("DELETE FROM soalan WHERE id=?", (int(qid),))
-    return {"deleted": True, "id": int(qid)}
+        c.execute("DELETE FROM soalan WHERE id=?", (qid,))
+    return {"deleted": True, "id": qid}
 
 
+# ==========================================================================
+# stats
+# ==========================================================================
 def stats():
     """Ringkasan bank untuk dipaparkan: jumlah + pecahan ikut SP & aras."""
+    if sb.use_cloud():
+        rows = sb.select("soalan", params={
+            "select": "sp_kod,aras",
+            "status": "eq.diluluskan",
+            "limit": "100000",
+        })
+        ikut_sp, ikut_aras = {}, {}
+        for r in rows:
+            ikut_sp[r["sp_kod"]] = ikut_sp.get(r["sp_kod"], 0) + 1
+            ikut_aras[r["aras"]] = ikut_aras.get(r["aras"], 0) + 1
+        return {
+            "jumlah": len(rows),
+            "ikut_sp": dict(sorted(ikut_sp.items())),
+            "ikut_aras": ikut_aras,
+        }
+
     init_db()
     with _conn() as c:
         jumlah = c.execute(

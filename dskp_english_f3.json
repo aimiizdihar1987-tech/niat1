@@ -76,26 +76,50 @@
           "kod": "1.1",
           "nama": "Understand meaning in a variety of familiar contexts",
           "standard_pembelajaran": [
-            { "kod": "1.1.1", "huraian": "Understand independently the main ideas in simple longer texts on an increased range of familiar topics." },
-            { "kod": "1.1.2", "huraian": "Understand independently specific information and details in longer texts on an increased range of familiar topics." },
-            { "kod": "1.1.3", "huraian": "Recognise with little or no support attitudes or opinions in longer texts on an increased range of familiar topics." },
-            { "kod": "1.1.4", "huraian": "Understand independently longer sequences of classroom instructions." },
-            { "kod": "1.1.5", "huraian": "Understand independently more complex questions." },
-            { "kod": "1.1.6", "huraian": "Understand independently longer simple narratives on a range of familiar topics." }
+            {
+              "kod": "1.1.1",
+              "huraian": "Understand independently the main ideas in simple longer texts on an increased range of familiar topics."
+            },
+            {
+              "kod": "1.1.2",
+              "huraian": "Understand independently specific information and details in longer texts on an increased range of familiar topics."
+            },
+            {
+              "kod": "1.1.3",
+              "huraian": "Recognise with little or no support attitudes or opinions in longer texts on an increased range of familiar topics."
+            },
+            {
+              "kod": "1.1.4",
+              "huraian": "Understand independently longer sequences of classroom instructions."
+            },
+            {
+              "kod": "1.1.5",
+              "huraian": "Understand independently more complex questions."
+            },
+            {
+              "kod": "1.1.6",
+              "huraian": "Understand independently longer simple narratives on a range of familiar topics."
+            }
           ]
         },
         {
           "kod": "1.2",
           "nama": "Use appropriate listening strategies in a variety of contexts",
           "standard_pembelajaran": [
-            { "kod": "1.2.1", "huraian": "Guess the meaning of unfamiliar words from clues provided by other words and by context on an increased range of familiar topics." }
+            {
+              "kod": "1.2.1",
+              "huraian": "Guess the meaning of unfamiliar words from clues provided by other words and by context on an increased range of familiar topics."
+            }
           ]
         },
         {
           "kod": "1.3",
           "nama": "Recognise features of spoken genres on familiar topics",
           "standard_pembelajaran": [
-            { "kod": "1.3.1", "huraian": "Recognise with support typical features at word, sentence and text levels of a small number of spoken genres." }
+            {
+              "kod": "1.3.1",
+              "huraian": "Recognise with support typical features at word, sentence and text levels of a small number of spoken genres."
+            }
           ]
         }
       ]
@@ -108,32 +132,56 @@
           "kod": "2.1",
           "nama": "Communicate information, ideas, opinions and feelings intelligibly on familiar topics",
           "standard_pembelajaran": [
-            { "kod": "2.1.1", "huraian": "Paraphrase short simple texts." },
-            { "kod": "2.1.2", "huraian": "Ask about and explain simple processes." },
-            { "kod": "2.1.3", "huraian": "Describe future plans and ambitions." },
-            { "kod": "2.1.4", "huraian": "Explain own point of view." },
-            { "kod": "2.1.5", "huraian": "Express and respond to common feelings such as happiness, sadness, surprise and interest." }
+            {
+              "kod": "2.1.1",
+              "huraian": "Paraphrase short simple texts."
+            },
+            {
+              "kod": "2.1.2",
+              "huraian": "Ask about and explain simple processes."
+            },
+            {
+              "kod": "2.1.3",
+              "huraian": "Describe future plans and ambitions."
+            },
+            {
+              "kod": "2.1.4",
+              "huraian": "Explain own point of view."
+            },
+            {
+              "kod": "2.1.5",
+              "huraian": "Express and respond to common feelings such as happiness, sadness, surprise and interest."
+            }
           ]
         },
         {
           "kod": "2.2",
           "nama": "Use register appropriately",
           "standard_pembelajaran": [
-            { "kod": "2.2.1", "huraian": "Use formal and informal registers appropriately in some familiar contexts." }
+            {
+              "kod": "2.2.1",
+              "huraian": "Use formal and informal registers appropriately in some familiar contexts."
+            }
           ]
         },
         {
           "kod": "2.3",
           "nama": "Use appropriate communication strategies",
           "standard_pembelajaran": [
-            { "kod": "2.3.1", "huraian": "Keep interaction going in longer exchanges by asking a speaker to slow down, speak up or to repeat what they have said." }
+            {
+              "kod": "2.3.1",
+              "huraian": "Keep interaction going in longer exchanges by asking a speaker to slow down, speak up or to repeat what they have said."
+            }
           ]
         },
         {
           "kod": "2.4",
           "nama": "Communicate appropriately to a small or large group on familiar topics",
           "standard_pembelajaran": [
-            { "kod": "2.4.1", "huraian": "Summarise the main points of a story." }
+            {
+              "kod": "2.4.1",
+              "huraian": "Summarise the main points of a story."
+            }
           ]
         }
       ]
@@ -146,19 +194,40 @@
           "kod": "3.1",
           "nama": "Understand a variety of texts by using a range of appropriate reading strategies to construct meaning",
           "standard_pembelajaran": [
-            { "kod": "3.1.1", "huraian": "Understand the main points in longer texts on an increased range of familiar topics." },
-            { "kod": "3.1.2", "huraian": "Understand specific details and information in longer texts on an increased range of familiar topics." },
-            { "kod": "3.1.3", "huraian": "Guess the meaning of unfamiliar words from clues provided by other words and by context on an increased range of familiar topics." },
-            { "kod": "3.1.4", "huraian": "Use independently familiar print and digital resources to check meaning and extend understanding." },
-            { "kod": "3.1.5", "huraian": "Recognise with support the attitude or opinion of the writer in simple longer texts on an increased range of familiar topics." },
-            { "kod": "3.1.6", "huraian": "Recognise with support typical features at word, sentence and text levels of a range of genres." }
+            {
+              "kod": "3.1.1",
+              "huraian": "Understand the main points in longer texts on an increased range of familiar topics."
+            },
+            {
+              "kod": "3.1.2",
+              "huraian": "Understand specific details and information in longer texts on an increased range of familiar topics."
+            },
+            {
+              "kod": "3.1.3",
+              "huraian": "Guess the meaning of unfamiliar words from clues provided by other words and by context on an increased range of familiar topics."
+            },
+            {
+              "kod": "3.1.4",
+              "huraian": "Use independently familiar print and digital resources to check meaning and extend understanding."
+            },
+            {
+              "kod": "3.1.5",
+              "huraian": "Recognise with support the attitude or opinion of the writer in simple longer texts on an increased range of familiar topics."
+            },
+            {
+              "kod": "3.1.6",
+              "huraian": "Recognise with support typical features at word, sentence and text levels of a range of genres."
+            }
           ]
         },
         {
           "kod": "3.2",
           "nama": "Explore and expand ideas for personal development by reading independently and widely",
           "standard_pembelajaran": [
-            { "kod": "3.2.1", "huraian": "Read, enjoy and give a personal response to fiction or non-fiction and other suitable print and digital texts of interest." }
+            {
+              "kod": "3.2.1",
+              "huraian": "Read, enjoy and give a personal response to fiction or non-fiction and other suitable print and digital texts of interest."
+            }
           ]
         }
       ]
@@ -171,21 +240,48 @@
           "kod": "4.1",
           "nama": "Communicate intelligibly through print and digital media on familiar topics",
           "standard_pembelajaran": [
-            { "kod": "4.1.1", "huraian": "Explain simple content from what they have read or heard." },
-            { "kod": "4.1.2", "huraian": "Explain simple processes." },
-            { "kod": "4.1.3", "huraian": "Summarise the main points and explain key details of a story, text or plot." },
-            { "kod": "4.1.4", "huraian": "Express and respond to opinions and common feelings such as happiness, sadness, surprise, and interest." },
-            { "kod": "4.1.5", "huraian": "Organise, sequence and develop ideas within short texts on familiar topics." }
+            {
+              "kod": "4.1.1",
+              "huraian": "Explain simple content from what they have read or heard."
+            },
+            {
+              "kod": "4.1.2",
+              "huraian": "Explain simple processes."
+            },
+            {
+              "kod": "4.1.3",
+              "huraian": "Summarise the main points and explain key details of a story, text or plot."
+            },
+            {
+              "kod": "4.1.4",
+              "huraian": "Express and respond to opinions and common feelings such as happiness, sadness, surprise, and interest."
+            },
+            {
+              "kod": "4.1.5",
+              "huraian": "Organise, sequence and develop ideas within short texts on familiar topics."
+            }
           ]
         },
         {
           "kod": "4.2",
           "nama": "Communicate with appropriate language, form and style",
           "standard_pembelajaran": [
-            { "kod": "4.2.1", "huraian": "Punctuate written work with moderate accuracy." },
-            { "kod": "4.2.2", "huraian": "Spell written work with moderate accuracy." },
-            { "kod": "4.2.3", "huraian": "Produce a plan or draft of two paragraphs or more and modify this appropriately independently." },
-            { "kod": "4.2.4", "huraian": "Begin to use formal and informal registers appropriate to the target audience in familiar situations." }
+            {
+              "kod": "4.2.1",
+              "huraian": "Punctuate written work with moderate accuracy."
+            },
+            {
+              "kod": "4.2.2",
+              "huraian": "Spell written work with moderate accuracy."
+            },
+            {
+              "kod": "4.2.3",
+              "huraian": "Produce a plan or draft of two paragraphs or more and modify this appropriately independently."
+            },
+            {
+              "kod": "4.2.4",
+              "huraian": "Begin to use formal and informal registers appropriate to the target audience in familiar situations."
+            }
           ]
         }
       ]
@@ -198,25 +294,456 @@
           "kod": "5.1",
           "nama": "Engage with, respond to and interpret a variety of literary text types",
           "standard_pembelajaran": [
-            { "kod": "5.1.1", "huraian": "Explain why a part or aspect of a text interests them." },
-            { "kod": "5.1.2", "huraian": "Explain briefly the development of plot, characters and themes in a text." }
+            {
+              "kod": "5.1.1",
+              "huraian": "Explain why a part or aspect of a text interests them."
+            },
+            {
+              "kod": "5.1.2",
+              "huraian": "Explain briefly the development of plot, characters and themes in a text."
+            }
           ]
         },
         {
           "kod": "5.2",
           "nama": "Analyse and evaluate a variety of literary text types",
           "standard_pembelajaran": [
-            { "kod": "5.2.1", "huraian": "Identify key stylistic features of a text and explain briefly why the author uses them." }
+            {
+              "kod": "5.2.1",
+              "huraian": "Identify key stylistic features of a text and explain briefly why the author uses them."
+            }
           ]
         },
         {
           "kod": "5.3",
           "nama": "Express an imaginative response to literary texts",
           "standard_pembelajaran": [
-            { "kod": "5.3.1", "huraian": "Respond imaginatively and intelligibly through creating power points, visuals, posters, blogs and webpages." }
+            {
+              "kod": "5.3.1",
+              "huraian": "Respond imaginatively and intelligibly through creating power points, visuals, posters, blogs and webpages."
+            }
           ]
         }
       ]
     }
-  ]
+  ],
+  "rpt": [
+    {
+      "minggu": "1",
+      "tema": "People and Culture",
+      "unit": "Unit 1: Family Ties",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "2",
+      "tema": "People and Culture",
+      "unit": "Unit 1: Family Ties",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "3",
+      "tema": "People and Culture",
+      "unit": "Unit 1: Family Ties",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "4",
+      "tema": "Health and Environment",
+      "unit": "Unit 2: Food, Food, Food!",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "5",
+      "tema": "Health and Environment",
+      "unit": "Unit 2: Food, Food, Food!",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "6",
+      "tema": "Health and Environment",
+      "unit": "Unit 2: Food, Food, Food!",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "7",
+      "tema": "Health and Environment",
+      "unit": "Unit 3: The Wonders of Nature",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "8",
+      "tema": "Health and Environment",
+      "unit": "Unit 3: The Wonders of Nature",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "9",
+      "tema": "Health and Environment",
+      "unit": "Unit 3: The Wonders of Nature",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "10",
+      "tema": "People and Culture",
+      "unit": "Unit 4: Special Relationships",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "11",
+      "tema": "People and Culture",
+      "unit": "Unit 4: Special Relationships",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "12",
+      "tema": "People and Culture",
+      "unit": "Unit 4: Special Relationships",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "13",
+      "tema": "Consumerism and Financial Awareness",
+      "unit": "Unit 5: A Place to Call Home",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "14",
+      "tema": "Consumerism and Financial Awareness",
+      "unit": "Unit 5: A Place to Call Home",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "15",
+      "tema": "Consumerism and Financial Awareness",
+      "unit": "Unit 5: A Place to Call Home",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "16",
+      "tema": "Health and Environment",
+      "unit": "Unit 6: Ready, Steady, Go!",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "17",
+      "tema": "Health and Environment",
+      "unit": "Unit 6: Ready, Steady, Go!",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "18",
+      "tema": "Health and Environment",
+      "unit": "Unit 6: Ready, Steady, Go!",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "19",
+      "tema": "Assessment",
+      "unit": "Mid-Year Examination",
+      "fokus_kemahiran": "All skills",
+      "standard_kandungan": [],
+      "catatan": "Peperiksaan Pertengahan Tahun"
+    },
+    {
+      "minggu": "20",
+      "tema": "Health and Environment",
+      "unit": "Unit 7: Extreme Situations",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "21",
+      "tema": "Health and Environment",
+      "unit": "Unit 7: Extreme Situations",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "22",
+      "tema": "Health and Environment",
+      "unit": "Unit 7: Extreme Situations",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "23",
+      "tema": "People and Culture",
+      "unit": "Unit 8: Time to Spare",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "24",
+      "tema": "People and Culture",
+      "unit": "Unit 8: Time to Spare",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "25",
+      "tema": "People and Culture",
+      "unit": "Unit 8: Time to Spare",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "26",
+      "tema": "Science and Technology",
+      "unit": "Unit 9: High-Tech World",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "27",
+      "tema": "Science and Technology",
+      "unit": "Unit 9: High-Tech World",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "28",
+      "tema": "Science and Technology",
+      "unit": "Unit 9: High-Tech World",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "29",
+      "tema": "People and Culture",
+      "unit": "Unit 10: That's Entertainment",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "30",
+      "tema": "People and Culture",
+      "unit": "Unit 10: That's Entertainment",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "31",
+      "tema": "People and Culture",
+      "unit": "Unit 10: That's Entertainment",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "32",
+      "tema": "People and Culture",
+      "unit": "Unit 11: Lessons to Learn",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "33",
+      "tema": "People and Culture",
+      "unit": "Unit 11: Lessons to Learn",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "34",
+      "tema": "People and Culture",
+      "unit": "Unit 11: Lessons to Learn",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "35",
+      "tema": "Health and Environment",
+      "unit": "Unit 12: The Body Beautiful",
+      "fokus_kemahiran": "Listening & Speaking",
+      "standard_kandungan": [
+        "1.1",
+        "2.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "36",
+      "tema": "Health and Environment",
+      "unit": "Unit 12: The Body Beautiful",
+      "fokus_kemahiran": "Reading",
+      "standard_kandungan": [
+        "3.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "37",
+      "tema": "Health and Environment",
+      "unit": "Unit 12: The Body Beautiful",
+      "fokus_kemahiran": "Writing & Literature in Action",
+      "standard_kandungan": [
+        "4.1",
+        "5.1"
+      ],
+      "catatan": ""
+    },
+    {
+      "minggu": "38",
+      "tema": "Assessment",
+      "unit": "Revision",
+      "fokus_kemahiran": "All skills",
+      "standard_kandungan": [],
+      "catatan": ""
+    },
+    {
+      "minggu": "39",
+      "tema": "Assessment",
+      "unit": "Year-End Examination",
+      "fokus_kemahiran": "All skills",
+      "standard_kandungan": [],
+      "catatan": ""
+    },
+    {
+      "minggu": "40",
+      "tema": "Assessment",
+      "unit": "Post-exam activities / project",
+      "fokus_kemahiran": "All skills",
+      "standard_kandungan": [],
+      "catatan": ""
+    }
+  ],
+  "_note_rpt": "RPT (Rancangan Pengajaran Tahunan) RECONSTRUCTED from the Close-Up (Form 3) 12-unit sequence across a ~40-week year with mid-/year-end assessment weeks. Pacing is a planning guide — align week numbers to the school takwim. Teachers may edit freely."
 }

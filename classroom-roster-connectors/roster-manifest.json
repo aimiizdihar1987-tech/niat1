@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "records": [
+    { "className": "3 Delima", "achievementLevel": "advanced", "emailEnv": "DELIMA_ADVANCED_EMAIL" },
+    { "className": "3 Delima", "achievementLevel": "intermediate", "emailEnv": "DELIMA_INTERMEDIATE_EMAIL" },
+    { "className": "3 Delima", "achievementLevel": "lower_achiever", "emailEnv": "DELIMA_LOWER_ACHIEVER_EMAIL" },
+    { "className": "3 Zamrud", "achievementLevel": "advanced", "emailEnv": "ZAMRUD_ADVANCED_EMAIL" },
+    { "className": "3 Zamrud", "achievementLevel": "intermediate", "emailEnv": "ZAMRUD_INTERMEDIATE_EMAIL" },
+    { "className": "3 Zamrud", "achievementLevel": "lower_achiever", "emailEnv": "ZAMRUD_LOWER_ACHIEVER_EMAIL" },
+    { "className": "3 Berlian", "achievementLevel": "advanced", "emailEnv": "BERLIAN_ADVANCED_EMAIL" },
+    { "className": "3 Berlian", "achievementLevel": "intermediate", "emailEnv": "BERLIAN_INTERMEDIATE_EMAIL" },
+    { "className": "3 Berlian", "achievementLevel": "lower_achiever", "emailEnv": "BERLIAN_LOWER_ACHIEVER_EMAIL" }
+  ]
+}

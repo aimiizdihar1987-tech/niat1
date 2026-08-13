@@ -1,16 +1,25 @@
 #!include:.gitignore
-# Files NOT uploaded when running `gcloud run deploy --source .`
-# The line above reuses .gitignore, so secrets, PII, and the private/ folder
-# never leave this PC. The API key goes to Cloud Run as an env var / secret
-# (see DEPLOY_GCLOUD.md), never as a file.
-
+# Files not uploaded by `gcloud run deploy --source .`.
 .git/
 .gitignore
 .agents/
+.claude/
+.playwright-mcp/
 n8n/
-
-# School data files are gitignored but the server CAN use them.
-# If you want your timetable/classrooms available in the cloud too,
-# uncomment these lines (they will be uploaded but still not committed to git):
-# !timetable.json
-# !classrooms.json
+classroom-simulator/
+classroom-roster-connectors/
+MIGRASI_AKAUN_JPN/
+output/
+outputs/
+private/
+data/question_bank/
+tests/
+oauth_agent5_*
+PROJECT_ID*.txt
+schools.json
+.env
+.env.*
+*.xlsx
+*.inspect.ndjson
+Niat Architecture Slide.png
+Niat Logo.png

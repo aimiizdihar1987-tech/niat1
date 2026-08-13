@@ -58,6 +58,14 @@ No `pip install` needed — the server uses the Python standard library only.
 | `Dockerfile`, `requirements.txt`, `.gcloudignore` | Cloud deployment files — see `DEPLOY_GCLOUD.md` |
 | `private/` | **Local only, never committed/deployed**: personal documents (`dokumen-peribadi/`), copyrighted reference PDFs (`rujukan/`), school data with student PII (`data-sekolah/`) |
 
+## Production container
+
+The production image runs as a non-root user, listens on `$PORT`, stores only
+temporary exports on its local filesystem, and requires Supabase for all durable
+state. Its deny-by-default build context excludes credentials, local databases,
+student files, generated outputs and development projects. Run the complete
+preflight, local Docker commands and Cloud Run procedure in `DEPLOY_GCLOUD.md`.
+
 ## Backups
 
 A Windows scheduled task **"Niat Backup"** runs `backup_niat.py` **daily at 5:00 PM**,
@@ -69,23 +77,47 @@ Run a backup manually any time with `python backup_niat.py`.
 
 ## Agent 6 auto-reminders (scheduled)
 
-`remind_cron.py` runs **Agent 6** for every assignment whose due date has passed, so pupils who
-haven't submitted get an automatic personalised nudge. The cron is only the trigger — Agent 6 decides
-tone + escalation. It's safe to run daily: escalation counts (`peringatan.py`) and the reminder cap
-stop anyone from being emailed too often. It stays idle until Google (Path B) + the mail hub are set up.
+Windows desktop runs `remind_cron.py` every five minutes. In Cloud Run, Cloud Scheduler calls the
+secret-protected `/api/internal/reminders` endpoint on the same interval. The watcher reads the due
+date and time set by the teacher
+in Google Classroom and does nothing before that time. As soon as an assignment is overdue, Agent 6
+re-checks the submission list and sends one personalised nudge only to pupils who still have not
+submitted. Automatic runs are capped at one reminder per pupil per assignment, so frequent checks
+cannot create repeat emails; any later follow-up is supervised from the Niat app.
 
-Register it to run **daily at 6:00 PM** (adjust the time/path as needed):
+**What Agent 6 needs to run** (in order of preference for reading Classroom):
+
+1. **The Apps Script hub** — `APPSCRIPT_HUB_URL` in `reminder_config.txt`. This is enough on its own.
+   The hub runs as the teacher's own Google account, so it can read her classes' submissions
+   (`submissions` / `overdue` actions in `niat_hub.gs`) **without** the MOE admin approving an OAuth
+   app. If you re-deploy the hub for these actions, run **Deploy → Manage deployments → New version**
+   and re-authorise so the new Classroom scopes take effect.
+2. **Path B** (`client_secret.json`) — used instead for the Classroom reads when it's set up, but it
+   is not required. See `PATH_B_SETUP.md`.
+
+The hub also sends the mail either way. On Supabase, run **`supabase/migration_agent6.sql`** once — it
+creates the `peringatan` (escalation counts) and `prestasi_murid` (performance → tone) tables, which
+were missing from the original schema run. Without Supabase it falls back to a local `peringatan.db`
+automatically. Agent 6 no longer crashes if either table is missing, but escalation and tone are
+generic until they exist.
+
+Register it as a **five-minute due-date watcher**:
 
 ```powershell
 $py = (Get-Command python).Source
 $dir = "C:\Users\HP\Desktop\PRESTIJ KAK AIMI"
 $action = New-ScheduledTaskAction -Execute $py -Argument "remind_cron.py" -WorkingDirectory $dir
-$trigger = New-ScheduledTaskTrigger -Daily -At 6:00PM
-Register-ScheduledTask -TaskName "Niat Agent 6" -Action $action -Trigger $trigger -Description "Auto-remind pupils who haven't submitted"
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+  -RepetitionInterval (New-TimeSpan -Minutes 5) `
+  -RepetitionDuration (New-TimeSpan -Days 3650)
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName "Niat Agent 6" -Action $action -Trigger $trigger -Settings $settings `
+  -Description "Check Classroom due times and remind current non-submitters"
 ```
 
 Run it manually any time with `python remind_cron.py`. Set `WITHIN_DAYS` (default 14) to change how far
-back overdue assignments are chased.
+back overdue assignments are checked. The automatic watcher sends at most one reminder per pupil for
+each distinct class + assignment + due time.
 
 ## Curriculum data
 
@@ -125,9 +157,13 @@ Standards → Learning Standards, plus the 4 themes and the textbook (**Close-Up
 - ✅ **Agent 6 — reminds non-submitters** (`prompts/agent6_reminder.md`, `/api/remind`, ⏰ Remind): reads
   Google Classroom submission states, the LLM writes a **personalised** nudge per pupil and **escalates**
   by how many times each was reminded (gentle → firm → email the teacher on the 3rd), then emails them.
-  Escalation counts live in `peringatan.py`; a cap (default 4) stops the daily cron from spamming.
-  Runs automatically after the due date via **`remind_cron.py`** (see below); the cron only triggers —
-  Agent 6 does the deciding.
+  Tone is pitched to the pupil: their Form, their usual marks (strong → "don't let this one slip";
+  struggling → gentlest wording plus one Malay line), first names, plain text, never shaming, and
+  always with a way to ask for help. Escalation counts live in `peringatan.py`; a cap (default 4)
+  stops the daily cron from spamming. The teacher **previews the drafted messages first** and then
+  presses Send — nothing reaches a pupil unread. Runs automatically after the due date via
+  **`remind_cron.py`** (see below); the cron only triggers — Agent 6 does the deciding.
 - ⏸ **Offline model fallback** (TinyLlama/Ollama) — deferred pending the local model check.
-- 🔜 Phase 2+ (full hands-off automation): direct Google Forms/Classroom **API** distribution without the
-  paste step — needs a Google Cloud project, OAuth, and likely MOE domain-admin approval.
+- ✅ Direct Google Forms/Classroom API distribution is implemented for Agent 5. It becomes active after
+  one-time OAuth consent and may still require MOE domain-admin approval; containers receive the token
+  through `GOOGLE_OAUTH_TOKEN_JSON`, never as a copied credential file.

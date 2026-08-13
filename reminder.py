@@ -16,6 +16,7 @@ import os
 import smtplib
 import socket
 import ssl
+import sys
 import time
 import urllib.parse
 import urllib.request
@@ -26,6 +27,9 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 TIMETABLE = os.path.join(ROOT, "timetable.json")
 CONFIG = os.path.join(ROOT, "reminder_config.txt")
 LOG = os.path.join(ROOT, "reminders_log.txt")
+# Written when a reminder reaches nobody; niat_watchdog.py delivers the alert
+# once a channel works again and deletes this file.
+ALERT = os.path.join(ROOT, "reminder_alert.json")
 NIAT_URL = "http://localhost:8050"
 
 
@@ -117,8 +121,11 @@ def send_email(cfg, subject, body):
     pw = cfg.get("SENDER_APP_PASSWORD", "")
     to_raw = cfg.get("TEACHER_EMAIL", "")
     recipients = [a.strip() for a in to_raw.replace(";", ",").split(",") if a.strip()]
-    if not (sender and pw and recipients):
-        return "dry-run (email not configured)"
+    if not recipients:
+        return "dry-run (recipient email not configured)"
+    if not (sender and pw):
+        hook = send_email_webhook(cfg, subject, body, recipients)
+        return hook or "dry-run (SMTP and email webhook not configured)"
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = sender
@@ -166,14 +173,21 @@ def send_email_webhook(cfg, subject, body, recipients):
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload,
                                  headers={"content-type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=45) as r:
-            resp = r.read().decode("utf-8", "ignore")
-        if "ok" in resp.lower():
-            return "emailed via webhook to " + ", ".join(recipients)
-        return "webhook response: " + resp.strip()[:160]
-    except Exception as e:  # noqa: BLE001
-        return "webhook FAILED: " + str(e)[:160]
+    # Retry like send_email does — school WiFi drops DNS for a few seconds at
+    # a time, and a single attempt turns that into a missed reminder.
+    last = ""
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=45) as r:
+                resp = r.read().decode("utf-8", "ignore")
+            if "ok" in resp.lower():
+                return "emailed via webhook to " + ", ".join(recipients)
+            return "webhook response: " + resp.strip()[:160]
+        except Exception as e:  # noqa: BLE001
+            last = str(e)[:160]
+            if attempt < 2:
+                time.sleep(15)
+    return "webhook FAILED after 3 tries: " + last
 
 
 def wa_link(cfg, body):
@@ -220,20 +234,68 @@ def send_telegram(cfg, body):
         return "Telegram NOT sent (no TELEGRAM_CHAT_ID - open the bot and press START first)"
     url = "https://api.telegram.org/bot{}/sendMessage".format(token)
     data = urllib.parse.urlencode({"chat_id": chat, "text": body}).encode("utf-8")
-    try:
-        with urllib.request.urlopen(url, data=data, timeout=30) as r:
-            resp = json.loads(r.read().decode("utf-8"))
-        if resp.get("ok"):
-            return "Telegram sent (chat {})".format(chat)
-        return "Telegram response: " + json.dumps(resp)[:180]
-    except Exception as e:  # noqa: BLE001
-        return "Telegram FAILED: " + str(e)[:180]
+    # Telegram is the most reliable channel in practice, so give it the same
+    # 3 tries as the others rather than losing the whole reminder to a blip.
+    last = ""
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, data=data, timeout=30) as r:
+                resp = json.loads(r.read().decode("utf-8"))
+            if resp.get("ok"):
+                return "Telegram sent (chat {})".format(chat)
+            return "Telegram response: " + json.dumps(resp)[:180]
+        except Exception as e:  # noqa: BLE001
+            last = str(e)[:180]
+            if attempt < 2:
+                time.sleep(15)
+    return "Telegram FAILED after 3 tries: " + last
+
+
+# The exact status fragments that mean a channel really delivered. Every
+# sender catches its own errors and returns a string, so without this main()
+# would always exit 0 and the scheduled task's "Last Result" could never tell
+# a delivered reminder from a total failure.
+DELIVERED_MARKERS = ("emailed to ", "emailed via webhook to ",
+                     "Telegram sent (", "WhatsApp sent to ")
+
+
+def delivered(*statuses):
+    """How many of the given channel statuses mean the reminder got out."""
+    return sum(1 for s in statuses
+               if any(m in (s or "") for m in DELIVERED_MARKERS))
 
 
 def log(text):
     stamp = datetime.now().isoformat(timespec="seconds")
     with open(LOG, "a", encoding="utf-8") as f:
         f.write("[{}] {}\n".format(stamp, text))
+
+
+def record_failure(day, date_str, statuses):
+    """Leave a marker saying this reminder reached nobody.
+
+    Alerting from here is pointless — "every channel failed" almost always
+    means the network itself was down, so the alert would fail too. Instead
+    niat_watchdog.py (every 30 min) picks this up and tells the teacher as
+    soon as a channel works again, then deletes the file."""
+    missed = []
+    try:
+        with open(ALERT, encoding="utf-8") as f:
+            missed = json.load(f).get("missed", [])
+    except (OSError, ValueError):
+        pass
+    label = "{} {}".format(day, date_str)
+    if not any(m.get("for") == label for m in missed):
+        missed.append({
+            "for": label,
+            "at": datetime.now().isoformat(timespec="seconds"),
+            "statuses": [s for s in statuses if s],
+        })
+    try:
+        with open(ALERT, "w", encoding="utf-8") as f:
+            json.dump({"missed": missed}, f, indent=2)
+    except OSError:
+        pass
 
 
 def main():
@@ -274,6 +336,17 @@ def main():
     print("Telegram:", tg_status)
     print("WhatsApp:", wa_status)
     print("WhatsApp click-to-send:", link or "(set TEACHER_WHATSAPP in reminder_config.txt)")
+
+    # Exit non-zero when nothing got through, so Task Scheduler's "Last Result"
+    # is a delivery signal. 0 = the teacher was reached on some channel.
+    if not delivered(email_status, tg_status, wa_status):
+        log("ALL CHANNELS FAILED for {} {} - the reminder reached nobody.".format(
+            day, date_str))
+        record_failure(day, date_str, (email_status, tg_status, wa_status))
+        print("\nALL CHANNELS FAILED - the reminder reached nobody.")
+        print("Recorded in reminder_alert.json; the watchdog will alert you "
+              "once a channel works again.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

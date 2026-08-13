@@ -41,13 +41,36 @@ def _read_config():
 
 
 _CFG = _read_config()
-URL = _CFG.get("SUPABASE_URL", "").rstrip("/")
-ANON_KEY = _CFG.get("SUPABASE_ANON_KEY", "")
-SERVICE_KEY = _CFG.get("SUPABASE_SERVICE_ROLE_KEY", "")
+# Env vars first (how Cloud Run / Docker supply credentials), then the local
+# supabase_config.txt file (how the school laptop supplies them).
+URL = (os.environ.get("SUPABASE_URL") or _CFG.get("SUPABASE_URL", "")).rstrip("/")
+ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or _CFG.get("SUPABASE_ANON_KEY", "")
+SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+               or _CFG.get("SUPABASE_SERVICE_ROLE_KEY", ""))
 
 
 def configured():
     return bool(URL and ANON_KEY and SERVICE_KEY)
+
+
+def use_cloud():
+    """Should app data (question bank, lessons) live in Supabase?
+
+    NIAT_STORAGE=local    -> force SQLite/local files (e.g. offline demo)
+    NIAT_STORAGE=supabase -> force Supabase (fail loudly if misconfigured)
+    unset / auto          -> Supabase whenever credentials are configured
+    """
+    mode = os.environ.get("NIAT_STORAGE", "auto").strip().lower()
+    if mode == "local":
+        return False
+    if mode == "supabase":
+        return True
+    return configured()
+
+
+def cloud_required():
+    """True when falling back to local disk would cause production data loss."""
+    return os.environ.get("NIAT_STORAGE", "auto").strip().lower() == "supabase"
 
 
 def _key_for(role):
@@ -74,6 +97,11 @@ def _request(method, path, role="service", body=None, params=None, access_token=
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "ignore")
         raise SupabaseError("{} {} -> {}".format(method, path, detail)) from None
+    except (urllib.error.URLError, OSError) as e:
+        # No network, DNS gone (a paused Supabase project stops resolving),
+        # timeout. Callers already handle SupabaseError and fall back to local
+        # data — they should not have to catch urllib's exceptions too.
+        raise SupabaseError("{} {} -> unreachable: {}".format(method, path, e)) from None
 
 
 # --------------------------------------------------------------------------
@@ -85,13 +113,23 @@ def select(table_name, params=None, role="service", access_token=None):
                      access_token=access_token) or []
 
 
-def insert(table_name, rows, role="service", access_token=None, upsert_on=None):
-    """rows: dict or list of dicts. Returns the inserted rows (Prefer: representation)."""
+def insert(table_name, rows, role="service", access_token=None, upsert_on=None,
+           ignore_on=None):
+    """rows: dict or list of dicts. Returns the inserted rows (Prefer: representation).
+
+    upsert_on: column name — existing rows with the same value get OVERWRITTEN.
+    ignore_on: column name — existing rows with the same value are left alone
+               (INSERT ... ON CONFLICT DO NOTHING); the response then contains
+               only the rows that were actually inserted.
+    """
     headers = {"Prefer": "return=representation"}
     params = None
     if upsert_on:
         headers["Prefer"] += ",resolution=merge-duplicates"
         params = {"on_conflict": upsert_on}
+    elif ignore_on:
+        headers["Prefer"] += ",resolution=ignore-duplicates"
+        params = {"on_conflict": ignore_on}
     return _request("POST", "/rest/v1/" + table_name, role=role, body=rows,
                      params=params, access_token=access_token, extra_headers=headers)
 
@@ -125,6 +163,8 @@ def _request_raw(method, path, content_type, data, extra_headers=None):
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "ignore")
         raise SupabaseError("{} {} -> {}".format(method, path, detail)) from None
+    except (urllib.error.URLError, OSError) as e:
+        raise SupabaseError("{} {} -> unreachable: {}".format(method, path, e)) from None
 
 
 def storage_create_bucket(bucket_id, public=False):
@@ -149,6 +189,12 @@ def storage_download(bucket, path):
     """Download a file's raw bytes."""
     return _request_raw("GET", "/storage/v1/object/{}/{}".format(bucket, path),
                          "application/octet-stream", None)
+
+
+def storage_delete(bucket, path):
+    """Remove a file. Raises SupabaseError if it wasn't there."""
+    return _request("DELETE", "/storage/v1/object/{}/{}".format(bucket, path),
+                     role="service")
 
 
 def delete(table_name, match_params, role="service", access_token=None):

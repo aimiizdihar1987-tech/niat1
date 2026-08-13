@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Niat — Path B (direct Google API) integration SCAFFOLD.
+Niat — Path B direct Google Forms and Classroom integration.
 
-⚠️ STATUS: ready but UNTESTED. It does nothing until you complete the Google
-Cloud setup in PATH_B_SETUP.md and drop `client_secret.json` in this folder.
-It is imported LAZILY (only when the /api/distribute-direct endpoint is called),
-so it never affects the normal stdlib server.
+The orchestration is covered by local tests, but real posting still requires
+one-time Google OAuth consent. Desktop mode reads client_secret.json/token.json;
+containers read the equivalent JSON from Secret Manager-backed environment
+variables. It is imported lazily, so it does not affect ordinary startup.
 
 When activated it removes the copy-paste-script step: Niat itself creates the
 Google Form quiz and posts it to Google Classroom with a due date.
@@ -17,11 +17,14 @@ Scopes used (must be approved for your moe-dl domain):
     forms.body · drive.file · classroom.courses.readonly · classroom.coursework.me
 """
 
+import json
 import os
+import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CLIENT_SECRET = os.path.join(ROOT, "client_secret.json")
 TOKEN = os.path.join(ROOT, "token.json")
+CONTAINER_MODE = os.environ.get("NIAT_CONTAINER", "").strip().lower() in ("1", "true", "yes")
 SCOPES = [
     "https://www.googleapis.com/auth/forms.body",
     "https://www.googleapis.com/auth/drive.file",
@@ -34,36 +37,87 @@ SCOPES = [
 ]
 
 
-def available():
-    """True only if the Google libraries AND credentials are present."""
-    if not os.path.exists(CLIENT_SECRET):
-        return False
+def _json_env(name):
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None
+
+
+def _dependencies_available():
     try:
         import googleapiclient  # noqa: F401
         import google_auth_oauthlib  # noqa: F401
-        return True
+        import google.oauth2  # noqa: F401
     except ImportError:
         return False
+    return True
 
 
-def _services():
-    """Authenticate (browser consent on first run) and return (forms, classroom)."""
+def client_configured():
+    """Whether an OAuth client definition is available without exposing it."""
+    return bool(_json_env("GOOGLE_OAUTH_CLIENT_JSON") or os.path.exists(CLIENT_SECRET))
+
+
+def authorized():
+    """Whether unattended Google calls have an authorized-user refresh token."""
+    return bool(_json_env("GOOGLE_OAUTH_TOKEN_JSON") or os.path.exists(TOKEN))
+
+
+def available(interactive=True):
+    """True when a Google API call can proceed.
+
+    Interactive desktop calls may start the one-time browser consent flow.
+    Unattended jobs and containers require GOOGLE_OAUTH_TOKEN_JSON (or a local
+    token.json) so a scheduled reminder can never hang waiting for a browser.
+    """
+    if not _dependencies_available():
+        return False
+    if authorized():
+        return True
+    return bool(interactive and not CONTAINER_MODE and client_configured())
+
+
+def _services(interactive=True, force_reauth=False):
+    """Authenticate and return (forms, classroom).
+
+    Cloud Run reads authorized-user JSON from an environment secret and never
+    writes credentials to its ephemeral filesystem.
+    """
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
 
     creds = None
-    if os.path.exists(TOKEN):
+    token_info = None if force_reauth else _json_env("GOOGLE_OAUTH_TOKEN_JSON")
+    if token_info:
+        creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+    elif not force_reauth and os.path.exists(TOKEN):
         creds = Credentials.from_authorized_user_file(TOKEN, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
+        elif interactive and not CONTAINER_MODE and client_configured():
+            client_info = _json_env("GOOGLE_OAUTH_CLIENT_JSON")
+            if client_info:
+                flow = InstalledAppFlow.from_client_config(client_info, SCOPES)
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET, SCOPES)
+            kwargs = {"prompt": "consent"} if force_reauth else {}
+            if force_reauth:
+                kwargs["login_hint"] = "jpn-perlis-cm16@moe-dl.edu.my"
+            creds = flow.run_local_server(port=0, **kwargs)
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET, SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open(TOKEN, "w", encoding="utf-8") as f:
-            f.write(creds.to_json())
+            raise RuntimeError(
+                "Google OAuth is not authorized for unattended use. Supply "
+                "GOOGLE_OAUTH_TOKEN_JSON as a secret.")
+        if not CONTAINER_MODE and not token_info:
+            with open(TOKEN, "w", encoding="utf-8") as f:
+                f.write(creds.to_json())
     forms = build("forms", "v1", credentials=creds)
     classroom = build("classroom", "v1", credentials=creds)
     return forms, classroom
@@ -142,10 +196,10 @@ def list_overdue_coursework(within_days=14):
     PASSED but is no older than `within_days` — the work list for the reminder
     cron. Returns [{class_name, coursework_title, due_iso}] (newest due first).
     """
-    if not available():
+    if not available(interactive=False):
         return []
     from datetime import datetime, timedelta
-    forms, classroom = _services()
+    forms, classroom = _services(interactive=False)
     now = datetime.utcnow()
     floor = now - timedelta(days=within_days)
     out = []
@@ -183,9 +237,9 @@ def list_submission_states(class_name, coursework_title=""):
     turned the work in (TURNED_IN / RETURNED). Reading submissions needs the
     classroom.coursework.students scope; emails need rosters.readonly.
     """
-    if not available():
+    if not available(interactive=False):
         return {"ok": False, "error": "Path B not set up: missing client_secret.json or google libraries."}
-    forms, classroom = _services()
+    forms, classroom = _services(interactive=False)
     course = _find_course(classroom, class_name)
     if not course:
         return {"ok": False, "error": 'No active Classroom matching "%s"' % class_name}
@@ -342,3 +396,25 @@ def distribute_differentiated(class_name, bands, due_iso="", max_points=None):
                        "form_url": form_url, "unmatched": unmatched})
     return {"ok": True, "course": course["name"], "bands": posted,
             "unmatched": all_unmatched}
+
+
+def main(argv=None):
+    """Create or verify the local token that will later become a cloud secret."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv != ["--authorize"]:
+        print("Usage: python niat_google.py --authorize")
+        return 2
+    if CONTAINER_MODE:
+        print("OAuth consent must be completed on a desktop, not inside a container.")
+        return 2
+    if not _dependencies_available():
+        print("Install requirements.txt before authorizing Google APIs.")
+        return 2
+    print("Use the operational Google account: jpn-perlis-cm16@moe-dl.edu.my")
+    _services(interactive=True, force_reauth=True)
+    print("Google OAuth authorized. token.json is ready for Secret Manager.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

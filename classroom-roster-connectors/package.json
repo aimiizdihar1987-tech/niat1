@@ -1,0 +1,14 @@
+{
+  "name": "prestij-classroom-roster-connectors",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "validate": "node scripts/sync-roster.mjs validate",
+    "sync:supabase": "node scripts/sync-roster.mjs supabase",
+    "sync:firestore": "node scripts/sync-roster.mjs firestore"
+  }
+}

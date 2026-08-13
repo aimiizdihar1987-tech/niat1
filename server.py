@@ -17,6 +17,7 @@ Then open http://localhost:8000
 """
 
 import base64
+import hmac
 import json
 import os
 import re
@@ -54,8 +55,23 @@ if sys.stderr is None:
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(ROOT, "web")
 PROMPT_DIR = os.path.join(ROOT, "prompts")
-OUTPUT_DIR = os.path.join(ROOT, "output")
-DSKP_FILE = os.path.join(ROOT, "dskp_english_f3.json")
+CONTAINER_MODE = os.environ.get("NIAT_CONTAINER", "").strip().lower() in ("1", "true", "yes")
+OUTPUT_DIR = (os.environ.get("NIAT_OUTPUT_DIR", "").strip()
+              or ("/tmp/niat-output" if CONTAINER_MODE else os.path.join(ROOT, "output")))
+DSKP_FILE = os.path.join(ROOT, "dskp_english_f3.json")  # default / backward-compat
+DSKP_FORMS = (1, 2, 3, 4, 5)
+
+
+def dskp_file_for(form):
+    """Path to the DSKP data file for a given Form (1-5). Falls back to Form 3."""
+    try:
+        n = int(form)
+    except (TypeError, ValueError):
+        n = 3
+    if n not in DSKP_FORMS:
+        n = 3
+    path = os.path.join(ROOT, "dskp_english_f{}.json".format(n))
+    return path if os.path.exists(path) else DSKP_FILE
 
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
@@ -93,6 +109,34 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:ge
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:latest")
 ENGINE_MODE = os.environ.get("NIAT_ENGINE", "auto").strip().lower()
+
+
+def runtime_configuration_errors():
+    """Return secret-free configuration problems that make production unsafe."""
+    errors = []
+    if not CONTAINER_MODE:
+        return errors
+    if not GOOGLE_API_KEY:
+        errors.append("GOOGLE_API_KEY is required")
+    if not sb.configured():
+        errors.append("SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are required")
+    if not sb.cloud_required():
+        errors.append("NIAT_STORAGE must be supabase")
+    if len(os.environ.get("NIAT_AUTH_SECRET", "").strip()) < 32:
+        errors.append("NIAT_AUTH_SECRET must contain at least 32 characters")
+    if os.environ.get("NIAT_REQUIRE_HUB", "").strip().lower() in ("1", "true", "yes"):
+        cfg = _read_reminder_cfg()
+        if not cfg.get("APPSCRIPT_HUB_URL") or not cfg.get("APPSCRIPT_HUB_KEY"):
+            errors.append("APPSCRIPT_HUB_URL and APPSCRIPT_HUB_KEY are required")
+    if os.environ.get("NIAT_REQUIRE_GOOGLE_OAUTH", "").strip().lower() in ("1", "true", "yes"):
+        try:
+            import niat_google
+            oauth_ready = niat_google.available(interactive=False)
+        except Exception:
+            oauth_ready = False
+        if not oauth_ready:
+            errors.append("GOOGLE_OAUTH_TOKEN_JSON is required for unattended Google API access")
+    return errors
 
 _ENGINE_STATE = threading.local()
 
@@ -257,8 +301,8 @@ def read_text(path, fallback=""):
         return fallback
 
 
-def load_dskp():
-    with open(DSKP_FILE, encoding="utf-8") as f:
+def load_dskp(form=3):
+    with open(dskp_file_for(form), encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -271,7 +315,7 @@ def find_curriculum(inputs):
     JSON keys 'bidang' (=Skill), 'standard_kandungan' (=Content Standard) and
     'standard_pembelajaran' (=Learning Standard) are reused from the engine.
     """
-    dskp = load_dskp()
+    dskp = load_dskp(inputs.get("form", 3))
     bidang = next((b for b in dskp["bidang"] if b["kod"] == inputs.get("bidang_kod")), None)
     if not bidang:
         return {"bidang": None, "sk": None, "sp": []}
@@ -284,9 +328,10 @@ def find_curriculum(inputs):
 def build_context_block(inputs, cur):
     """Build the curriculum context block (text) injected into the prompt."""
     ls_lines = "\n".join("  {} {}".format(s["kod"], s["huraian"]) for s in cur["sp"])
-    meta = load_dskp()
+    meta = load_dskp(inputs.get("form", 3))
+    form_no = meta.get("form", inputs.get("form", 3))
     return (
-        "Subject          : English (KSSM Form 3)\n"
+        "Subject          : English (KSSM Form {form_no})\n".format(form_no=form_no) +
         "CEFR target      : {cefr}\n"
         "Textbook         : {textbook}\n"
         "Minimum hours/yr : {jam}\n"
@@ -407,9 +452,12 @@ def generate_gamma(inputs):
         fmt = "presentation"
 
     # Build the source text from the lesson plan + planned teaching slides.
+    dskp_meta = load_dskp(inputs.get("form", 3))
+    course_label = "KSSM English Form {} (CEFR {})".format(
+        dskp_meta.get("form", inputs.get("form", 3)), dskp_meta.get("cefr_target", "B1"))
     lines = ["# " + (plan.get("tajuk") or "English Lesson")]
     meta = [plan.get("tema_bidang", ""), plan.get("tingkatan_kelas", ""),
-            plan.get("tarikh", ""), "KSSM English Form 3 (CEFR B1)"]
+            plan.get("tarikh", ""), course_label]
     lines.append(" | ".join(x for x in meta if x))
     if plan.get("objektif_pembelajaran"):
         lines.append("\n## Learning objectives")
@@ -431,9 +479,11 @@ def generate_gamma(inputs):
         "format": fmt,
         "numCards": max(4, min(20, len(slides) + 2)),
         "additionalInstructions": (
-            "This is a lesson for Malaysian Form 3 secondary school pupils "
-            "(KSSM English, CEFR B1). Keep the language simple, visual and "
-            "classroom-friendly. Keep the given content faithful."),
+            "This is a lesson for Malaysian Form {} secondary school pupils "
+            "(KSSM English, CEFR {}). Keep the language simple, visual and "
+            "classroom-friendly. Keep the given content faithful.".format(
+                dskp_meta.get("form", inputs.get("form", 3)),
+                dskp_meta.get("cefr_target", "B1"))),
         "imageOptions": {"source": "aiGenerated"},
         "textOptions": {"language": "en"},
     }
@@ -652,11 +702,11 @@ def save_artifact(body):
 # Pengendali HTTP
 # --------------------------------------------------------------------------
 def save_lesson_route(body):
-    return {"id": lessons.save_lesson(body)}
+    return {"id": lessons.save_lesson(body, owner_username=body.get("_actor_username"))}
 
 
 def delete_lesson_route(body):
-    return lessons.delete_lesson(body.get("id"))
+    return lessons.delete_lesson(body.get("id"), owner_username=body.get("_actor_username"))
 
 
 def generate_reflection(inputs):
@@ -802,7 +852,9 @@ def email_reflection(body):
 
 
 def lesson_reflection_route(body):
-    return lessons.update_reflection(int(body.get("id")), body.get("refleksi", ""), body.get("score"))
+    return lessons.update_reflection(
+        int(body.get("id")), body.get("refleksi", ""), body.get("score"),
+        owner_username=body.get("_actor_username"))
 
 
 def distribute_direct(body):
@@ -826,41 +878,88 @@ def distribute_direct(body):
 # its own pupils in the same Google Classroom.
 # ==========================================================================
 BAND_ORDER = ["remedial", "core", "extension"]
-BAND_CEFR = {"remedial": "A2", "core": "B1", "extension": "B1+"}
 
-# Per-band worksheet shaping: cognitive-level split + proficiency label + a note
-# the worksheet agent folds into its prompt. Vocabulary stays within the project's
-# Cambridge B1 constraint for every band — differentiation is by cognitive demand
-# and scaffolding, not by breaking the vocabulary rule.
-_BAND_SHAPE = {
-    "remedial": {
-        "lots": 70, "mots": 30, "hots": 0,
-        "tahap": "Lower — CEFR A2; pupils are struggling and need support",
-        "nota": ("DIFFERENTIATION — REMEDIAL (A2): Use the simplest B1-or-below "
-                 "vocabulary, short sentences, and clear scaffolding. Focus on recall "
-                 "and basic understanding. Keep stems short and add a small hint where "
-                 "helpful. Avoid inference-heavy or multi-step questions."),
-    },
-    "core": {
-        "lots": 40, "mots": 40, "hots": 20,
-        "tahap": "On-level — CEFR B1 (expected Form 3 standard)",
-        "nota": ("DIFFERENTIATION — CORE (B1): Standard Form 3 pitch. Balanced mix of "
-                 "recall, understanding and some application."),
-    },
-    "extension": {
-        "lots": 10, "mots": 40, "hots": 50,
-        "tahap": "Higher — CEFR B1+; pupils are secure and ready for a challenge",
-        "nota": ("DIFFERENTIATION — EXTENSION (B1+): Keep within B1 vocabulary but "
-                 "raise the cognitive demand — richer/longer texts, inference, "
-                 "analysis, and 'why/how' reasoning. More HOTS questions."),
-    },
+# CEFR ladder used to place each Form's differentiation bands relative to its
+# own target level. "core" = the Form's CEFR target; "remedial" = one step down;
+# "extension" = one step up. This keeps differentiation correct for Forms 1-5
+# instead of assuming every class sits at Form 3's B1.
+CEFR_LADDER = ["A1", "A2 Low", "A2 Mid", "A2 High",
+               "B1 Low", "B1 Mid", "B1 High", "B2 Low", "B2 Mid"]
+
+
+def _norm_cefr(c):
+    """Normalise a cefr_target string ('A2 Mid (Revised)', 'B1+') to a ladder rung."""
+    c = (c or "").strip()
+    if c.endswith("+"):  # e.g. "B1+" -> next rung up from B1 (handled by caller)
+        c = c[:-1].strip()
+    for lvl in CEFR_LADDER:
+        if c.upper().startswith(lvl.upper()):
+            return lvl
+    # fall back on the base band letter (A2 / B1) if the sub-level is unusual
+    for lvl in CEFR_LADDER:
+        if c[:2].upper() == lvl[:2].upper():
+            return lvl
+    return "B1 Low"
+
+
+def band_cefr_for_form(form):
+    """Return {remedial, core, extension} CEFR labels for a given Form (1-5)."""
+    core = _norm_cefr(load_dskp(form).get("cefr_target", "B1 Low"))
+    try:
+        i = CEFR_LADDER.index(core)
+    except ValueError:
+        i = CEFR_LADDER.index("B1 Low")
+    return {
+        "remedial": CEFR_LADDER[max(0, i - 1)],
+        "core": core,
+        "extension": CEFR_LADDER[min(len(CEFR_LADDER) - 1, i + 1)],
+    }
+
+# Per-band cognitive split (LOTS/MOTS/HOTS %). The proficiency label and the
+# worksheet-agent note are built per Form by band_shape() so the CEFR pitch
+# matches the class's actual level (Form 1 A2 … Form 5 B1 High), not a fixed B1.
+# Differentiation is by cognitive demand and scaffolding at the class's own
+# vocabulary level — it does not break the project's word-level constraint.
+_BAND_COG = {
+    "remedial": {"lots": 70, "mots": 30, "hots": 0},
+    "core": {"lots": 40, "mots": 40, "hots": 20},
+    "extension": {"lots": 10, "mots": 40, "hots": 50},
 }
 
 
-def _decide_bands(cumulative):
+def band_shape(band, form=3):
+    """Full shaping for a band at a given Form: cognitive split + CEFR-aware
+    proficiency label ('tahap') + differentiation note for the worksheet agent."""
+    cog = _BAND_COG[band]
+    cefrs = band_cefr_for_form(form)
+    cefr, core = cefrs[band], cefrs["core"]
+    if band == "remedial":
+        tahap = "Lower — CEFR {}; pupils are struggling and need support".format(cefr)
+        nota = ("DIFFERENTIATION — REMEDIAL ({c}): Use the simplest {core}-or-below "
+                "vocabulary, short sentences, and clear scaffolding. Focus on recall "
+                "and basic understanding. Keep stems short and add a small hint where "
+                "helpful. Avoid inference-heavy or multi-step questions."
+                ).format(c=cefr, core=core)
+    elif band == "core":
+        tahap = "On-level — CEFR {} (expected Form {} standard)".format(cefr, form)
+        nota = ("DIFFERENTIATION — CORE ({c}): Standard Form {f} pitch. Balanced mix of "
+                "recall, understanding and some application.").format(c=cefr, f=form)
+    else:  # extension
+        tahap = "Higher — CEFR {}; pupils are secure and ready for a challenge".format(cefr)
+        nota = ("DIFFERENTIATION — EXTENSION ({c}): Keep within the class's core ({core}) "
+                "vocabulary level but raise the cognitive demand — richer/longer texts, "
+                "inference, analysis, and 'why/how' reasoning. More HOTS questions."
+                ).format(c=cefr, core=core)
+    return {"lots": cog["lots"], "mots": cog["mots"], "hots": cog["hots"],
+            "tahap": tahap, "nota": nota, "cefr": cefr}
+
+
+def _decide_bands(cumulative, form=3):
     """Agent 5: given cumulative per-pupil performance, return
     {emel: {band, cefr, sebab}} plus a summary. LLM first; if it fails or returns
-    junk, fall back to a deterministic threshold rule so distribution still works."""
+    junk, fall back to a deterministic threshold rule so distribution still works.
+    CEFR labels are pitched to the class's Form."""
+    band_cefr = band_cefr_for_form(form)
     lines = []
     for s in cumulative:
         lines.append(
@@ -881,9 +980,9 @@ def _decide_bands(cumulative):
             for a in data.get("assignments", []) or []:
                 emel = (a.get("emel") or "").strip().lower()
                 band = (a.get("band") or "").strip().lower()
-                if emel and band in _BAND_SHAPE:
+                if emel and band in _BAND_COG:
                     decided[emel] = {"band": band,
-                                     "cefr": BAND_CEFR[band],
+                                     "cefr": band_cefr[band],
                                      "sebab": (a.get("sebab") or "").strip()}
     except Exception:  # noqa: BLE001 — any failure drops to the rule below
         decided = {}
@@ -894,7 +993,7 @@ def _decide_bands(cumulative):
             continue
         p = s["purata"]
         band = "remedial" if p < 50 else ("core" if p < 80 else "extension")
-        decided[s["emel"]] = {"band": band, "cefr": BAND_CEFR[band],
+        decided[s["emel"]] = {"band": band, "cefr": band_cefr[band],
                               "sebab": "Average {}% (auto by threshold).".format(p)}
     if not summary:
         counts = {b: 0 for b in BAND_ORDER}
@@ -907,7 +1006,7 @@ def _decide_bands(cumulative):
 def _worksheet_for_band(base_inputs, band):
     """Generate one worksheet pitched at `band` by reshaping the worksheet config
     and letting Agent 3 (generate_worksheet) do the work."""
-    shape = _BAND_SHAPE[band]
+    shape = band_shape(band, base_inputs.get("form", 3))
     inputs = dict(base_inputs)
     ws = dict(inputs.get("worksheet", {}) or {})
     ws["lots"], ws["mots"], ws["hots"] = shape["lots"], shape["mots"], shape["hots"]
@@ -921,7 +1020,7 @@ def _worksheet_for_band(base_inputs, band):
     out = generate_worksheet(inputs)
     ws_out = out.get("worksheet", {}) or {}
     base_title = ws_out.get("tajuk") or "Worksheet"
-    ws_out["tajuk"] = "{} — {} ({})".format(base_title, band.title(), BAND_CEFR[band])
+    ws_out["tajuk"] = "{} — {} ({})".format(base_title, band.title(), shape["cefr"])
     return ws_out
 
 
@@ -941,6 +1040,9 @@ def differentiate(body):
         return {"ok": False, "error": "No performance data yet for \"{}\". Read at "
                 "least one quiz's results for this class first (Reflect step).".format(class_name)}
 
+    form = body.get("form", 3)
+    band_cefr = band_cefr_for_form(form)
+
     # Teacher override: if the caller supplies its own band per pupil (from the
     # editable preview table), honour it instead of re-running the agent. Any
     # pupil left out is filled from the agent/threshold decision.
@@ -948,21 +1050,21 @@ def differentiate(body):
     for a in body.get("assignments") or []:
         emel = (a.get("emel") or "").strip().lower()
         band = (a.get("band") or "").strip().lower()
-        if emel and band in _BAND_SHAPE:
+        if emel and band in _BAND_COG:
             override[emel] = band
     if override:
         decided = {}
         for s in cumulative:
             band = override.get(s["emel"])
             if band:
-                decided[s["emel"]] = {"band": band, "cefr": BAND_CEFR[band],
+                decided[s["emel"]] = {"band": band, "cefr": band_cefr[band],
                                       "sebab": "Teacher-set level."}
         # fill anyone the teacher didn't touch
-        for emel, d in _decide_bands(cumulative)[0].items():
+        for emel, d in _decide_bands(cumulative, form)[0].items():
             decided.setdefault(emel, d)
         summary = "Teacher-adjusted differentiation plan."
     else:
-        decided, summary = _decide_bands(cumulative)
+        decided, summary = _decide_bands(cumulative, form)
 
     # Group pupils by band and attach the rationale for the teacher-facing table.
     by_band = {b: [] for b in BAND_ORDER}
@@ -990,7 +1092,7 @@ def differentiate(body):
         if not emails:
             continue
         worksheet = _worksheet_for_band(body, band)
-        bands_payload.append({"band": band, "cefr": BAND_CEFR[band],
+        bands_payload.append({"band": band, "cefr": band_cefr[band],
                               "emails": emails, "worksheet": worksheet})
 
     result = {"ok": True, "class_name": class_name, "ringkasan": summary,
@@ -1018,7 +1120,11 @@ def differentiate(body):
 
 
 def _read_reminder_cfg():
-    """k=v pairs from reminder_config.txt (shared with the reminder script)."""
+    """Reminder/integration settings: local file first, environment overrides.
+
+    Cloud Run supplies these through Secret Manager-backed environment
+    variables because reminder_config.txt is intentionally never deployed.
+    """
     cfg = {}
     try:
         with open(os.path.join(ROOT, "reminder_config.txt"), encoding="utf-8") as f:
@@ -1029,10 +1135,37 @@ def _read_reminder_cfg():
                     cfg[k.strip()] = v.strip()
     except FileNotFoundError:
         pass
+    for key in (
+            "SENDER_EMAIL", "SENDER_APP_PASSWORD", "TEACHER_EMAIL",
+            "REMINDER_HOST", "TEACHER_WHATSAPP", "CALLMEBOT_APIKEY",
+            "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
+            "APPSCRIPT_MAIL_URL", "APPSCRIPT_MAIL_KEY",
+            "APPSCRIPT_HUB_URL", "APPSCRIPT_HUB_KEY"):
+        if os.environ.get(key) is not None:
+            cfg[key] = os.environ.get(key, "").strip()
     return cfg
 
 
 def _load_classrooms():
+    """Load classrooms from Supabase (if configured) or local JSON file.
+    Returns: {"lesson_plan": "...", "classes": {"3 Delima": "...", ...}}"""
+    if sb.use_cloud():
+        try:
+            rows = sb.select("classrooms", params={"select": "*"})
+            result = {"classes": {}}
+            for row in rows:
+                class_name = row.get("class_name", "")
+                classroom_id = row.get("classroom_id", "")
+                if class_name == "lesson_plan":
+                    result["lesson_plan"] = classroom_id
+                else:
+                    result["classes"][class_name] = classroom_id
+            return result
+        except sb.SupabaseError:
+            if sb.cloud_required():
+                raise
+            pass  # fall through to local file in desktop auto mode
+    # Fallback to local JSON
     try:
         with open(os.path.join(ROOT, "classrooms.json"), encoding="utf-8") as f:
             return json.load(f)
@@ -1196,10 +1329,40 @@ def quiz_results(body):
     return res
 
 
+def _cloud_setting_get(key, default=None):
+    """Read one durable JSON setting from Supabase."""
+    rows = sb.select("app_settings", params={"select": "value", "key": "eq." + key})
+    if not rows:
+        return default
+    value = rows[0].get("value")
+    return value if value is not None else default
+
+
+def _cloud_setting_set(key, value):
+    """Upsert one durable JSON setting in Supabase."""
+    sb.insert("app_settings", {
+        "key": key,
+        "value": value,
+        "updated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+    }, upsert_on="key")
+
+
+def _timetable_setting_key(username):
+    return "timetable:" + (username or "").strip().lower()
+
+
 def _load_timetable(username):
-    """Return the timetable for ONE teacher (keyed by login username) —
-    timetable.json is shared by everyone but each teacher only ever sees
-    their own schedule, never another teacher's."""
+    """Return one teacher's timetable without exposing another's data.
+
+    Containers use the durable ``app_settings`` row ``timetable:<username>``.
+    Desktop/offline mode retains the existing timetable.json layout.
+    """
+    if sb.use_cloud():
+        try:
+            return _cloud_setting_get(_timetable_setting_key(username), {}) or {}
+        except sb.SupabaseError:
+            if sb.cloud_required():
+                raise
     try:
         with open(os.path.join(ROOT, "timetable.json"), encoding="utf-8") as f:
             data = json.load(f)
@@ -1232,13 +1395,25 @@ def next_class(username):
 
 
 def load_students():
-    """Pilot students from 'Email Student Prototype.txt' (name line, then email line).
+    """Load students from Supabase (if configured) or 'Email Student Prototype.txt'.
 
-    Any line containing '@' is an email; the nearest non-empty line above it is
-    the student's name. Teacher edits the txt file — no code change needed.
+    For local file: any line containing '@' is an email; the nearest non-empty
+    line above it is the student's name. Teacher edits the txt file — no code change needed.
     """
-    path = os.path.join(ROOT, "Email Student Prototype.txt")
     students = []
+    if sb.use_cloud():
+        try:
+            # NOTE: the Supabase column is `label` ("Student A"), not `name`.
+            rows = sb.select("students", params={"select": "label,email"})
+            students = [{"name": row.get("label") or "Student",
+                         "email": row.get("email") or ""} for row in rows]
+            return {"students": students, "jumlah": len(students)}
+        except sb.SupabaseError:
+            if sb.cloud_required():
+                raise
+            pass  # fall through to local file in desktop auto mode
+    # Fallback to local text file
+    path = os.path.join(ROOT, "Email Student Prototype.txt")
     last_name = ""
     try:
         with open(path, encoding="utf-8") as f:
@@ -1277,14 +1452,133 @@ VALID_ROLES = ("teacher", "admin", "super_admin")
 USERNAME_RE = re.compile(r"^[a-z0-9_.-]{3,32}$")
 
 
+# --------------------------------------------------------------------------
+# Profile photos
+#
+# The photo belongs to the ACCOUNT, so Supabase Storage (private bucket
+# "avatars") is the system of record and profiles.avatar_url remembers it.
+# web/avatars/ is only a local cache — and the sole copy when Supabase is not
+# configured (offline demo). It used to be the only home, which is why photos
+# always vanished in the cloud: the folder is gitignored (so `gcloud run deploy
+# --source .` never uploaded it) and Cloud Run wipes the disk on every restart.
+#
+# The bucket stays PRIVATE and the bytes are proxied back through
+# GET /avatars/<user>.png, which sits behind the login gate — a public bucket
+# would put teachers' faces on guessable, unauthenticated URLs.
+# --------------------------------------------------------------------------
+AVATAR_BUCKET = "avatars"
+AVATAR_DIR = os.path.join(WEB_DIR, "avatars")
+
+
+def _avatar_key(user):
+    """Storage object name for a user, or None if the username could never be
+    one — it lands in a URL path, so it is validated, not trusted."""
+    return user + ".png" if USERNAME_RE.match(user or "") else None
+
+
+def _avatar_cache_file(user):
+    return os.path.join(AVATAR_DIR, user + ".png")
+
+
+def _avatar_cache_write(user, png_bytes):
+    """Best-effort: a read-only or full disk must never fail the upload."""
+    try:
+        os.makedirs(AVATAR_DIR, exist_ok=True)
+        with open(_avatar_cache_file(user), "wb") as f:
+            f.write(png_bytes)
+    except OSError:
+        pass
+
+
+def avatar_save(user, png_bytes):
+    """Store a new profile photo. Returns (app_url, warning) — warning is None
+    on success, or a message to show the teacher when the photo could only be
+    saved to this machine and so will not survive a cloud restart."""
+    key = _avatar_key(user)
+    if not key:
+        raise ValueError("username cannot have a photo: " + repr(user))
+    # ?v= busts the browser cache when the teacher replaces their photo; it is
+    # a clock stamp, not the file mtime, because another Cloud Run instance
+    # holds no file to read an mtime from.
+    url = "/avatars/{}?v={}".format(key, int(time.time()))
+    warning = None
+    if sb.configured():
+        try:
+            sb.storage_create_bucket(AVATAR_BUCKET, public=False)
+            sb.storage_upload(AVATAR_BUCKET, key, png_bytes, content_type="image/png")
+            sb.update("profiles", {"username": "eq." + user}, {"avatar_url": url},
+                      role="service")
+        except sb.SupabaseError as e:
+            if sb.cloud_required():
+                raise
+            # Keep the photo rather than lose it, but never let it look saved
+            # when it is one restart away from disappearing — that silence is
+            # exactly what made photos vanish before.
+            warning = ("Saved on this computer only — Supabase could not be "
+                       "reached, so the photo will not appear elsewhere or "
+                       "survive a server restart. ({})".format(e))
+    _avatar_cache_write(user, png_bytes)
+    return url, warning
+
+
+def avatar_url_for(user):
+    """The URL to show for this user's photo, or None if they have none."""
+    if not _avatar_key(user):
+        return None
+    if sb.configured():
+        try:
+            rows = sb.select("profiles", {"select": "avatar_url",
+                                          "username": "eq." + user})
+            if rows:
+                return rows[0].get("avatar_url") or None
+        except sb.SupabaseError:
+            pass  # Supabase down — fall back to whatever is on this disk
+    f = _avatar_cache_file(user)
+    if os.path.isfile(f):
+        return "/avatars/{}.png?v={}".format(user, int(os.path.getmtime(f)))
+    return None
+
+
+def avatar_bytes(user):
+    """Raw PNG for this user — local cache first, then Supabase Storage.
+    None if they have no photo."""
+    key = _avatar_key(user)
+    if not key:
+        return None
+    f = _avatar_cache_file(user)
+    if os.path.isfile(f):
+        with open(f, "rb") as fh:
+            return fh.read()
+    if sb.configured():
+        try:
+            data = sb.storage_download(AVATAR_BUCKET, key)
+        except sb.SupabaseError:
+            return None
+        if data:
+            _avatar_cache_write(user, data)  # warm the cache for the next hit
+            return data
+    return None
+
+
+def avatar_delete(user):
+    """Remove a photo everywhere. Called when an account is deleted; the
+    profiles row (and its avatar_url) goes with the account by cascade."""
+    key = _avatar_key(user)
+    try:
+        os.remove(_avatar_cache_file(user))
+    except OSError:
+        pass
+    if key and sb.configured():
+        try:
+            sb.storage_delete(AVATAR_BUCKET, key)
+        except sb.SupabaseError:
+            pass  # already gone, or no bucket yet — nothing to tidy
+
+
 def _teacher_school_map():
     """username -> school name, read from the (shared) timetable blocks. This is
     the authoritative teacher->school link the admin console groups data by."""
-    try:
-        with open(os.path.join(ROOT, "timetable.json"), encoding="utf-8") as f:
-            data = json.load(f)
-    except (FileNotFoundError, ValueError):
-        return {}
+    data = _load_timetable_all()
     return {u.lower(): (blk.get("school") or "").strip()
             for u, blk in (data.get("teachers") or {}).items()}
 
@@ -1445,13 +1739,7 @@ def admin_delete_teacher(body, actor, actor_role):
         sb.admin_delete_user(u["id"])  # cascade removes the profiles row
     except sb.SupabaseError as e:
         return {"ok": False, "ralat": str(e)}
-    # tidy up the local avatar file if any
-    av = os.path.join(WEB_DIR, "avatars", target + ".png")
-    try:
-        if os.path.isfile(av):
-            os.remove(av)
-    except OSError:
-        pass
+    avatar_delete(target)  # cloud copy + local cache
     return {"ok": True}
 
 
@@ -1482,6 +1770,17 @@ def _timetable_path():
 
 
 def _load_timetable_all():
+    if sb.use_cloud():
+        try:
+            rows = sb.select("app_settings", params={
+                "select": "key,value", "key": "like.timetable:*", "limit": "10000"})
+            return {"teachers": {
+                row["key"].split(":", 1)[1]: (row.get("value") or {})
+                for row in rows if ":" in (row.get("key") or "")
+            }}
+        except sb.SupabaseError:
+            if sb.cloud_required():
+                raise
     try:
         with open(_timetable_path(), encoding="utf-8") as f:
             return json.load(f)
@@ -1502,13 +1801,17 @@ def admin_save_timetable(body):
         return {"ok": False, "ralat": "Missing username."}
     if not isinstance(block.get("classes"), list):
         return {"ok": False, "ralat": "Invalid timetable data."}
-    data = _load_timetable_all()
-    data.setdefault("teachers", {})[username] = {
+    clean_block = {
         "teacher_name": str(block.get("teacher_name", ""))[:80],
         "school": str(block.get("school", ""))[:120],
         "class_pupils": block.get("class_pupils") or {},
         "classes": block.get("classes"),
     }
+    if sb.use_cloud():
+        _cloud_setting_set(_timetable_setting_key(username), clean_block)
+        return {"ok": True}
+    data = _load_timetable_all()
+    data.setdefault("teachers", {})[username] = clean_block
     with open(_timetable_path(), "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     return {"ok": True}
@@ -1522,6 +1825,13 @@ def _schools_path():
 
 
 def admin_get_schools():
+    if sb.use_cloud():
+        try:
+            data = _cloud_setting_get("schools", {"schools": []}) or {"schools": []}
+            return data if isinstance(data.get("schools"), list) else {"schools": []}
+        except sb.SupabaseError:
+            if sb.cloud_required():
+                raise
     try:
         with open(_schools_path(), encoding="utf-8") as f:
             data = json.load(f)
@@ -1559,6 +1869,9 @@ def admin_save_schools(body):
             "state": str(s.get("state", "")).strip()[:80],
             "principal": str(s.get("principal", "")).strip()[:120],
         })
+    if sb.use_cloud():
+        _cloud_setting_set("schools", {"schools": clean})
+        return {"ok": True, "count": len(clean)}
     with open(_schools_path(), "w", encoding="utf-8") as f:
         json.dump({"schools": clean}, f, indent=2, ensure_ascii=False)
     return {"ok": True, "count": len(clean)}
@@ -1570,6 +1883,10 @@ def _classrooms_path():
 
 
 def admin_get_classrooms():
+    if sb.use_cloud():
+        data = _load_classrooms() or {}
+        return {"lesson_plan": data.get("lesson_plan", ""),
+                "classes": data.get("classes") or {}}
     try:
         with open(_classrooms_path(), encoding="utf-8") as f:
             return json.load(f)
@@ -1583,6 +1900,18 @@ def admin_save_classrooms(body):
     if not isinstance(classes, dict):
         return {"ok": False, "ralat": "Invalid classes data."}
     clean = {str(k).strip(): str(v).strip() for k, v in classes.items() if str(k).strip()}
+    if sb.use_cloud():
+        desired = {"lesson_plan": lesson_plan}
+        desired.update(clean)
+        rows = [{"class_name": name, "classroom_id": cid}
+                for name, cid in desired.items()]
+        sb.insert("classrooms", rows, upsert_on="class_name")
+        existing = sb.select("classrooms", params={"select": "class_name"})
+        for row in existing:
+            name = row.get("class_name", "")
+            if name not in desired:
+                sb.delete("classrooms", {"class_name": "eq." + name})
+        return {"ok": True}
     data = admin_get_classrooms()
     data["lesson_plan"] = lesson_plan
     data["classes"] = clean
@@ -1595,12 +1924,27 @@ def admin_save_students(body):
     """body = {students:[{name,email}]} -> rewrite Email Student Prototype.txt
     in the name-line / email-line format load_students() expects."""
     students = body.get("students") or []
-    lines = []
+    clean = []
+    seen = set()
     for s in students:
         name = str(s.get("name", "")).strip()
-        email = str(s.get("email", "")).strip()
-        if "@" not in email:
+        email = str(s.get("email", "")).strip().lower()
+        if "@" not in email or email in seen:
             continue
+        seen.add(email)
+        clean.append({"label": name or "Student", "email": email})
+    if sb.use_cloud():
+        if clean:
+            sb.insert("students", clean, upsert_on="email")
+        existing = sb.select("students", params={"select": "email"})
+        for row in existing:
+            email = (row.get("email") or "").strip().lower()
+            if email and email not in seen:
+                sb.delete("students", {"email": "eq." + email})
+        return {"ok": True, "count": len(clean)}
+    lines = []
+    for s in clean:
+        name, email = s["label"], s["email"]
         lines.append(name or "Student")
         lines.append(email)
         lines.append("")
@@ -1616,6 +1960,21 @@ def _announcement_path():
 
 
 def get_announcement():
+    if sb.use_cloud():
+        try:
+            data = _cloud_setting_get("announcement", {"message": "", "items": [], "at": ""})
+        except sb.SupabaseError:
+            if sb.cloud_required():
+                raise
+            data = None
+        if data is not None:
+            items = data.get("items")
+            if not isinstance(items, list):
+                items = [ln.strip() for ln in str(data.get("message", "")).splitlines()
+                         if ln.strip()]
+            data["items"] = items
+            data["message"] = "\n".join(items)
+            return data
     try:
         with open(_announcement_path(), encoding="utf-8") as f:
             data = json.load(f)
@@ -1643,6 +2002,9 @@ def admin_set_announcement(body):
         "message": "\n".join(items),
         "at": datetime.now().isoformat(timespec="seconds"),
     }
+    if sb.use_cloud():
+        _cloud_setting_set("announcement", data)
+        return {"ok": True}
     with open(_announcement_path(), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
     return {"ok": True}
@@ -1660,6 +2022,74 @@ def _days_overdue(due_iso):
     return max(0, delta.days)
 
 
+def _fallback_nudge(nama, tugasan, kali, guru):
+    """Plain, kind message used only if the LLM call fails — same escalation
+    ladder and same never-shaming tone as agent6_reminder.md, just not
+    personalised to the pupil's performance."""
+    if kali >= 2:
+        aras = "notify_teacher"
+        subjek = "Let's sort out your English work together"
+        badan = ("Hi {n}, I've reminded you about \"{t}\" a few times now, so I'll come and "
+                 "find you after class. I'm not upset — I just want to know if something is "
+                 "making this hard. Please open Google Classroom and turn in whatever you "
+                 "have so far. Kalau susah, jumpa cikgu ya.").format(n=nama, t=tugasan)
+    elif kali == 1:
+        aras = "firm"
+        subjek = "Your English work is still waiting: " + tugasan
+        badan = ("Hi {n}, \"{t}\" is still not turned in and it is now late. Please open "
+                 "Google Classroom, finish it and press Turn in by tomorrow. Tell me if "
+                 "you're stuck — I'd rather help than chase.").format(n=nama, t=tugasan)
+    else:
+        aras = "gentle"
+        subjek = "Your English work is waiting: " + tugasan
+        badan = ("Hi {n}! I don't see \"{t}\" in Google Classroom yet — I think it may have "
+                 "slipped your mind. Open Classroom, finish it and press Turn in when you're "
+                 "done. Let me know if anything is unclear.").format(n=nama, t=tugasan)
+    return {"hantar": True, "aras": aras, "subjek": subjek,
+            "mesej": badan + "\n\n— " + (guru or "Cikgu")}
+
+
+def _class_form(class_name):
+    """Form (1-5) from a class name like '3 Delima' / 'Form 4 Bestari'. Defaults to 3."""
+    m = re.search(r"\b([1-5])\b", class_name or "")
+    return int(m.group(1)) if m else 3
+
+
+def _hub_submission_states(class_name, tugasan):
+    """Who has / hasn't submitted, read via the Apps Script hub (runs as the
+    teacher). Used when Path B isn't set up — the hub needs no MOE OAuth
+    approval, so this is what makes Agent 6 usable today."""
+    course_id = (_load_classrooms().get("classes", {}) or {}).get(class_name, "")
+    res = _post_hub({"action": "submissions", "courseId": course_id,
+                     "courseName": class_name, "title": tugasan})
+    if not res.get("ok"):
+        return {"ok": False, "error": "Hub could not read Classroom: "
+                + str(res.get("error", "unknown error"))}
+    return res
+
+
+def _submission_states(class_name, tugasan, body):
+    """Non-submitter source, in order of preference:
+    caller-supplied list -> Path B (Google API) -> Apps Script hub."""
+    if body.get("students"):
+        return {"ok": True, "course": class_name, "coursework": tugasan,
+                "due_iso": body.get("due_iso", ""), "students": body["students"],
+                "source": "supplied"}
+    try:
+        import niat_google
+        if niat_google.available(interactive=False):
+            states = niat_google.list_submission_states(class_name, tugasan)
+            if states.get("ok"):
+                states["source"] = "google"
+            return states
+    except Exception:  # noqa: BLE001 — no Path B libs/credentials; use the hub
+        pass
+    states = _hub_submission_states(class_name, tugasan)
+    if states.get("ok"):
+        states["source"] = "hub"
+    return states
+
+
 def remind_agent(body):
     """Agent 6 — remind pupils who have NOT submitted an assignment.
 
@@ -1667,29 +2097,32 @@ def remind_agent(body):
     then for each non-submitter the LLM decides tone + escalation from the pupil's
     performance and how many times they've already been reminded, writes a
     personalised message, and emails it via the hub. On the 3rd+ reminder it also
-    emails the teacher to follow up. Fully automatic once triggered.
+    emails the teacher to follow up.
+
+    Pass "dry_run": true to get the drafted messages back WITHOUT emailing anyone
+    and without counting a reminder — the teacher previews first, then sends.
     """
     class_name = (body.get("class_name") or body.get("kelas") or "").strip()
     tugasan = (body.get("coursework_title") or body.get("tugasan") or "").strip()
+    dry_run = bool(body.get("dry_run"))
     if not class_name:
         return {"ok": False, "error": "No class specified."}
 
-    # Who hasn't submitted? From Classroom, or from a caller-supplied list (offline/manual).
-    if body.get("students"):
-        states = {"ok": True, "course": class_name, "coursework": tugasan,
-                  "due_iso": body.get("due_iso", ""), "students": body["students"]}
-    else:
-        try:
-            import niat_google
-        except Exception as e:  # noqa: BLE001
-            return {"ok": False, "error": "Path B module error: " + str(e)}
-        states = niat_google.list_submission_states(class_name, tugasan)
-        if not states.get("ok"):
-            return states
+    states = _submission_states(class_name, tugasan, body)
+    if not states.get("ok"):
+        return states
 
     tugasan = tugasan or states.get("coursework", "") or "the assignment"
     due_iso = body.get("due_iso") or states.get("due_iso", "")
     overdue = _days_overdue(due_iso)
+    # A title alone is not a unique assignment identifier: teachers may reuse
+    # titles in another class or term. Include the class and Classroom due time
+    # so the automatic one-reminder cap applies to this exact assignment.
+    reminder_key = (body.get("reminder_key") or "").strip()
+    if not reminder_key:
+        reminder_key = " | ".join(
+            part for part in (class_name, tugasan, due_iso) if part
+        ) or tugasan
 
     missing = [s for s in states.get("students", [])
                if not s.get("submitted") and (s.get("email"))]
@@ -1699,11 +2132,26 @@ def remind_agent(body):
                 "reminders": [], "sent": 0}
 
     emails = [s["email"] for s in missing]
-    perf = {p["emel"]: p for p in prestasi_murid.cumulative_by_student(class_name)}
-    reminded = peringatan.counts_for(tugasan, emails)
+    # Past marks only colour the WORDING — if that table isn't reachable the
+    # agent must still run, just with a less personalised tone.
+    try:
+        perf = {p["emel"]: p for p in prestasi_murid.cumulative_by_student(class_name)}
+    except Exception as e:  # noqa: BLE001
+        print("Agent 6: no performance data ({}) — tone will be generic.".format(e))
+        perf = {}
+    # The reminder counts drive the escalation ladder, so losing them is worse:
+    # treat everyone as never-reminded (gentle) rather than skipping the class.
+    try:
+        reminded = peringatan.counts_for(reminder_key, emails)
+    except Exception as e:  # noqa: BLE001
+        print("Agent 6: reminder history unavailable ({}) — everyone treated as "
+              "a first nudge. Run supabase/schema.sql to create the 'peringatan' "
+              "table.".format(e))
+        reminded = {}
 
-    # Cap: once a pupil has had MAX_REMINDERS nudges (teacher already alerted),
-    # stop auto-emailing so a daily cron never spams them forever.
+    # Cap: once a pupil has had MAX_REMINDERS nudges, stop sending for this
+    # exact assignment. The due-date watcher sets this to 1; supervised manual
+    # runs keep the default escalation ladder and cap of 4.
     MAX_REMINDERS = int(body.get("max_reminders") or 4)
     capped = [s for s in missing if reminded.get(s["email"].strip().lower(), 0) >= MAX_REMINDERS]
     missing = [s for s in missing if reminded.get(s["email"].strip().lower(), 0) < MAX_REMINDERS]
@@ -1724,12 +2172,23 @@ def remind_agent(body):
                 emel=e, nama=s.get("name") or e.split("@")[0],
                 avg=(str(p.get("purata")) + "%") if p.get("purata") is not None else "unknown",
                 kali=reminded.get(e, 0), od=overdue, tug=tugasan))
+
+    # Context the tone depends on: how old the pupils are (Form) and whose
+    # voice to write in — a Form 1 nudge should not read like a Form 5 one.
+    form = _class_form(class_name)
+    teacher_name = (body.get("teacher_name") or "").strip() or "Cikgu"
     system_prompt = read_text(os.path.join(PROMPT_DIR, "agent6_reminder.md"))
-    user_prompt = ("Decide and write reminders for these pupils who have NOT submitted:\n\n"
-                   + "\n".join(lines) + "\n\nReturn JSON only.")
+    user_prompt = (
+        "Class: {kelas} (Form {form}, KSSM English)\n"
+        "Teacher (sign off as this name): {guru}\n"
+        "Assignment in Google Classroom: \"{tug}\"\n"
+        "Days overdue: {od}\n\n"
+        "Decide and write reminders for these pupils who have NOT submitted:\n\n{roster}\n\n"
+        "Return JSON only.".format(kelas=class_name, form=form, guru=teacher_name,
+                                   tug=tugasan, od=overdue, roster="\n".join(lines)))
     decided, summary = {}, ""
     try:
-        data = extract_json(call_llm(system_prompt, user_prompt, max_tokens=3000))
+        data = call_llm_json(system_prompt, user_prompt, max_tokens=3000)
         if isinstance(data, dict):
             summary = (data.get("ringkasan") or "").strip()
             for r in data.get("reminders", []) or []:
@@ -1740,40 +2199,59 @@ def remind_agent(body):
         decided = {}
 
     teacher_email = (body.get("teacher_email") or "").strip()
+    work_url = states.get("classroom_url", "")
     results, sent = [], 0
     for s in missing:
         e = s["email"].strip().lower()
-        d = decided.get(e) or {
-            "hantar": True, "aras": "gentle",
-            "subjek": "Reminder: " + tugasan,
-            "mesej": "Hi {}, please remember to submit \"{}\". Your English teacher".format(
-                s.get("name") or e.split("@")[0], tugasan)}
+        d = decided.get(e) or _fallback_nudge(
+            s.get("name") or e.split("@")[0], tugasan, reminded.get(e, 0), teacher_name)
+        aras = d.get("aras", "gentle")
         if not d.get("hantar", True) or not (d.get("mesej") or "").strip():
-            results.append({"emel": e, "nama": s.get("name"), "hantar": False,
-                            "aras": d.get("aras", "gentle")})
+            results.append({"emel": e, "nama": s.get("name"), "hantar": False, "aras": aras})
             continue
-        mail = _post_hub({"action": "mail", "to": e,
-                          "subject": d.get("subjek") or ("Reminder: " + tugasan),
-                          "body": d.get("mesej", "")})
+
+        subject = d.get("subjek") or ("Your English work: " + tugasan)
+        message = d.get("mesej", "")
+        if work_url:  # one-tap straight to the assignment
+            message += "\n\nOpen it here: " + work_url
+
+        if dry_run:  # preview only — nothing sent, nothing counted
+            results.append({"emel": e, "nama": s.get("name"), "hantar": True, "aras": aras,
+                            "subjek": subject, "mesej": message, "sent": False,
+                            "preview": True})
+            continue
+
+        mail = _post_hub({"action": "mail", "to": e, "subject": subject, "body": message})
         ok = bool(mail.get("ok"))
         if ok:
             sent += 1
-            peringatan.record(e, class_name, tugasan, d.get("aras", "gentle"))
-        # Escalation: on notify_teacher, also alert the teacher.
-        if d.get("aras") == "notify_teacher" and teacher_email:
-            _post_hub({"action": "mail", "to": teacher_email,
-                       "subject": "Pupil not submitting — {} ({})".format(tugasan, class_name),
-                       "body": "{} ({}) still hasn't submitted \"{}\" after repeated reminders. "
-                               "Please follow up personally.".format(s.get("name") or e, e, tugasan)})
-        results.append({"emel": e, "nama": s.get("name"), "hantar": True,
-                        "aras": d.get("aras", "gentle"), "mesej": d.get("mesej", ""),
+            try:
+                peringatan.record(e, class_name, reminder_key, aras)
+            except Exception as rec_err:  # noqa: BLE001 — mail already went out;
+                # losing the count must not abort the rest of the class.
+                print("Agent 6: could not record the reminder for {} ({}).".format(e, rec_err))
+            # Escalation: on notify_teacher, also alert the teacher — only when
+            # the pupil's own email actually went out, so the counts stay honest.
+            if aras == "notify_teacher" and teacher_email:
+                _post_hub({"action": "mail", "to": teacher_email,
+                           "subject": "Pupil not submitting — {} ({})".format(tugasan, class_name),
+                           "body": "{} ({}) still hasn't submitted \"{}\" after {} reminder(s). "
+                                   "Agent 6 has sent a final, gentle message and will stop "
+                                   "escalating — please follow up in person.".format(
+                                       s.get("name") or e, e, tugasan, reminded.get(e, 0))})
+        results.append({"emel": e, "nama": s.get("name"), "hantar": True, "aras": aras,
+                        "subjek": subject, "mesej": message,
                         "sent": ok, "error": None if ok else mail.get("error", "mail failed")})
 
-    if not summary:
+    if dry_run:
+        summary = summary or "{} pupil(s) have not submitted — preview only, nothing sent yet.".format(
+            len(missing))
+    elif not summary:
         summary = "{} pupil(s) not submitted; {} reminder email(s) sent.".format(len(missing), sent)
     return {"ok": True, "class_name": class_name, "coursework": tugasan,
             "overdue_days": overdue, "ringkasan": summary, "sent": sent,
-            "reminders": results}
+            "dry_run": dry_run, "source": states.get("source", ""),
+            "classroom_url": work_url, "reminders": results}
 
 
 ROUTES = {
@@ -1795,6 +2273,37 @@ ROUTES = {
     "/api/differentiate": differentiate,
     "/api/remind": remind_agent,
 }
+
+
+def runtime_readiness(check_database=False):
+    """Secret-free readiness details for operators and deployment probes."""
+    errors = runtime_configuration_errors()
+    database_reachable = None
+    if check_database and sb.configured() and not errors:
+        try:
+            sb.select("app_settings", params={"select": "key", "limit": "1"})
+            database_reachable = True
+        except sb.SupabaseError:
+            database_reachable = False
+            errors.append("Supabase is unreachable or schema.sql has not been applied")
+    cfg = _read_reminder_cfg()
+    try:
+        import niat_google
+        google_oauth_ready = niat_google.available(interactive=False)
+    except Exception:
+        google_oauth_ready = False
+    return {
+        "ready": not errors,
+        "container": CONTAINER_MODE,
+        "storage": "supabase" if sb.use_cloud() else "local",
+        "database_reachable": database_reachable,
+        "configuration_errors": errors,
+        "integrations": {
+            "apps_script_hub": bool(cfg.get("APPSCRIPT_HUB_URL") and cfg.get("APPSCRIPT_HUB_KEY")),
+            "google_oauth": google_oauth_ready,
+            "cloud_scheduler_endpoint": bool(os.environ.get("NIAT_CRON_SECRET", "").strip()),
+        },
+    }
 
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -1838,7 +2347,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # Paths reachable WITHOUT logging in (login page + its logo + health probe
     # + PWA manifest/service worker, which browsers fetch outside the session).
-    PUBLIC_GET = ("/login.html", "/signup.html", "/niat-logo.png", "/api/health", "/favicon.ico",
+    PUBLIC_GET = ("/login.html", "/signup.html", "/niat-logo.png", "/api/health", "/api/ready", "/favicon.ico",
                   "/manifest.json", "/sw.js", "/icon-192.png", "/icon-512.png")
 
     def _current_user(self):
@@ -1896,13 +2405,31 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/dskp_english_f3.json":
             self._send(200, read_text(DSKP_FILE, "{}"), CONTENT_TYPES[".json"])
             return
+        # Per-form DSKP: /dskp_english_f1.json ... /dskp_english_f5.json
+        m = re.fullmatch(r"/dskp_english_f([1-5])\.json", path)
+        if m:
+            self._send(200, read_text(dskp_file_for(m.group(1)), "{}"),
+                       CONTENT_TYPES[".json"])
+            return
+        # Which forms actually have a data file available (for the Form selector).
+        if path == "/api/dskp-forms":
+            avail = [n for n in DSKP_FORMS
+                     if os.path.exists(os.path.join(ROOT, "dskp_english_f{}.json".format(n)))]
+            self._send(200, {"forms": avail}, CONTENT_TYPES[".json"])
+            return
         if path == "/api/health":
-            try:
-                bank_total = bank.stats().get("jumlah", 0)
-            except Exception:  # noqa: BLE001
-                bank_total = None
+            # Liveness only proves that this process can answer HTTP. Supabase
+            # reachability is reported separately by /api/ready.
+            bank_total = None
+            if not CONTAINER_MODE:
+                try:
+                    bank_total = bank.stats().get("jumlah", 0)
+                except Exception:  # noqa: BLE001
+                    pass
+            status = runtime_readiness(check_database=False)
             self._send(200, {
                 "ok": True,
+                "configuration_ready": status["ready"],
                 "model": MODEL,
                 "api_key_set": bool(GOOGLE_API_KEY),
                 "bank_total": bank_total,
@@ -1914,10 +2441,31 @@ class Handler(BaseHTTPRequestHandler):
                 "time": datetime.now().isoformat(timespec="seconds"),
             })
             return
+        if path == "/api/ready":
+            status = runtime_readiness(check_database=True)
+            self._send(200 if status["ready"] else 503, status)
+            return
         if path == "/textbook.pdf":
-            # Buku teks rujukan (Close-Up F3) — dilindungi login seperti yang lain.
-            tb = os.path.join(ROOT, "Buku Teks - Close-Up English Form 3.pdf")
-            if os.path.isfile(tb):
+            # Buku teks rujukan — dilindungi login seperti yang lain.
+            # Optional ?form=N picks the matching textbook PDF if one exists;
+            # falls back to the Form 3 (Close-Up) book that ships with the repo.
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            form_q = (qs.get("form", ["3"])[0] or "3").strip()
+            if form_q not in ("1", "2", "3", "4", "5"):
+                form_q = "3"
+            tb = None
+            for cand in (
+                os.path.join(ROOT, "private", "rujukan",
+                             "Buku Teks - English Form {}.pdf".format(form_q)),
+                os.path.join(ROOT, "Buku Teks - English Form {}.pdf".format(form_q)),
+                os.path.join(ROOT, "private", "rujukan",
+                             "Buku Teks - Close-Up English Form 3.pdf"),
+                os.path.join(ROOT, "Buku Teks - Close-Up English Form 3.pdf"),
+            ):
+                if os.path.isfile(cand):
+                    tb = cand
+                    break
+            if tb and os.path.isfile(tb):
                 with open(tb, "rb") as f:
                     self._send(200, f.read(), "application/pdf")
             else:
@@ -1931,15 +2479,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/lessons":
             q = parse_qs(urlparse(self.path).query).get("q", [""])[0]
-            self._send(200, lessons.list_lessons(q))
+            self._send(200, lessons.list_lessons(q, owner_username=self._current_user()))
             return
         if path == "/api/lesson":
             lid = parse_qs(urlparse(self.path).query).get("id", [""])[0]
-            rec = lessons.get_lesson(int(lid)) if lid.isdigit() else None
+            rec = (lessons.get_lesson(int(lid), owner_username=self._current_user())
+                   if lid.isdigit() else None)
             self._send(200 if rec else 404, rec or {"ralat": "lesson not found"})
             return
         if path == "/api/progress":
-            self._send(200, {"items": lessons.progress()})
+            self._send(200, {"items": lessons.progress(owner_username=self._current_user())})
             return
         if path == "/api/next-class":
             self._send(200, next_class(self._current_user()))
@@ -1971,10 +2520,7 @@ class Handler(BaseHTTPRequestHandler):
                 rec = auth._load_users().get(user, {})
                 full_name = rec.get("full_name") or user
                 role = rec.get("role") or "Teacher"
-            av_file = os.path.join(WEB_DIR, "avatars", user + ".png")
-            avatar = None
-            if os.path.isfile(av_file):
-                avatar = "/avatars/{}.png?v={}".format(user, int(os.path.getmtime(av_file)))
+            avatar = avatar_url_for(user)
             self._send(200, {
                 "username": user,
                 "full_name": full_name,
@@ -2037,6 +2583,21 @@ class Handler(BaseHTTPRequestHandler):
             # Readable by any logged-in user — teachers see it as a dashboard banner.
             self._send(200, get_announcement())
             return
+        # Profile photos are NOT plain static files — they come from Supabase
+        # Storage (cached on disk), so this must run before the web/ handler
+        # below would serve a stale or missing local copy. Readable by any
+        # logged-in user; the login gate at the top of do_GET already ran.
+        m = re.fullmatch(r"/avatars/([a-z0-9_.-]{3,32})\.png", path)
+        if m:
+            data = avatar_bytes(m.group(1))
+            if data:
+                # Safe to cache hard: the URL carries a ?v= stamp that changes
+                # every time the teacher uploads a new photo.
+                self._send(200, data, CONTENT_TYPES[".png"],
+                           headers={"Cache-Control": "private, max-age=31536000"})
+            else:
+                self._send(404, {"ralat": "no photo for " + m.group(1)})
+            return
         # Sajikan fail statik dari web/
         safe = os.path.normpath(path.lstrip("/")).replace("\\", "/")
         if safe.startswith(".."):
@@ -2061,6 +2622,21 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"ralat": "JSON permintaan tidak sah"})
             return
         # ---- Login / signup / logout (no session needed) ----
+        if path == "/api/internal/reminders":
+            expected = os.environ.get("NIAT_CRON_SECRET", "").strip()
+            supplied = self.headers.get("X-Niat-Cron-Secret", "").strip()
+            if not expected:
+                self._send(503, {"ok": False, "ralat": "Scheduled reminders are not configured."})
+            elif not hmac.compare_digest(expected, supplied):
+                self._send(403, {"ok": False, "ralat": "Forbidden."})
+            else:
+                try:
+                    import remind_cron
+                    result = remind_cron.run()
+                    self._send(200 if result.get("ok") else 502, result)
+                except Exception as exc:  # keep scheduler failures visible
+                    self._send(500, {"ok": False, "ralat": str(exc)})
+            return
         if path == "/api/login":
             time.sleep(0.4)  # slow down password guessing
             user = (body.get("username") or "").strip()
@@ -2140,7 +2716,8 @@ class Handler(BaseHTTPRequestHandler):
                         sb.update("profiles", {"username": "eq." + user}, {"full_name": name})
                         updated_supabase = True
                     except sb.SupabaseError:
-                        pass
+                        if sb.cloud_required():
+                            raise
                 if name and not updated_supabase:
                     users = auth._load_users()
                     rec = users.setdefault(user, {})
@@ -2160,14 +2737,13 @@ class Handler(BaseHTTPRequestHandler):
                     if len(img) > 1_500_000:
                         self._send(400, {"ralat": "image too large (max 1.5 MB)"})
                     else:
-                        av_dir = os.path.join(WEB_DIR, "avatars")
-                        os.makedirs(av_dir, exist_ok=True)
-                        av_file = os.path.join(av_dir, user + ".png")
-                        with open(av_file, "wb") as f:
-                            f.write(img)
-                        self._send(200, {"ok": True,
-                                         "avatar": "/avatars/{}.png?v={}".format(
-                                             user, int(os.path.getmtime(av_file)))})
+                        try:
+                            url, warning = avatar_save(user, img)
+                        except ValueError:
+                            self._send(400, {"ralat": "this account cannot have a photo"})
+                        else:
+                            self._send(200, {"ok": True, "avatar": url,
+                                             "amaran": warning})
             elif path == "/api/admin/create-user":
                 user, role = self._require_admin()
                 if user:
@@ -2209,7 +2785,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/save":
                 self._send(200, save_artifact(body))
             elif path in ROUTES:
-                self._send(200, ROUTES[path](body))
+                routed_body = dict(body)
+                routed_body["_actor_username"] = self._current_user()
+                self._send(200, ROUTES[path](routed_body))
             else:
                 self._send(404, {"ralat": "laluan tidak dikenali: " + path})
         except Exception as e:  # noqa: BLE001 — pulangkan ralat ke UI
@@ -2217,6 +2795,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    config_errors = runtime_configuration_errors()
+    if config_errors:
+        print("FATAL: unsafe container configuration:")
+        for problem in config_errors:
+            print("  - " + problem)
+        raise SystemExit(2)
     if not GOOGLE_API_KEY:
         print("WARNING: GOOGLE_API_KEY not set — generation will fail.")
         print('  PowerShell:  $env:GOOGLE_API_KEY="AIza..."\n')
