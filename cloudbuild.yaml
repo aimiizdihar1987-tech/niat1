@@ -1,0 +1,43 @@
+# Cloud Build pipeline: build the container, push it to Artifact Registry,
+# then deploy to Cloud Run. Triggered automatically on every push to `main`
+# (see the "niat-deploy" trigger, connected to github.com/aimiizdihar1987-tech/niat1).
+#
+# Secrets (Gemini/Supabase/auth/Apps Script hub/cron) live in Secret Manager —
+# see DEPLOY_GCLOUD.md section 4. GOOGLE_OAUTH_TOKEN_JSON / NIAT_REQUIRE_GOOGLE_OAUTH
+# are deliberately omitted until Agent 5's one-time Google OAuth consent is done
+# (python niat_google.py --authorize), per DEPLOY_GCLOUD.md section 3.
+
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:$COMMIT_SHA"
+      - "-t"
+      - "asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:latest"
+      - "."
+
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "--all-tags"
+      - "asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat"
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - "run"
+      - "deploy"
+      - "niat"
+      - "--image=asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:$COMMIT_SHA"
+      - "--region=asia-southeast1"
+      - "--allow-unauthenticated"
+      - "--set-env-vars=NIAT_REQUIRE_HUB=1,TEACHER_EMAIL=jpn-perlis-cm16@moe-dl.edu.my"
+      - "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:latest,NIAT_AUTH_SECRET=niat-auth-secret:latest,APPSCRIPT_HUB_URL=apps-script-hub-url:latest,APPSCRIPT_HUB_KEY=apps-script-hub-key:latest,NIAT_CRON_SECRET=niat-cron-secret:latest"
+
+images:
+  - "asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:$COMMIT_SHA"
+  - "asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:latest"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
