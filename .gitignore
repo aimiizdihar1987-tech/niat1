@@ -8,6 +8,7 @@
 # ---- Secrets & credentials — never commit ----
 apikey.txt
 gamma_apikey.txt
+gamma api key prestij.txt
 auth_secret.txt
 reminder_config.txt
 supabase_config.txt

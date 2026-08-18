@@ -73,6 +73,7 @@ deploying:
 | `apps-script-hub-key` | `APPSCRIPT_HUB_KEY` |
 | `google-oauth-token` | `GOOGLE_OAUTH_TOKEN_JSON` |
 | `niat-cron-secret` | `NIAT_CRON_SECRET` |
+| `gamma-api-key` | `GAMMA_API_KEY` |
 
 Google recommends Secret Manager for Cloud Run secrets and recommends pinning
 environment-variable secrets to a specific version. See the official
@@ -86,7 +87,7 @@ Install and initialize gcloud, select your project, then run from this folder:
 gcloud config set run/region asia-southeast1
 gcloud run deploy niat --source . --allow-unauthenticated `
   --set-env-vars "NIAT_REQUIRE_HUB=1,NIAT_REQUIRE_GOOGLE_OAUTH=1,TEACHER_EMAIL=jpn-perlis-cm16@moe-dl.edu.my" `
-  --set-secrets "GOOGLE_API_KEY=gemini-api-key:1,SUPABASE_URL=supabase-url:1,SUPABASE_ANON_KEY=supabase-anon-key:1,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:1,NIAT_AUTH_SECRET=niat-auth-secret:1,APPSCRIPT_HUB_URL=apps-script-hub-url:1,APPSCRIPT_HUB_KEY=apps-script-hub-key:1,GOOGLE_OAUTH_TOKEN_JSON=google-oauth-token:1,NIAT_CRON_SECRET=niat-cron-secret:1"
+  --set-secrets "GOOGLE_API_KEY=gemini-api-key:1,SUPABASE_URL=supabase-url:1,SUPABASE_ANON_KEY=supabase-anon-key:1,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:1,NIAT_AUTH_SECRET=niat-auth-secret:1,APPSCRIPT_HUB_URL=apps-script-hub-url:1,APPSCRIPT_HUB_KEY=apps-script-hub-key:1,GOOGLE_OAUTH_TOKEN_JSON=google-oauth-token:1,NIAT_CRON_SECRET=niat-cron-secret:1,GAMMA_API_KEY=gamma-api-key:1"
 ```
 
 Cloud Run uses the repository Dockerfile when deploying with `--source .`; see

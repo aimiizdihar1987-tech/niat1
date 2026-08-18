@@ -33,7 +33,7 @@ steps:
       - "--region=asia-southeast1"
       - "--allow-unauthenticated"
       - "--set-env-vars=NIAT_REQUIRE_HUB=1,TEACHER_EMAIL=jpn-perlis-cm16@moe-dl.edu.my"
-      - "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:latest,NIAT_AUTH_SECRET=niat-auth-secret:latest,APPSCRIPT_HUB_URL=apps-script-hub-url:latest,APPSCRIPT_HUB_KEY=apps-script-hub-key:latest,NIAT_CRON_SECRET=niat-cron-secret:latest"
+      - "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:latest,NIAT_AUTH_SECRET=niat-auth-secret:latest,APPSCRIPT_HUB_URL=apps-script-hub-url:latest,APPSCRIPT_HUB_KEY=apps-script-hub-key:latest,NIAT_CRON_SECRET=niat-cron-secret:latest,GAMMA_API_KEY=gamma-api-key:latest"
 
 images:
   - "asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:$COMMIT_SHA"
