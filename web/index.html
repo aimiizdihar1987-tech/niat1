@@ -371,19 +371,27 @@
     .sb-emo{font-size:18px;line-height:1;flex:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.08));}
     .sb-count{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:800;background:var(--pink-50);color:var(--pink-deep);border-radius:999px;padding:2px 9px;}
     .sb-foot{margin-top:auto;padding:10px;font-size:11.5px;color:var(--muted);font-weight:600;}
+    .sidebar-toggle{display:none;}
     @media(min-width:881px){
       body{padding-left:242px;}
       .topbar .brand{display:none;}
       .topbar{justify-content:space-between;}
     }
     @media(max-width:880px){
-      .sidebar{position:static;width:auto;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:2px solid var(--line);padding:10px 12px;gap:6px;overflow:visible;}
-      .sb-label,.sb-foot,.sb-brand{display:none;}
-      .sb-item{width:auto;padding:8px 13px;min-height:38px;font-size:12.5px;border:2px solid var(--line);border-radius:999px;}
+      /* On phones the rail becomes a dropdown anchored under the ☰ button,
+         so it never pushes the dashboard / lesson wizard down the page. */
+      .sidebar-toggle{display:inline-flex;}
+      .sidebar{position:absolute;top:100%;left:12px;right:12px;bottom:auto;width:auto;flex-direction:column;border:0;border-radius:20px;box-shadow:none;padding:0;gap:2px;max-height:0;opacity:0;overflow:hidden;pointer-events:none;transition:max-height .2s ease,opacity .15s ease,padding .2s ease;}
+      .sidebar.open{max-height:min(70vh,520px);opacity:1;pointer-events:auto;overflow-y:auto;padding:10px;border:2px solid var(--line);box-shadow:var(--shadow-lg);}
+      .sb-foot,.sb-brand{display:none;}
     }
 
     /* ---- Account menu (top right) ---- */
-    .acct-menu{position:relative;}
+    /* margin-left:auto pins the avatar to the far right even when the topbar's
+       other children are hidden (desktop hides .brand; the announcement
+       carousel is hidden until the admin posts a notice). Without it the
+       space-between fallback drags the avatar over to the left. */
+    .acct-menu{position:relative;margin-left:auto;}
     .acct-trigger{position:relative;overflow:hidden;width:42px;height:42px;border-radius:50%;background:var(--pink);color:#fff;font-weight:800;font-size:16px;border:2px solid transparent;cursor:pointer;display:grid;place-items:center;font-family:inherit;box-shadow:0 0 0 3px var(--pink-50);}
     .acct-trigger img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;display:none;}
     .acct-trigger:hover{box-shadow:0 0 0 4px var(--pink-50),0 8px 18px rgba(238,111,160,.3);}
@@ -710,6 +718,7 @@
   </script>
   <!-- ============ TOPBAR / BRAND ============ -->
   <header class="topbar">
+    <button class="sidebar-toggle tools-trigger" id="sidebar-toggle" type="button" aria-label="Menu" aria-controls="sidebar" aria-expanded="false"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg></button>
     <div class="brand" id="brand-home" title="Back to home">
       <img class="logo-img" src="niat-logo.png" alt="Niat logo" />
       <div class="brand-text">
@@ -768,26 +777,26 @@
         <button class="acct-row acct-logout" id="acct-logout" type="button"><svg class="ico" aria-hidden="true"><use href="#i-out"/></svg> Log out</button>
       </div>
     </div>
-  </header>
 
-  <!-- ============ LEFT SIDEBAR ============ -->
-  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
-    <div class="sb-brand" id="sb-brand" title="Back to home">
-      <img src="niat-logo.png" alt="Niat logo" />
-      <div><b>Ni<span>at</span></b><p>From Intention to Intervention</p></div>
-    </div>
-    <p class="sb-label">Navigate</p>
-    <button class="sb-item active" id="sb-home" type="button"><span class="sb-emo">🏠</span> Dashboard</button>
-    <button class="sb-item teacher-only" id="sb-new" type="button"><span class="sb-emo">✨</span> New lesson</button>
-    <p class="sb-label teacher-only">Tools</p>
-    <button class="sb-item teacher-only" id="sb-library" type="button"><span class="sb-emo">📚</span> My lessons</button>
-    <button class="sb-item teacher-only" id="sb-progress" type="button"><span class="sb-emo">📊</span> Class progress</button>
-    <p class="sb-label teacher-only">Resources</p>
-    <button class="sb-item teacher-only" id="sb-textbook" type="button"><span class="sb-emo">📖</span> Textbook</button>
-    <div class="sb-item teacher-only" style="cursor:default" title="Questions in the offline bank"><span class="sb-emo">🗂️</span> Question bank</div>
-    <p class="sb-label sb-admin-only hidden" id="sb-admin-label">Administration</p>
-    <button class="sb-item sb-admin-only hidden" id="sb-admin" type="button"><span class="sb-emo">👤</span> Manage accounts</button>
-  </aside>
+    <!-- ============ LEFT SIDEBAR: fixed rail on desktop, dropdown menu on mobile ============ -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sb-brand" id="sb-brand" title="Back to home">
+        <img src="niat-logo.png" alt="Niat logo" />
+        <div><b>Ni<span>at</span></b><p>From Intention to Intervention</p></div>
+      </div>
+      <p class="sb-label">Navigate</p>
+      <button class="sb-item active" id="sb-home" type="button"><span class="sb-emo">🏠</span> Dashboard</button>
+      <button class="sb-item teacher-only" id="sb-new" type="button"><span class="sb-emo">✨</span> New lesson</button>
+      <p class="sb-label teacher-only">Tools</p>
+      <button class="sb-item teacher-only" id="sb-library" type="button"><span class="sb-emo">📚</span> My lessons</button>
+      <button class="sb-item teacher-only" id="sb-progress" type="button"><span class="sb-emo">📊</span> Class progress</button>
+      <p class="sb-label teacher-only">Resources</p>
+      <button class="sb-item teacher-only" id="sb-textbook" type="button"><span class="sb-emo">📖</span> Textbook</button>
+      <div class="sb-item teacher-only" style="cursor:default" title="Questions in the offline bank"><span class="sb-emo">🗂️</span> Question bank</div>
+      <p class="sb-label sb-admin-only hidden" id="sb-admin-label">Administration</p>
+      <button class="sb-item sb-admin-only hidden" id="sb-admin" type="button"><span class="sb-emo">👤</span> Manage accounts</button>
+    </aside>
+  </header>
 
   <!-- ============ SMART DASHBOARD (LANDING) ============ -->
   <section class="dash" aria-label="Niat dashboard">
@@ -1583,6 +1592,25 @@
       proxy("sb-library", "btn-library");
       proxy("sb-progress", "btn-progress");
       proxy("sb-textbook", "btn-textbook");
+      // Mobile ☰ toggle: same open/outside-click-close pattern as .acct-menu / .tools-menu.
+      const sbToggle = document.getElementById("sidebar-toggle"), sidebarEl = document.getElementById("sidebar");
+      if (sbToggle && sidebarEl) {
+        sbToggle.onclick = (e) => {
+          e.stopPropagation();
+          const open = sidebarEl.classList.toggle("open");
+          sbToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+        document.addEventListener("click", (e) => {
+          if (!sidebarEl.contains(e.target) && e.target !== sbToggle) {
+            sidebarEl.classList.remove("open");
+            sbToggle.setAttribute("aria-expanded", "false");
+          }
+        });
+        sidebarEl.querySelectorAll(".sb-item").forEach((b) => b.addEventListener("click", () => {
+          sidebarEl.classList.remove("open");
+          sbToggle.setAttribute("aria-expanded", "false");
+        }));
+      }
       // Mirror the bank count app.js writes into #bank-count
       const src = document.getElementById("bank-count"), dst = document.getElementById("sb-bank");
       if (src && dst) {
