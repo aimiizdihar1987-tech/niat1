@@ -380,10 +380,13 @@
     @media(max-width:880px){
       /* On phones the rail becomes a dropdown anchored under the ☰ button,
          so it never pushes the dashboard / lesson wizard down the page. */
-      .sidebar-toggle{display:inline-flex;}
+      .sidebar-toggle{display:inline-flex;order:2;}
       .sidebar{position:absolute;top:100%;left:12px;right:12px;bottom:auto;width:auto;flex-direction:column;border:0;border-radius:20px;box-shadow:none;padding:0;gap:2px;max-height:0;opacity:0;overflow:hidden;pointer-events:none;transition:max-height .2s ease,opacity .15s ease,padding .2s ease;}
       .sidebar.open{max-height:min(70vh,520px);opacity:1;pointer-events:auto;overflow-y:auto;padding:10px;border:2px solid var(--line);box-shadow:var(--shadow-lg);}
       .sb-foot,.sb-brand{display:none;}
+      /* Row order: logo+title full-width on top, then ☰ (left) / avatar (right), then the LED ticker. */
+      .topbar .brand{order:1;flex-basis:100%;justify-content:center;}
+      .acct-menu{order:2;}
     }
 
     /* ---- Account menu (top right) ---- */
@@ -522,28 +525,24 @@
       background:var(--sun);color:#513a00;box-shadow:0 4px 0 #cf9420;z-index:1;animation:ac-ring 3.6s ease-in-out infinite;transform-origin:50% 15%;}
     .announce-carousel .ac-mega .ico{width:22px;height:22px;}
     @keyframes ac-ring{0%,86%,100%{transform:rotate(0);}90%{transform:rotate(-13deg);}94%{transform:rotate(11deg);}}
-    .ac-viewport{position:relative;flex:1;min-width:0;height:32px;overflow:hidden;z-index:1;}
-    .ac-slide{position:absolute;inset:0;display:flex;align-items:center;gap:11px;
-      opacity:0;transform:translateY(10px);transition:opacity .45s ease,transform .45s ease;pointer-events:none;}
-    .ac-slide.on{opacity:1;transform:translateY(0);pointer-events:auto;}
-    .ac-slide.out{opacity:0;transform:translateY(-10px);}
+    .ac-viewport{position:relative;flex:1;min-width:0;height:32px;overflow:hidden;z-index:1;
+      -webkit-mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent);
+      mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent);}
+    /* LED-signboard ticker: the track holds every announcement twice back-to-back
+       and scrolls left forever; at -50% the second copy is exactly where the
+       first one started, so the loop has no visible seam or reset-jump. */
+    .ac-track{position:absolute;top:0;left:0;height:100%;display:flex;align-items:center;gap:56px;
+      white-space:nowrap;will-change:transform;animation:ac-marquee 20s linear infinite;}
+    .announce-carousel:hover .ac-track{animation-play-state:paused;}
+    .ac-item{display:inline-flex;align-items:center;gap:11px;}
     .ac-eyebrow{flex:none;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--pink);border-radius:999px;padding:5px 13px;line-height:1;}
-    .ac-msg{font-size:18px;font-weight:700;color:var(--sun-deep);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .ac-nav{display:flex;align-items:center;gap:5px;flex:none;z-index:1;}
-    .ac-arrow{width:36px;height:36px;min-height:0;padding:0;border-radius:50%;border:2px solid #f0cf8a;background:rgba(255,255,255,.7);color:var(--sun-deep);font-weight:900;font-size:19px;line-height:1;cursor:pointer;transition:.15s;}
-    .ac-arrow:hover{background:#fff;border-color:var(--sun);transform:translateY(-1px);}
-    .ac-dots{display:flex;align-items:center;gap:6px;margin:0 5px;}
-    .ac-dot{width:9px;height:9px;border-radius:50%;padding:0;min-height:0;border:none;background:rgba(122,82,0,.28);cursor:pointer;transition:.2s;}
-    .ac-dot.on{background:var(--sun-deep);width:24px;border-radius:999px;}
-    .announce-carousel.single .ac-nav{display:none;}
+    .ac-msg{font-size:18px;font-weight:700;color:var(--sun-deep);line-height:1.2;white-space:nowrap;}
+    @keyframes ac-marquee{from{transform:translateX(0);}to{transform:translateX(-50%);}}
     @media(max-width:880px){.announce-carousel{flex-basis:100%;order:3;}}
     @media(max-width:560px){.ac-eyebrow{display:none;}}
     html[data-theme="dark"] .announce-carousel{background:linear-gradient(120deg,#2c2410 0%,#2e1a24 100%);border-color:#5c4a1e;}
     html[data-theme="dark"] .ac-msg{color:#f7dfa6;}
-    html[data-theme="dark"] .ac-arrow{background:rgba(0,0,0,.2);border-color:#5c4a1e;color:#f7dfa6;}
-    html[data-theme="dark"] .ac-dot{background:rgba(247,223,166,.3);}
-    html[data-theme="dark"] .ac-dot.on{background:#f7dfa6;}
-    @media (prefers-reduced-motion:reduce){.announce-carousel .ac-mega{animation:none;}.ac-slide{transition:opacity .2s;}}
+    @media (prefers-reduced-motion:reduce){.announce-carousel .ac-mega{animation:none;}.ac-track{animation:none;}}
 
     /* ---- Candy Night (dark theme) ---- */
     html[data-theme="dark"]{
@@ -727,14 +726,9 @@
       </div>
     </div>
     <!-- Announcement ticker lives in the top row, inline with the avatar -->
-    <div id="announce-carousel" class="announce-carousel hidden" role="region" aria-label="Announcements" aria-roledescription="carousel">
+    <div id="announce-carousel" class="announce-carousel hidden" role="region" aria-label="Announcements">
       <span class="ac-mega" aria-hidden="true"><svg class="ico"><use href="#i-mega"/></svg></span>
-      <div class="ac-viewport" id="ac-viewport" aria-live="polite"></div>
-      <div class="ac-nav">
-        <button type="button" class="ac-arrow" id="ac-prev" aria-label="Previous announcement">‹</button>
-        <div class="ac-dots" id="ac-dots" role="tablist"></div>
-        <button type="button" class="ac-arrow" id="ac-next" aria-label="Next announcement">›</button>
-      </div>
+      <div class="ac-viewport" id="ac-viewport" aria-live="off"></div>
     </div>
     <div class="tools-menu" id="tools-menu" style="display:none" aria-hidden="true">
       <button class="tools-trigger" id="tools-trigger" type="button" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -1065,44 +1059,23 @@
     function initAnnounceCarousel(items) {
       const wrap = document.getElementById("announce-carousel");
       const vp = document.getElementById("ac-viewport");
-      const dots = document.getElementById("ac-dots");
       wrap.classList.remove("hidden");
-      wrap.classList.toggle("single", items.length < 2);
 
-      vp.innerHTML = items.map((msg, i) => `
-        <div class="ac-slide${i === 0 ? " on" : ""}" data-i="${i}" role="group"
-             aria-roledescription="slide" aria-label="${i + 1} of ${items.length}">
+      const itemsHtml = items.map((msg) => `
+        <span class="ac-item">
           <span class="ac-eyebrow">📣 Announcement</span>
           <span class="ac-msg">${dEsc(msg)}</span>
-        </div>`).join("");
-      dots.innerHTML = items.map((_, i) =>
-        `<button type="button" class="ac-dot${i === 0 ? " on" : ""}" data-i="${i}"
-                 role="tab" aria-label="Announcement ${i + 1}"></button>`).join("");
+        </span>`).join("");
+      // The track repeats the announcements twice so ac-marquee's -50% scroll
+      // loops seamlessly — the second copy lines up exactly where the first began.
+      vp.innerHTML = `<div class="ac-track" id="ac-track">${itemsHtml}${itemsHtml}</div>`;
 
-      const slides = [...vp.querySelectorAll(".ac-slide")];
-      const dotEls = [...dots.querySelectorAll(".ac-dot")];
-      let cur = 0, timer = null;
-
-      const go = (n) => {
-        n = (n + items.length) % items.length;
-        if (n === cur && slides[n].classList.contains("on")) return;
-        slides.forEach((s, i) => {
-          s.classList.toggle("on", i === n);
-          s.classList.toggle("out", i === cur && i !== n);
-        });
-        dotEls.forEach((d, i) => d.classList.toggle("on", i === n));
-        cur = n;
-      };
-      const start = () => { if (items.length > 1 && !timer) timer = setInterval(() => go(cur + 1), 5000); };
-      const stop = () => { clearInterval(timer); timer = null; };
-      const bump = () => { stop(); start(); };
-
-      document.getElementById("ac-next").onclick = () => { go(cur + 1); bump(); };
-      document.getElementById("ac-prev").onclick = () => { go(cur - 1); bump(); };
-      dotEls.forEach((d) => d.onclick = () => { go(+d.dataset.i); bump(); });
-      // Always keep moving — never wait for the teacher. The manual controls
-      // still work (bump() just resets the timer so it keeps auto-advancing).
-      start();
+      const track = document.getElementById("ac-track");
+      requestAnimationFrame(() => {
+        const pxPerSecond = 55;
+        const oneLoopWidth = track.scrollWidth / 2;
+        track.style.animationDuration = Math.max(8, oneLoopWidth / pxPerSecond) + "s";
+      });
     }
   </script>
 
