@@ -1707,6 +1707,85 @@ function setChips(container, values) {
   [...container.querySelectorAll(".chip")].forEach((c) => c.classList.toggle("on", vset.has(c.textContent)));
 }
 
+// ====================== Textbook reader ======================
+// Form 1/2/5 are PDFs served by the backend; Form 3/4 are link-only (hosted
+// flipbook) — see /api/textbook-list and TEXTBOOK_SOURCES in server.py.
+let textbookMeta = null;
+async function loadTextbookMeta() {
+  if (textbookMeta) return textbookMeta;
+  try {
+    const res = await fetch("/api/textbook-list");
+    if (res.ok) textbookMeta = (await res.json()).forms || [];
+  } catch (e) {}
+  return textbookMeta || [];
+}
+
+function textbookShowPicker() {
+  $("textbook-title-text").textContent = "Textbook";
+  $("textbook-picker").classList.remove("hidden");
+  $("textbook-missing").classList.add("hidden");
+  $("textbook-frame").classList.add("hidden");
+  $("textbook-open-link").classList.add("hidden");
+  $("btn-textbook-back").classList.add("hidden");
+}
+
+async function openTextbookModal() {
+  $("textbook-modal").classList.remove("hidden");
+  textbookShowPicker();
+  await loadTextbookMeta();
+}
+
+async function selectTextbookForm(form) {
+  const meta = (await loadTextbookMeta()).find((m) => m.form === String(form));
+  if (!meta || meta.type === "missing") return;
+  if (meta.type === "link") {
+    window.open(meta.url, "_blank", "noopener"); // hosted flipbook — stays on the picker
+    return;
+  }
+  $("textbook-picker").classList.add("hidden");
+  $("btn-textbook-back").classList.remove("hidden");
+  await showTextbookPdf(form, meta);
+}
+
+async function showTextbookPdf(form, meta) {
+  const frame = $("textbook-frame");
+  const missing = $("textbook-missing");
+  const link = $("textbook-open-link");
+  const url = `/textbook.pdf?form=${form}`;
+  $("textbook-title-text").textContent = meta.label || `Textbook — Form ${form}`;
+  link.href = url;
+  link.classList.remove("hidden");
+  missing.classList.add("hidden");
+  frame.classList.add("hidden");
+  if (!meta.available) {
+    missing.textContent = `Buku teks ${meta.label || "Form " + form} belum dimuat naik ke dalam sistem. Sila hubungi admin.`;
+    missing.classList.remove("hidden");
+    return;
+  }
+  if (frame.dataset.loadedForm === String(form)) {
+    frame.classList.remove("hidden");
+    return;
+  }
+  frame.removeAttribute("src");
+  frame.dataset.loadedForm = "";
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      missing.textContent = data.mesej || `Buku teks Form ${form} belum dimuat naik ke sistem.`;
+      missing.classList.remove("hidden");
+      return;
+    }
+    const blob = await res.blob();
+    frame.src = URL.createObjectURL(blob);
+    frame.dataset.loadedForm = String(form);
+    frame.classList.remove("hidden");
+  } catch (e) {
+    missing.textContent = "Tidak dapat memuatkan buku teks. Sila cuba lagi.";
+    missing.classList.remove("hidden");
+  }
+}
+
 // ====================== Navigation & events ======================
 function wireEvents() {
   ["lots", "mots", "hots"].forEach((id) => $(id).addEventListener("input", checkLevels));
@@ -1739,11 +1818,10 @@ function wireEvents() {
   if ($("btn-direct-ws")) $("btn-direct-ws").onclick = directWorksheet;
   if ($("btn-direct-rph")) $("btn-direct-rph").onclick = directLessonPlan;
   if ($("btn-direct-mat")) $("btn-direct-mat").onclick = directMaterials;
-  if ($("btn-textbook")) $("btn-textbook").onclick = () => {
-    const f = $("textbook-frame");
-    if (f && !f.src) f.src = "/textbook.pdf";   // load the 44 MB PDF only on demand
-    $("textbook-modal").classList.remove("hidden");
-  };
+  if ($("btn-textbook")) $("btn-textbook").onclick = openTextbookModal;
+  if ($("btn-textbook-back")) $("btn-textbook-back").onclick = textbookShowPicker;
+  document.querySelectorAll(".textbook-pick").forEach((btn) =>
+    btn.addEventListener("click", () => selectTextbookForm(btn.dataset.form)));
   if ($("btn-close-textbook")) $("btn-close-textbook").onclick = () =>
     $("textbook-modal").classList.add("hidden");
   $("btn-skip-mat").onclick = () => proceedFromMaterials(false);

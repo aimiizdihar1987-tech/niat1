@@ -30,6 +30,9 @@ jadualwaktu*.pdf
 # ---- Private folder: personal docs, reference PDFs, school data ----
 # (dokumen-peribadi/, rujukan/, data-sekolah/ — never commit, never deploy)
 private/
+
+# ---- Copyrighted textbook PDFs: never commit, never deploy ----
+textbooks/
 .ipynb_checkpoints/
 
 # ---- Real operational data (school-specific; keep local, not in a public repo) ----

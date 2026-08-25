@@ -380,12 +380,13 @@
     @media(max-width:880px){
       /* On phones the rail becomes a dropdown anchored under the ☰ button,
          so it never pushes the dashboard / lesson wizard down the page. */
-      .sidebar-toggle{display:inline-flex;order:2;}
+      .sidebar-toggle{display:inline-flex;order:1;}
       .sidebar{position:absolute;top:100%;left:12px;right:12px;bottom:auto;width:auto;flex-direction:column;border:0;border-radius:20px;box-shadow:none;padding:0;gap:2px;max-height:0;opacity:0;overflow:hidden;pointer-events:none;transition:max-height .2s ease,opacity .15s ease,padding .2s ease;}
       .sidebar.open{max-height:min(70vh,520px);opacity:1;pointer-events:auto;overflow-y:auto;padding:10px;border:2px solid var(--line);box-shadow:var(--shadow-lg);}
       .sb-foot,.sb-brand{display:none;}
-      /* Row order: logo+title full-width on top, then ☰ (left) / avatar (right), then the LED ticker. */
-      .topbar .brand{order:1;flex-basis:100%;justify-content:center;}
+      /* Single row: ☰ (left) — logo+title (center, shrinks to fit) — avatar (right). LED ticker wraps to its own row below. */
+      .topbar{flex-wrap:wrap;}
+      .topbar .brand{order:2;flex:1 1 0%;min-width:0;justify-content:center;}
       .acct-menu{order:2;}
     }
 
@@ -1509,11 +1510,25 @@
   <!-- ============ TEXTBOOK READER MODAL ============ -->
   <div id="textbook-modal" class="modal hidden">
     <div class="modal-box" style="max-width:980px;height:92vh;display:flex;flex-direction:column;">
-      <h3 style="display:flex;align-items:center;gap:10px;">Close-Up — English Form 3
-        <a class="pill" href="/textbook.pdf" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none;">Open in new tab</a>
+      <h3 style="display:flex;align-items:center;gap:10px;">
+        <span id="textbook-title-text">Textbook</span>
+        <a id="textbook-open-link" class="pill hidden" href="/textbook.pdf" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none;">Open in new tab</a>
       </h3>
-      <iframe id="textbook-frame" title="Close-Up English Form 3 textbook" style="flex:1;width:100%;border:1px solid var(--line);border-radius:12px;margin-top:10px;background:#fff;"></iframe>
-      <div class="actions"><button id="btn-close-textbook" class="ghost">Close</button></div>
+      <div id="textbook-picker" style="flex:1;display:flex;align-items:center;justify-content:center;">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+          <button class="pill textbook-pick" data-form="1" type="button">Form 1</button>
+          <button class="pill textbook-pick" data-form="2" type="button">Form 2</button>
+          <button class="pill textbook-pick" data-form="3" type="button">Form 3</button>
+          <button class="pill textbook-pick" data-form="4" type="button">Form 4</button>
+          <button class="pill textbook-pick" data-form="5" type="button">Form 5</button>
+        </div>
+      </div>
+      <div id="textbook-missing" class="hidden" style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted,#666);font-size:15px;"></div>
+      <iframe id="textbook-frame" class="hidden" title="English textbook" style="flex:1;width:100%;border:1px solid var(--line);border-radius:12px;margin-top:10px;background:#fff;"></iframe>
+      <div class="actions">
+        <button id="btn-textbook-back" class="ghost hidden">Back to list</button>
+        <button id="btn-close-textbook" class="ghost">Close</button>
+      </div>
     </div>
   </div>
 

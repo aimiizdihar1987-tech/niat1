@@ -60,6 +60,32 @@ OUTPUT_DIR = (os.environ.get("NIAT_OUTPUT_DIR", "").strip()
               or ("/tmp/niat-output" if CONTAINER_MODE else os.path.join(ROOT, "output")))
 DSKP_FILE = os.path.join(ROOT, "dskp_english_f3.json")  # default / backward-compat
 DSKP_FORMS = (1, 2, 3, 4, 5)
+TEXTBOOK_DIR = os.path.join(ROOT, "textbooks")
+
+# English textbook per Form: Form 1/2/5 ship as a PDF in textbooks/, Form 3/4
+# only exist as a hosted flipbook link (no PDF to serve).
+TEXTBOOK_SOURCES = {
+    # Pulse 2 is the official KPM-prescribed textbook for BOTH Form 1 and
+    # Form 2 (book code FT021002) — same book, not a duplicate-file mistake.
+    "1": {"type": "pdf", "file": "PULSE 2 STUDENT'S BOOK FORM 1.pdf", "label": "Pulse 2 — Buku Teks Rasmi Tingkatan 1"},
+    "2": {"type": "pdf", "file": "PULSE 2 STUDENT'S BOOK FORM 2.pdf", "label": "Pulse 2 — Buku Teks Rasmi Tingkatan 2"},
+    "3": {"type": "link", "url": "https://online.anyflip.com/iejhp/heqo/mobile/index.html", "label": "Form 3 textbook"},
+    "4": {"type": "link", "url": "https://online.anyflip.com/rojry/ynby/mobile/index.html", "label": "Form 4 textbook"},
+    "5": {"type": "pdf", "file": "ENGLISH DOWNLOAD F5 STUDENT BOOK.pdf", "label": "Form 5 Student Book"},
+}
+
+
+def textbook_pdf_path(form_q):
+    """Absolute path to the Form's textbook PDF, or None if it isn't a PDF
+    source or the file is missing on disk."""
+    src = TEXTBOOK_SOURCES.get(form_q)
+    if not src or src["type"] != "pdf":
+        return None
+    for base in (TEXTBOOK_DIR, os.path.join(ROOT, "private", "rujukan"), ROOT):
+        cand = os.path.join(base, src["file"])
+        if os.path.isfile(cand):
+            return cand
+    return None
 
 
 def dskp_file_for(form):
@@ -2445,31 +2471,45 @@ class Handler(BaseHTTPRequestHandler):
             status = runtime_readiness(check_database=True)
             self._send(200 if status["ready"] else 503, status)
             return
+        if path == "/api/textbook-list":
+            # Drives the Textbook picker: which Forms are PDF (served locally)
+            # vs. link-only (hosted flipbook), and whether the PDF actually
+            # exists on disk right now.
+            out = []
+            for n in ("1", "2", "3", "4", "5"):
+                src = TEXTBOOK_SOURCES.get(n)
+                if not src:
+                    out.append({"form": n, "type": "missing"})
+                elif src["type"] == "pdf":
+                    out.append({
+                        "form": n, "type": "pdf", "label": src["label"],
+                        "available": bool(textbook_pdf_path(n)),
+                    })
+                else:
+                    out.append({"form": n, "type": "link", "label": src["label"], "url": src["url"]})
+            self._send(200, {"forms": out})
+            return
         if path == "/textbook.pdf":
             # Buku teks rujukan — dilindungi login seperti yang lain.
-            # Optional ?form=N picks the matching textbook PDF if one exists;
-            # falls back to the Form 3 (Close-Up) book that ships with the repo.
+            # Only Form 1/2/5 are PDF sources; Form 3/4 are link-only (see
+            # /api/textbook-list) and never reach this endpoint from the UI.
             qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            form_q = (qs.get("form", ["3"])[0] or "3").strip()
-            if form_q not in ("1", "2", "3", "4", "5"):
-                form_q = "3"
-            tb = None
-            for cand in (
-                os.path.join(ROOT, "private", "rujukan",
-                             "Buku Teks - English Form {}.pdf".format(form_q)),
-                os.path.join(ROOT, "Buku Teks - English Form {}.pdf".format(form_q)),
-                os.path.join(ROOT, "private", "rujukan",
-                             "Buku Teks - Close-Up English Form 3.pdf"),
-                os.path.join(ROOT, "Buku Teks - Close-Up English Form 3.pdf"),
-            ):
-                if os.path.isfile(cand):
-                    tb = cand
-                    break
-            if tb and os.path.isfile(tb):
+            form_q = (qs.get("form", ["1"])[0] or "1").strip()
+            if form_q not in TEXTBOOK_SOURCES:
+                form_q = "1"
+            tb = textbook_pdf_path(form_q)
+            if tb:
                 with open(tb, "rb") as f:
                     self._send(200, f.read(), "application/pdf")
             else:
-                self._send(404, {"ralat": "textbook file not found"})
+                self._send(404, {
+                    "ralat": "textbook file not found",
+                    "form": form_q,
+                    "mesej": (
+                        "Buku teks Tingkatan {} belum dimuat naik ke dalam sistem. "
+                        "Sila hubungi admin untuk memuat naik fail rasmi."
+                    ).format(form_q),
+                })
             return
         if path == "/api/bank-stats":
             try:
