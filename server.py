@@ -75,9 +75,16 @@ TEXTBOOK_SOURCES = {
 }
 
 
+TEXTBOOK_BUCKET = "textbooks"
+# textbooks/ is gitignored (copyrighted PDFs never get committed), so a fresh
+# Cloud Run instance boots with an empty disk. Supabase Storage — same
+# "private bucket, proxy the bytes through an authenticated endpoint" pattern
+# as AVATAR_BUCKET above — is the durable home; local disk is a warm cache.
+
+
 def textbook_pdf_path(form_q):
-    """Absolute path to the Form's textbook PDF, or None if it isn't a PDF
-    source or the file is missing on disk."""
+    """Absolute path to the Form's textbook PDF on THIS disk, or None if it
+    isn't a PDF source or no local copy is cached yet."""
     src = TEXTBOOK_SOURCES.get(form_q)
     if not src or src["type"] != "pdf":
         return None
@@ -86,6 +93,53 @@ def textbook_pdf_path(form_q):
         if os.path.isfile(cand):
             return cand
     return None
+
+
+def textbook_pdf_bytes(form_q):
+    """Raw PDF bytes for a Form's textbook — local disk first, then Supabase
+    Storage. A Supabase hit is cached to TEXTBOOK_DIR so the rest of this
+    instance's lifetime serves it without another round trip."""
+    src = TEXTBOOK_SOURCES.get(form_q)
+    if not src or src["type"] != "pdf":
+        return None
+    p = textbook_pdf_path(form_q)
+    if p:
+        with open(p, "rb") as f:
+            return f.read()
+    if not sb.configured():
+        return None
+    try:
+        data = sb.storage_download(TEXTBOOK_BUCKET, src["file"])
+    except sb.SupabaseError:
+        return None
+    if data:
+        try:
+            os.makedirs(TEXTBOOK_DIR, exist_ok=True)
+            with open(os.path.join(TEXTBOOK_DIR, src["file"]), "wb") as f:
+                f.write(data)
+        except OSError:
+            pass  # best-effort cache; still serve what we downloaded
+    return data
+
+
+def textbook_available(form_q, storage_names=None):
+    """Whether this Form's PDF can actually be served right now. Pass
+    `storage_names` (a set from sb.storage_list) when checking several forms
+    at once, so callers hit Supabase once instead of per form."""
+    src = TEXTBOOK_SOURCES.get(form_q)
+    if not src or src["type"] != "pdf":
+        return False
+    if textbook_pdf_path(form_q):
+        return True
+    if storage_names is not None:
+        return src["file"] in storage_names
+    if not sb.configured():
+        return False
+    try:
+        names = {o.get("name") for o in sb.storage_list(TEXTBOOK_BUCKET)}
+    except sb.SupabaseError:
+        return False
+    return src["file"] in names
 
 
 def dskp_file_for(form):
@@ -2472,9 +2526,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200 if status["ready"] else 503, status)
             return
         if path == "/api/textbook-list":
-            # Drives the Textbook picker: which Forms are PDF (served locally)
-            # vs. link-only (hosted flipbook), and whether the PDF actually
-            # exists on disk right now.
+            # Drives the Textbook picker: which Forms are PDF (served locally
+            # or from Supabase Storage) vs. link-only (hosted flipbook), and
+            # whether the PDF can actually be served right now.
+            storage_names = None
+            if sb.configured():
+                try:
+                    storage_names = {o.get("name") for o in sb.storage_list(TEXTBOOK_BUCKET)}
+                except sb.SupabaseError:
+                    storage_names = set()  # bucket unreachable — fall back to disk-only checks
             out = []
             for n in ("1", "2", "3", "4", "5"):
                 src = TEXTBOOK_SOURCES.get(n)
@@ -2483,7 +2543,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif src["type"] == "pdf":
                     out.append({
                         "form": n, "type": "pdf", "label": src["label"],
-                        "available": bool(textbook_pdf_path(n)),
+                        "available": textbook_available(n, storage_names),
                     })
                 else:
                     out.append({"form": n, "type": "link", "label": src["label"], "url": src["url"]})
@@ -2497,10 +2557,9 @@ class Handler(BaseHTTPRequestHandler):
             form_q = (qs.get("form", ["1"])[0] or "1").strip()
             if form_q not in TEXTBOOK_SOURCES:
                 form_q = "1"
-            tb = textbook_pdf_path(form_q)
-            if tb:
-                with open(tb, "rb") as f:
-                    self._send(200, f.read(), "application/pdf")
+            data = textbook_pdf_bytes(form_q)
+            if data:
+                self._send(200, data, "application/pdf")
             else:
                 self._send(404, {
                     "ralat": "textbook file not found",

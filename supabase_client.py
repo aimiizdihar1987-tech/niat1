@@ -181,20 +181,29 @@ def storage_create_bucket(bucket_id, public=False):
 def storage_upload(bucket, path, data, content_type="application/octet-stream"):
     """Upload (or overwrite) a file. `data` is raw bytes. Returns the storage
     path on success."""
-    return _request_raw("POST", "/storage/v1/object/{}/{}".format(bucket, path),
+    return _request_raw("POST", "/storage/v1/object/{}/{}".format(bucket, urllib.parse.quote(path)),
                          content_type, data, extra_headers={"x-upsert": "true"})
 
 
 def storage_download(bucket, path):
     """Download a file's raw bytes."""
-    return _request_raw("GET", "/storage/v1/object/{}/{}".format(bucket, path),
+    return _request_raw("GET", "/storage/v1/object/{}/{}".format(bucket, urllib.parse.quote(path)),
                          "application/octet-stream", None)
 
 
 def storage_delete(bucket, path):
     """Remove a file. Raises SupabaseError if it wasn't there."""
-    return _request("DELETE", "/storage/v1/object/{}/{}".format(bucket, path),
+    return _request("DELETE", "/storage/v1/object/{}/{}".format(bucket, urllib.parse.quote(path)),
                      role="service")
+
+
+def storage_list(bucket, prefix=""):
+    """List object names in a bucket (optionally under a prefix). Metadata
+    only — cheap compared to storage_download, safe to call for an
+    availability check."""
+    return _request("POST", "/storage/v1/object/list/{}".format(bucket), role="service",
+                     body={"prefix": prefix, "limit": 100,
+                           "sortBy": {"column": "name", "order": "asc"}}) or []
 
 
 def delete(table_name, match_params, role="service", access_token=None):
