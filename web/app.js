@@ -1786,6 +1786,31 @@ async function showTextbookPdf(form, meta) {
   }
 }
 
+// ====================== Question bank (read-only browse) ======================
+let bankViewTimer;
+async function loadBankView(q) {
+  const tbody = $("bank-view-body");
+  tbody.innerHTML = `<tr><td colspan="3" class="muted small">Loading…</td></tr>`;
+  let data;
+  try {
+    data = await (await fetch("/api/bank-list?q=" + encodeURIComponent(q || ""))).json();
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" class="muted small">Could not load the question bank.</td></tr>`;
+    return;
+  }
+  const rows = data.questions || [];
+  $("bank-view-count").textContent = data.stats && data.stats.jumlah != null ? data.stats.jumlah + " total" : "";
+  tbody.innerHTML = rows.length
+    ? rows.map((r) => `<tr><td>${esc(r.soalan)}</td><td>${esc(r.sp_kod)}</td><td>${esc(r.aras)}</td></tr>`).join("")
+    : `<tr><td colspan="3" class="muted small">No questions match.</td></tr>`;
+}
+
+function openBankModal() {
+  $("bank-modal").classList.remove("hidden");
+  $("bank-view-search").value = "";
+  loadBankView("");
+}
+
 // ====================== Navigation & events ======================
 function wireEvents() {
   ["lots", "mots", "hots"].forEach((id) => $(id).addEventListener("input", checkLevels));
@@ -1822,6 +1847,12 @@ function wireEvents() {
   if ($("btn-textbook-back")) $("btn-textbook-back").onclick = textbookShowPicker;
   document.querySelectorAll(".textbook-pick").forEach((btn) =>
     btn.addEventListener("click", () => selectTextbookForm(btn.dataset.form)));
+  if ($("sb-bank")) $("sb-bank").onclick = openBankModal;
+  if ($("btn-close-bank")) $("btn-close-bank").onclick = () => $("bank-modal").classList.add("hidden");
+  if ($("bank-view-search")) $("bank-view-search").addEventListener("input", (e) => {
+    clearTimeout(bankViewTimer);
+    bankViewTimer = setTimeout(() => loadBankView(e.target.value), 250);
+  });
   if ($("btn-close-textbook")) $("btn-close-textbook").onclick = () =>
     $("textbook-modal").classList.add("hidden");
   $("btn-skip-mat").onclick = () => proceedFromMaterials(false);

@@ -639,13 +639,14 @@ def _agihan_aras(n, lots, mots, hots):
 
 
 def generate_worksheet(inputs):
-    """Mod 'bank dahulu, AI tampung baki'.
+    """Setiap worksheet mendapat soalan AI yang segar.
 
     1. Kira sasaran soalan setiap aras.
-    2. Ambil soalan diluluskan dari Bank Soalan untuk SP yang sama (paling jarang
-       diguna dahulu). Jika guru beri nota (jana semula), langkau bank — jana segar.
-    3. AI jana HANYA baki yang kurang, sambil dielak daripada menghasilkan soalan
-       yang serupa dengan yang sedia ada.
+    2. AI jana SEMUA soalan (tiada guna semula dari Bank Soalan), supaya murid
+       tidak menerima soalan berulang antara satu worksheet dengan yang lain.
+    3. Worksheet yang guru luluskan tetap ditambah ke Bank Soalan (lihat
+       save_artifact) — bank terus membesar sebagai rekod, cuma tidak dibaca
+       semula di sini.
     """
     cur = find_curriculum(inputs)
     ws = inputs.get("worksheet", {})
@@ -658,9 +659,8 @@ def generate_worksheet(inputs):
         n, int(ws.get("lots", 40)), int(ws.get("mots", 40)), int(ws.get("hots", 20))
     )
 
-    # (2) Bank dahulu — HANYA soalan topik yang sama; kecuali guru minta jana semula.
-    dari_bank = [] if nota else bank.fetch_for_generation(
-        sp_kods, sasaran, inputs.get("topic", ""))
+    # (2) Tiada guna semula dari Bank Soalan — setiap worksheet 100% soalan baharu.
+    dari_bank = []
     diperoleh = {a: 0 for a in sasaran}
     for q in dari_bank:
         diperoleh[q.get("aras", "MOTS")] = diperoleh.get(q.get("aras", "MOTS"), 0) + 1
@@ -2573,6 +2573,16 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/bank-stats":
             try:
                 self._send(200, bank.stats())
+            except Exception as e:  # noqa: BLE001
+                self._send(500, {"ralat": str(e)})
+            return
+        if path == "/api/bank-list":
+            # Read-only browse for any logged-in teacher (the sidebar "Question
+            # bank" item) — unlike /api/admin/bank this has no delete affordance
+            # and no admin gate, since viewing past questions isn't sensitive.
+            q = parse_qs(urlparse(self.path).query).get("q", [""])[0]
+            try:
+                self._send(200, {"questions": bank.list_questions(q, limit=200), "stats": bank.stats()})
             except Exception as e:  # noqa: BLE001
                 self._send(500, {"ralat": str(e)})
             return
