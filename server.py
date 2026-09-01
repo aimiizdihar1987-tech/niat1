@@ -1897,6 +1897,59 @@ def admin_save_timetable(body):
     return {"ok": True}
 
 
+# ---- Timetable templates (admin: one uniform period structure per school,
+# so a newly-registered teacher's timetable starts from a consistent shape
+# instead of a blank ad-hoc grid) ----
+def _template_setting_key(school):
+    return "tt-template:" + (school or "").strip().lower()
+
+
+def _load_templates_all():
+    if sb.use_cloud():
+        try:
+            rows = sb.select("app_settings", params={
+                "select": "key,value", "key": "like.tt-template:*", "limit": "10000"})
+            return {"templates": {
+                row["key"].split(":", 1)[1]: (row.get("value") or {})
+                for row in rows if ":" in (row.get("key") or "")
+            }}
+        except sb.SupabaseError:
+            if sb.cloud_required():
+                raise
+    try:
+        with open(_timetable_path(), encoding="utf-8") as f:
+            return {"templates": (json.load(f).get("templates") or {})}
+    except (FileNotFoundError, ValueError):
+        return {"templates": {}}
+
+
+def admin_get_timetable_templates():
+    return _load_templates_all()
+
+
+def admin_save_timetable_template(body):
+    """Replace one school's period template. body = {school, periods:[{label,start,end}]}."""
+    school = (body.get("school") or "").strip()
+    periods = body.get("periods")
+    if not school:
+        return {"ok": False, "ralat": "Missing school."}
+    if not isinstance(periods, list):
+        return {"ok": False, "ralat": "Invalid template data."}
+    clean_periods = [{
+        "label": str(p.get("label", ""))[:40],
+        "start": str(p.get("start", ""))[:10],
+        "end": str(p.get("end", ""))[:10],
+    } for p in periods if isinstance(p, dict)]
+    if sb.use_cloud():
+        _cloud_setting_set(_template_setting_key(school), {"school": school, "periods": clean_periods})
+        return {"ok": True}
+    data = _load_timetable_all()
+    data.setdefault("templates", {})[school.lower()] = {"school": school, "periods": clean_periods}
+    with open(_timetable_path(), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    return {"ok": True}
+
+
 # ---- Schools registry (super admin: the AI Powered Classroom 1M schools) ----
 # The program spans many schools; the super admin keeps the master list here so
 # teachers and timetables can be tied to a real school. Stored in schools.json.
@@ -2667,6 +2720,11 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._send(200, admin_get_timetables())
             return
+        if path == "/api/admin/timetable-templates":
+            if not self._require_admin()[0]:
+                return
+            self._send(200, admin_get_timetable_templates())
+            return
         if path == "/api/admin/schools":
             if not self._require_admin()[0]:
                 return
@@ -2876,6 +2934,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/admin/timetable":
                 if self._require_admin()[0]:
                     self._send(200, admin_save_timetable(body))
+            elif path == "/api/admin/timetable-template":
+                if self._require_admin()[0]:
+                    self._send(200, admin_save_timetable_template(body))
             elif path == "/api/admin/schools":
                 if self._require_super_admin()[0]:
                     self._send(200, admin_save_schools(body))

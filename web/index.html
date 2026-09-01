@@ -511,7 +511,9 @@
     .admin-row .k{min-width:90px;flex:0 0 auto;}
     .tt-grid{display:grid;grid-template-columns:1fr 1.2fr 1fr .6fr auto;gap:6px;align-items:center;margin-bottom:6px;}
     .tt-grid input,.tt-grid select{width:100%;font-size:12px;padding:7px 9px;}
-    @media(max-width:640px){.tt-grid{grid-template-columns:1fr 1fr;}.admin-dash .dash-head{padding-right:0}.admin-lang-switch{position:static;width:max-content;margin:12px 0 0}}
+    .tpl-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px;}
+    .tpl-grid input{width:100%;font-size:12px;padding:7px 9px;}
+    @media(max-width:640px){.tt-grid{grid-template-columns:1fr 1fr;}.tpl-grid{grid-template-columns:1fr 1fr;}.admin-dash .dash-head{padding-right:0}.admin-lang-switch{position:static;width:max-content;margin:12px 0 0}}
     /* teacher-facing announcement banner (legacy, kept for fallback) */
     .announce-banner{display:flex;align-items:flex-start;gap:10px;background:var(--sun-50);border:2px solid #f3d894;border-radius:16px;padding:12px 15px;margin:0 0 20px;color:var(--sun-deep);font-size:13.5px;font-weight:600;line-height:1.5;}
     .announce-banner .ico{width:18px;height:18px;flex:none;margin-top:1px;}
@@ -906,6 +908,16 @@
 
     <!-- Timetables -->
     <div class="admin-pane" data-pane="timetables">
+      <div class="admin-section">
+        <div class="admin-bar">
+          <b>Timetable template</b>
+          <span class="muted small" id="tt-tpl-hint">One uniform period structure per school — new teachers start from this instead of a blank grid.</span>
+        </div>
+        <div class="admin-row"><span class="k muted small">School</span><input id="tt-tpl-school" list="school-options" placeholder="School" /></div>
+        <div id="tt-tpl-editor"></div>
+        <div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="ghost mini" id="tt-tpl-addrow" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Add period</button></div>
+        <div class="actions"><button class="primary mini" id="tt-tpl-save" type="button">Save template</button></div>
+      </div>
       <div class="admin-bar">
         <b>Teacher timetables</b>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1941,6 +1953,56 @@
         view.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
 
+      // ---------- Timetable template (one uniform period structure per school) ----------
+      let ttTemplates = {};
+      const tplSchoolInput = document.getElementById("tt-tpl-school");
+      async function loadTimetableTemplates() {
+        try {
+          const d = await (await fetch("/api/admin/timetable-templates")).json();
+          ttTemplates = d.templates || {};
+        } catch (e) { ttTemplates = {}; }
+        renderTplEditor(templateFor(tplSchoolInput.value));
+      }
+      function templateFor(school) {
+        const t = ttTemplates[(school || "").trim().toLowerCase()];
+        return (t && t.periods) || [];
+      }
+      function renderTplEditor(periods) {
+        const ed = document.getElementById("tt-tpl-editor");
+        ed.innerHTML = (periods.length ? periods : []).map((p, i) => `
+          <div class="tpl-grid" data-i="${i}">
+            <input data-f="label" value="${esc(p.label || "")}" placeholder="e.g. Waktu 1" />
+            <input data-f="start" type="time" value="${esc(p.start || "")}" />
+            <input data-f="end" type="time" value="${esc(p.end || "")}" />
+            <button class="icon-btn danger" data-tpldel="${i}" title="${esc(tr("remove"))}"><svg class="ico"><use href="#i-trash"/></svg></button>
+          </div>`).join("") || '<p class="muted small">No periods yet for this school — add the first one below.</p>';
+        ed.querySelectorAll("button[data-tpldel]").forEach((b) => b.onclick = () => {
+          const rows = readTplRows();
+          rows.splice(+b.dataset.tpldel, 1);
+          renderTplEditor(rows);
+        });
+      }
+      function readTplRows() {
+        return [...document.querySelectorAll("#tt-tpl-editor .tpl-grid")].map((g) => ({
+          label: g.querySelector('[data-f="label"]').value.trim(),
+          start: g.querySelector('[data-f="start"]').value,
+          end: g.querySelector('[data-f="end"]').value,
+        }));
+      }
+      tplSchoolInput.addEventListener("change", () => renderTplEditor(templateFor(tplSchoolInput.value)));
+      document.getElementById("tt-tpl-addrow").onclick = () => {
+        const rows = readTplRows();
+        rows.push({ label: "Waktu " + (rows.length + 1), start: "", end: "" });
+        renderTplEditor(rows);
+      };
+      document.getElementById("tt-tpl-save").onclick = async () => {
+        const school = tplSchoolInput.value.trim();
+        if (!school) { toast("Pick a school first.", true); return; }
+        const d = await post("/api/admin/timetable-template", { school, periods: readTplRows() });
+        toast(d.ok ? "Template saved." : (d.ralat || tr("failed")), !d.ok);
+        if (d.ok) loadTimetableTemplates();
+      };
+
       // ---------- Timetables ----------
       let ttData = { teachers: {} };
       const ttSelect = document.getElementById("admin-tt-select");
@@ -1991,13 +2053,33 @@
             <input data-f="duration" type="number" value="${esc(c.duration || 60)}" />
             <button class="icon-btn danger" data-ttdel="${i}" title="${esc(tr("remove"))}"><svg class="ico"><use href="#i-trash"/></svg></button>
           </div>`).join("");
+        const tplBtn = (!(t.classes || []).length && templateFor(t.school).length)
+          ? `<div class="actions" style="justify-content:flex-start"><button class="ghost mini" id="tt-use-tpl" type="button"><svg class="ico" aria-hidden="true"><use href="#i-db"/></svg> Use ${esc(t.school)}'s period template</button></div>`
+          : "";
         ed.innerHTML = `
           <div class="admin-row"><span class="k muted small">${esc(tr("teacherName"))}</span><input id="tt-name" value="${esc(t.teacher_name || "")}" /></div>
           <div class="admin-row"><span class="k muted small">${esc(tr("school"))}</span><input id="tt-school" list="school-options" value="${esc(t.school || "")}" placeholder="${esc(tr("school"))}" /></div>
+          ${tplBtn}
           <p class="muted small" style="margin:10px 0 4px">${esc(tr("classesHelp"))}</p>
           ${rowsHtml}
           <div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="ghost mini" id="tt-addrow" type="button"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> ${esc(tr("addClass"))}</button></div>
           <div class="actions"><button class="primary mini" id="tt-save" type="button">${esc(tr("saveTimetable"))}</button></div>`;
+        if (ed.querySelector("#tt-use-tpl")) ed.querySelector("#tt-use-tpl").onclick = () => {
+          const periods = templateFor(t.school);
+          const classes = [];
+          DAYS.forEach((day) => periods.forEach((p) => {
+            const time = (p.start && p.end) ? `${p.label ? p.label + " " : ""}${p.start}-${p.end}` : (p.label || "");
+            let duration = 60;
+            if (p.start && p.end) {
+              const [sh, sm] = p.start.split(":").map(Number), [eh, em] = p.end.split(":").map(Number);
+              const mins = (eh * 60 + em) - (sh * 60 + sm);
+              if (mins > 0) duration = mins;
+            }
+            classes.push({ day, time, class: "", duration });
+          }));
+          ttData.teachers[u].classes = classes;
+          renderTTEditor();
+        };
         ed.querySelector("#tt-addrow").onclick = () => {
           ttData.teachers[u].classes = readTTRows(u);
           ttData.teachers[u].classes.push({ day: "Monday", time: "", class: "", duration: 60 });
@@ -2187,7 +2269,7 @@
       tabLoaders.overview = loadOverview;
       tabLoaders.users = loadUsers;
       tabLoaders.lessons = loadLessons;
-      tabLoaders.timetables = loadTimetables;
+      tabLoaders.timetables = async () => { await loadTimetableTemplates(); loadTimetables(); };
       tabLoaders.resources = loadResources;
       tabLoaders.announce = loadAnnouncement;
 
