@@ -2316,6 +2316,13 @@
         loadOverview();
         refreshAdmin();
       }
+      // Wired unconditionally at load, not inside the /api/profile callback below —
+      // the button is only ever visible to admins (kept hidden via .sb-admin-only
+      // until that fetch reveals it), so there's nothing to gate here. Attaching it
+      // only on fetch success previously meant a slow/failed /api/profile call could
+      // leave the item visible (a second, separate profile fetch elsewhere reveals
+      // it) but unresponsive — "I can see Manage accounts but clicking does nothing".
+      document.getElementById("sb-admin").onclick = showAdminLanding;
 
       // Decide, once, whether this account is an admin and set the whole UI mode.
       fetch("/api/profile").then((r) => r.json()).then((p) => {
@@ -2343,7 +2350,6 @@
           if (typeof loadSchools === "function") loadSchools();  // prime the datalist
         }
         applyAdminLanguage();
-        document.getElementById("sb-admin").onclick = showAdminLanding;
         document.getElementById("sb-home").addEventListener("click", showAdminLanding);
         refreshAdmin();
       }).catch(() => {});
