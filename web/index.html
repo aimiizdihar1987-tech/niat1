@@ -1669,7 +1669,7 @@
           deleteConfirm:"Delete the account for {name}?\nThis cannot be undone.", deleted:"Deleted {user}.", deleteFailed:"Could not delete.", accountCreated:"Account created.", createFailed:"Could not create account.",
           couldNotLoad:"Could not load.", noLessons:"No lessons found.", lesson:"Lesson", view:"View", close:"Close", noPlan:"No plan text.", worksheetQuestions:"{count} worksheet question(s). Read-only oversight view.",
           noTeachers:"No teachers", noTimetable:"No timetable.", monday:"Monday", tuesday:"Tuesday", wednesday:"Wednesday", thursday:"Thursday", friday:"Friday",
-          time:"time", classLower:"class", remove:"Remove", teacherName:"Teacher name", school:"School", classesHelp:"Classes (day / time / class / minutes)", addClass:"Add class", saveTimetable:"Save timetable", timetableSaved:"Timetable saved for {user}.",
+          time:"time", classLower:"class", remove:"Remove", school:"School", classesHelp:"Classes (day / time / class / minutes)", addClass:"Add class", saveTimetable:"Save timetable", timetableSaved:"Timetable saved for {user}.",
           className:"class name", classroomId:"classroom id", lessonRepo:"Lesson-plan repo", saveClassroomIds:"Save Classroom IDs", classroomSaved:"Classroom IDs saved.",
           studentName:"name", email:"email", saveStudentList:"Save student list", studentsSaved:"Student list saved.", total:"{count} total", noQuestions:"No questions.", delete:"Delete",
           deleteQuestionConfirm:"Delete this question from the bank? This cannot be undone.", questionDeleted:"Question deleted.", announcementSaved:"Announcement saved."
@@ -1699,7 +1699,7 @@
           deleteConfirm:"Padam akaun {name}?\nTindakan ini tidak boleh dibatalkan.", deleted:"{user} telah dipadam.", deleteFailed:"Tidak dapat memadam akaun.", accountCreated:"Akaun telah dicipta.", createFailed:"Tidak dapat mencipta akaun.",
           couldNotLoad:"Tidak dapat memuatkan data.", noLessons:"Tiada pelajaran ditemui.", lesson:"Pelajaran", view:"Lihat", close:"Tutup", noPlan:"Tiada teks RPH.", worksheetQuestions:"{count} soalan lembaran kerja. Paparan semakan baca sahaja.",
           noTeachers:"Tiada guru", noTimetable:"Tiada jadual waktu.", monday:"Isnin", tuesday:"Selasa", wednesday:"Rabu", thursday:"Khamis", friday:"Jumaat",
-          time:"masa", classLower:"kelas", remove:"Buang", teacherName:"Nama guru", school:"Sekolah", classesHelp:"Kelas (hari / masa / kelas / minit)", addClass:"Tambah kelas", saveTimetable:"Simpan jadual", timetableSaved:"Jadual {user} telah disimpan.",
+          time:"masa", classLower:"kelas", remove:"Buang", school:"Sekolah", classesHelp:"Kelas (hari / masa / kelas / minit)", addClass:"Tambah kelas", saveTimetable:"Simpan jadual", timetableSaved:"Jadual {user} telah disimpan.",
           className:"nama kelas", classroomId:"ID classroom", lessonRepo:"Repositori RPH", saveClassroomIds:"Simpan ID Classroom", classroomSaved:"ID Classroom telah disimpan.",
           studentName:"nama", email:"e-mel", saveStudentList:"Simpan senarai murid", studentsSaved:"Senarai murid telah disimpan.", total:"{count} jumlah", noQuestions:"Tiada soalan.", delete:"Padam",
           deleteQuestionConfirm:"Padam soalan ini daripada bank? Tindakan ini tidak boleh dibatalkan.", questionDeleted:"Soalan telah dipadam.", announcementSaved:"Pengumuman telah disimpan."
@@ -2070,7 +2070,6 @@
           ? `<div class="actions" style="justify-content:flex-start"><button class="ghost mini" id="tt-use-tpl" type="button"><svg class="ico" aria-hidden="true"><use href="#i-db"/></svg> Use ${esc(t.school)}'s period template</button></div>`
           : "";
         ed.innerHTML = `
-          <div class="admin-row"><span class="k muted small">${esc(tr("teacherName"))}</span><input id="tt-name" value="${esc(t.teacher_name || "")}" /></div>
           <div class="admin-row"><span class="k muted small">${esc(tr("school"))}</span><input id="tt-school" list="school-options" value="${esc(t.school || "")}" placeholder="${esc(tr("school"))}" /></div>
           ${tplBtn}
           <p class="muted small" style="margin:10px 0 4px">${esc(tr("classesHelp"))}</p>
@@ -2100,7 +2099,7 @@
           const classes = readTTRows(u);
           const pupils = {}; classes.forEach((c) => { if (c.class && !(c.class in pupils)) pupils[c.class] = (t.class_pupils || {})[c.class] || 30; });
           const d = await post("/api/admin/timetable", { username: u, block: {
-            teacher_name: ed.querySelector("#tt-name").value, school: ed.querySelector("#tt-school").value,
+            teacher_name: t.teacher_name || "", school: ed.querySelector("#tt-school").value,
             class_pupils: pupils, classes } });
           toast(d.ok ? tr("timetableSaved", { user:u }) : (d.ralat || tr("failed")), !d.ok);
           if (d.ok) loadTimetables();
