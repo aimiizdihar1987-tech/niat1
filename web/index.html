@@ -511,9 +511,9 @@
     .admin-row .k{min-width:90px;flex:0 0 auto;}
     .tt-grid{display:grid;grid-template-columns:1fr 1.2fr 1fr .6fr auto;gap:6px;align-items:center;margin-bottom:6px;}
     .tt-grid input,.tt-grid select{width:100%;font-size:12px;padding:7px 9px;}
-    .tpl-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px;}
-    .tpl-grid input{width:100%;font-size:12px;padding:7px 9px;}
-    @media(max-width:640px){.tt-grid{grid-template-columns:1fr 1fr;}.tpl-grid{grid-template-columns:1fr 1fr;}.admin-dash .dash-head{padding-right:0}.admin-lang-switch{position:static;width:max-content;margin:12px 0 0}}
+    .tpl-grid{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-bottom:6px;max-width:280px;}
+    .tpl-grid select{width:100%;font-size:12px;padding:7px 9px;}
+    @media(max-width:640px){.tt-grid{grid-template-columns:1fr 1fr;}.admin-dash .dash-head{padding-right:0}.admin-lang-switch{position:static;width:max-content;margin:12px 0 0}}
     /* teacher-facing announcement banner (legacy, kept for fallback) */
     .announce-banner{display:flex;align-items:flex-start;gap:10px;background:var(--sun-50);border:2px solid #f3d894;border-radius:16px;padding:12px 15px;margin:0 0 20px;color:var(--sun-deep);font-size:13.5px;font-weight:600;line-height:1.5;}
     .announce-banner .ico{width:18px;height:18px;flex:none;margin-top:1px;}
@@ -1954,6 +1954,21 @@
       });
 
       // ---------- Timetable template (one uniform period structure per school) ----------
+      // Every slot is a fixed 30-minute block — admin only picks the start time.
+      const PERIOD_MINUTES = 30;
+      function addMinutes(hhmm, minutes) {
+        const [h, m] = hhmm.split(":").map(Number);
+        const total = (h * 60 + m + minutes + 1440) % 1440;
+        return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
+      }
+      function timeOptions() {
+        const out = [];
+        for (let mins = 6 * 60; mins < 20 * 60; mins += PERIOD_MINUTES) {
+          const start = String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0");
+          out.push(start);
+        }
+        return out;
+      }
       let ttTemplates = {};
       const tplSchoolInput = document.getElementById("tt-tpl-school");
       async function loadTimetableTemplates() {
@@ -1969,11 +1984,10 @@
       }
       function renderTplEditor(periods) {
         const ed = document.getElementById("tt-tpl-editor");
+        const opts = timeOptions();
         ed.innerHTML = (periods.length ? periods : []).map((p, i) => `
           <div class="tpl-grid" data-i="${i}">
-            <input data-f="label" value="${esc(p.label || "")}" placeholder="e.g. Waktu 1" />
-            <input data-f="start" type="time" value="${esc(p.start || "")}" />
-            <input data-f="end" type="time" value="${esc(p.end || "")}" />
+            <select data-f="start">${opts.map((t) => `<option value="${t}"${t === p.start ? " selected" : ""}>${t} – ${addMinutes(t, PERIOD_MINUTES)}</option>`).join("")}</select>
             <button class="icon-btn danger" data-tpldel="${i}" title="${esc(tr("remove"))}"><svg class="ico"><use href="#i-trash"/></svg></button>
           </div>`).join("") || '<p class="muted small">No periods yet for this school — add the first one below.</p>';
         ed.querySelectorAll("button[data-tpldel]").forEach((b) => b.onclick = () => {
@@ -1984,15 +1998,14 @@
       }
       function readTplRows() {
         return [...document.querySelectorAll("#tt-tpl-editor .tpl-grid")].map((g) => ({
-          label: g.querySelector('[data-f="label"]').value.trim(),
           start: g.querySelector('[data-f="start"]').value,
-          end: g.querySelector('[data-f="end"]').value,
         }));
       }
       tplSchoolInput.addEventListener("change", () => renderTplEditor(templateFor(tplSchoolInput.value)));
       document.getElementById("tt-tpl-addrow").onclick = () => {
         const rows = readTplRows();
-        rows.push({ label: "Waktu " + (rows.length + 1), start: "", end: "" });
+        const last = rows.length ? rows[rows.length - 1].start : addMinutes("07:00", -PERIOD_MINUTES);
+        rows.push({ start: addMinutes(last, PERIOD_MINUTES) });
         renderTplEditor(rows);
       };
       document.getElementById("tt-tpl-save").onclick = async () => {
@@ -2068,14 +2081,7 @@
           const periods = templateFor(t.school);
           const classes = [];
           DAYS.forEach((day) => periods.forEach((p) => {
-            const time = (p.start && p.end) ? `${p.label ? p.label + " " : ""}${p.start}-${p.end}` : (p.label || "");
-            let duration = 60;
-            if (p.start && p.end) {
-              const [sh, sm] = p.start.split(":").map(Number), [eh, em] = p.end.split(":").map(Number);
-              const mins = (eh * 60 + em) - (sh * 60 + sm);
-              if (mins > 0) duration = mins;
-            }
-            classes.push({ day, time, class: "", duration });
+            classes.push({ day, time: `${p.start}-${p.end}`, class: "", duration: PERIOD_MINUTES });
           }));
           ttData.teachers[u].classes = classes;
           renderTTEditor();

@@ -1927,19 +1927,34 @@ def admin_get_timetable_templates():
     return _load_templates_all()
 
 
+PERIOD_MINUTES = 30  # every period slot is a fixed 30-minute block
+
+
+def _add_minutes(hhmm, minutes):
+    """'07:30' + 30 -> '08:00'. Returns '' for anything that isn't HH:MM."""
+    try:
+        h, m = (int(x) for x in hhmm.split(":", 1))
+    except (ValueError, AttributeError):
+        return ""
+    total = (h * 60 + m + minutes) % (24 * 60)
+    return "{:02d}:{:02d}".format(total // 60, total % 60)
+
+
 def admin_save_timetable_template(body):
-    """Replace one school's period template. body = {school, periods:[{label,start,end}]}."""
+    """Replace one school's period template. body = {school, periods:[{start}]} —
+    each period is a fixed PERIOD_MINUTES block; `end` is derived, not stored
+    as free input, so every school's slots line up on the same grid."""
     school = (body.get("school") or "").strip()
     periods = body.get("periods")
     if not school:
         return {"ok": False, "ralat": "Missing school."}
     if not isinstance(periods, list):
         return {"ok": False, "ralat": "Invalid template data."}
-    clean_periods = [{
-        "label": str(p.get("label", ""))[:40],
-        "start": str(p.get("start", ""))[:10],
-        "end": str(p.get("end", ""))[:10],
-    } for p in periods if isinstance(p, dict)]
+    clean_periods = []
+    for p in periods:
+        start = str(p.get("start", ""))[:10] if isinstance(p, dict) else ""
+        if start:
+            clean_periods.append({"start": start, "end": _add_minutes(start, PERIOD_MINUTES)})
     if sb.use_cloud():
         _cloud_setting_set(_template_setting_key(school), {"school": school, "periods": clean_periods})
         return {"ok": True}
