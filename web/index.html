@@ -925,6 +925,10 @@
           <select id="admin-tt-select" style="min-width:180px"></select>
         </div>
       </div>
+      <div class="admin-section">
+        <div class="admin-bar"><b>Generated timetable</b><span class="muted small">Read-only view of the filled-in schedule below</span></div>
+        <div id="tt-preview"></div>
+      </div>
       <div id="admin-tt-editor"></div>
     </div>
 
@@ -2053,11 +2057,35 @@
       }
       ttSelect.onchange = renderTTEditor;
       ttSchoolSel.onchange = populateTTTeachers;
+      function renderTTPreview(t) {
+        const box = document.getElementById("tt-preview");
+        const classes = (t && t.classes) || [];
+        if (!classes.length) { box.innerHTML = '<p class="muted small">' + esc(tr("noTimetable")) + '</p>'; return; }
+        const times = [...new Set(classes.map((c) => c.time || ""))].sort();
+        const cellsAt = (time, day) => classes.filter((c) => (c.time || "") === time && c.day === day);
+        const rowsHtml = times.map((time) => `
+          <tr><th>${esc(time || "—")}</th>${DAYS.map((d) => {
+            const hits = cellsAt(time, d);
+            return `<td>${hits.length ? esc(hits.map((c) => c.class || "—").join(", ")) : "—"}</td>`;
+          }).join("")}</tr>`).join("");
+        box.innerHTML = `
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>${esc(tr("time"))}</th>${DAYS.map((d) => `<th>${esc(tr(DAY_KEYS[d]))}</th>`).join("")}</tr></thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>`;
+      }
       function renderTTEditor() {
         const u = ttSelect.value;
         const ed = document.getElementById("admin-tt-editor");
-        if (!u || !ttData.teachers[u]) { ed.innerHTML = '<p class="muted small">' + esc(tr("noTimetable")) + '</p>'; return; }
+        if (!u || !ttData.teachers[u]) {
+          ed.innerHTML = '<p class="muted small">' + esc(tr("noTimetable")) + '</p>';
+          renderTTPreview(null);
+          return;
+        }
         const t = ttData.teachers[u];
+        renderTTPreview(t);
         const rowsHtml = (t.classes || []).map((c, i) => `
           <div class="tt-grid" data-i="${i}">
             <select data-f="day">${DAYS.map((d) => `<option value="${d}"${c.day === d ? " selected" : ""}>${esc(tr(DAY_KEYS[d]))}</option>`).join("")}</select>
