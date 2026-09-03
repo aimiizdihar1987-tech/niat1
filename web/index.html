@@ -2311,13 +2311,15 @@
 
       function refreshAdmin() { switchTab(activeTab); }
 
-      // Both "Dashboard" and "Manage accounts" take an admin to the admin
-      // landing view (there is no lesson-generation flow for admins).
-      function showAdminLanding() {
+      // "Dashboard" and "Manage accounts" both take an admin to the admin
+      // console (there is no lesson-generation flow for admins) but land on
+      // a different tab — Overview for Dashboard, Users for Manage accounts —
+      // so the two nav items don't show identical content.
+      function showAdminLanding(tab) {
         document.body.classList.add("landing");
         window.scrollTo({ top: 0 });
         loadOverview();
-        refreshAdmin();
+        switchTab(tab || "overview");
       }
       // Wired unconditionally at load, not inside the /api/profile callback below —
       // the button is only ever visible to admins (kept hidden via .sb-admin-only
@@ -2325,7 +2327,7 @@
       // only on fetch success previously meant a slow/failed /api/profile call could
       // leave the item visible (a second, separate profile fetch elsewhere reveals
       // it) but unresponsive — "I can see Manage accounts but clicking does nothing".
-      document.getElementById("sb-admin").onclick = showAdminLanding;
+      document.getElementById("sb-admin").onclick = () => showAdminLanding("users");
 
       // Decide, once, whether this account is an admin and set the whole UI mode.
       fetch("/api/profile").then((r) => r.json()).then((p) => {
@@ -2353,7 +2355,7 @@
           if (typeof loadSchools === "function") loadSchools();  // prime the datalist
         }
         applyAdminLanguage();
-        document.getElementById("sb-home").addEventListener("click", showAdminLanding);
+        document.getElementById("sb-home").addEventListener("click", () => showAdminLanding("overview"));
         refreshAdmin();
       }).catch(() => {});
     })();
