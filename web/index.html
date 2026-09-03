@@ -468,10 +468,13 @@
     .guide-pos{font-size:10.5px;color:var(--muted);font-weight:700;}
 
     /* ---- Admin panel ---- */
-    .admin-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:14px 0 20px;}
-    .admin-stat{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:14px 16px;box-shadow:var(--clay);transition:transform .15s ease;}
-    .admin-stat:hover{transform:translateY(-2px);}
-    .admin-stat b{display:block;font-size:24px;font-weight:900;color:var(--ink);font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;line-height:1.1;letter-spacing:-.01em;}
+    .admin-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:14px 0 20px;}
+    .admin-stat{position:relative;overflow:hidden;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--clay);transition:transform .18s ease,box-shadow .18s ease;}
+    .admin-stat::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--hue,var(--blue)),var(--hue-deep,var(--blue-700)));}
+    .admin-stat:hover{transform:translateY(-3px);box-shadow:var(--clay),0 10px 22px rgba(34,51,62,.10);}
+    .admin-stat-ico{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;margin-bottom:10px;background:var(--hue-50,var(--blue-50));color:var(--hue-deep,var(--blue-700));}
+    .admin-stat-ico .ico{width:16px;height:16px;}
+    .admin-stat b{display:block;font-size:25px;font-weight:900;color:var(--ink);font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;line-height:1.1;letter-spacing:-.01em;}
     .admin-stat span{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.02em;}
     .admin-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 10px;}
     .admin-bar b{font-size:15px;font-weight:900;color:var(--ink);letter-spacing:-.01em;}
@@ -850,7 +853,7 @@
     <!-- Overview -->
     <div class="admin-pane active" data-pane="overview">
       <div class="admin-stats" id="admin-dash-stats"></div>
-      <p class="muted small">Live totals across the whole school. Figures refresh whenever you open the console.</p>
+      <p class="muted small"><span class="ai-dot" aria-hidden="true"></span>Live totals across the whole school. Figures refresh whenever you open the console.</p>
     </div>
 
     <!-- Schools (super admin only) -->
@@ -1807,13 +1810,19 @@
         try {
           const o = await (await fetch("/api/admin/overview")).json();
           const cards = [
-            [tr("teachers"), o.teachers], [tr("activeTeachers"), o.active_teachers],
-            [tr("admins"), o.admins], [tr("savedLessons"), o.lessons_total], [tr("bankQuestions"), o.bank_total],
+            [tr("teachers"), o.teachers, "i-user", "blue"],
+            [tr("activeTeachers"), o.active_teachers, "i-eye", "violet"],
+            [tr("admins"), o.admins, "i-shield", "pink"],
+            [tr("savedLessons"), o.lessons_total, "i-book", "sun"],
+            [tr("bankQuestions"), o.bank_total, "i-db", "blue"],
           ];
           // A super admin oversees the whole programme, so lead with the school count.
-          if (myRole === "super_admin") cards.unshift([tr("schoolsCount"), o.schools_total ?? 0]);
-          document.getElementById("admin-dash-stats").innerHTML = cards.map(([label, n]) =>
-            `<div class="admin-stat"><b>${esc(n)}</b><span>${esc(label)}</span></div>`).join("");
+          if (myRole === "super_admin") cards.unshift([tr("schoolsCount"), o.schools_total ?? 0, "i-home", "violet"]);
+          document.getElementById("admin-dash-stats").innerHTML = cards.map(([label, n, ico, hue]) => `
+            <div class="admin-stat" style="--hue:var(--${hue});--hue-deep:var(--${hue}-700, var(--${hue}-deep));--hue-50:var(--${hue}-50)">
+              <div class="admin-stat-ico"><svg class="ico" aria-hidden="true"><use href="#${ico}"/></svg></div>
+              <b>${esc(n)}</b><span>${esc(label)}</span>
+            </div>`).join("");
         } catch (e) { /* non-fatal */ }
       }
 
@@ -2321,19 +2330,16 @@
         loadOverview();
         switchTab(tab || "overview");
       }
-      // Wired unconditionally at load, not inside the /api/profile callback below —
-      // the button is only ever visible to admins (kept hidden via .sb-admin-only
-      // until that fetch reveals it), so there's nothing to gate here. Attaching it
-      // only on fetch success previously meant a slow/failed /api/profile call could
-      // leave the item visible (a second, separate profile fetch elsewhere reveals
-      // it) but unresponsive — "I can see Manage accounts but clicking does nothing".
-      document.getElementById("sb-admin").onclick = () => showAdminLanding("users");
-
       // Decide, once, whether this account is an admin and set the whole UI mode.
-      fetch("/api/profile").then((r) => r.json()).then((p) => {
+      // Both nav clicks below AWAIT this promise instead of only wiring up once
+      // it resolves — a click that lands before the fetch finishes (e.g. right
+      // after login) used to fall through to the default teacher behaviour, or
+      // to a handler that was never attached, which looked like "Dashboard and
+      // Manage accounts show the same thing" / "the button doesn't do anything".
+      const profileReady = fetch("/api/profile").then((r) => r.json()).then((p) => {
         myUsername = (p.username || "").toLowerCase();
         myRole = (p.role || "teacher").toLowerCase().replace(/ /g, "_");
-        if (myRole !== "admin" && myRole !== "super_admin") return;  // teachers: leave UI untouched
+        if (myRole !== "admin" && myRole !== "super_admin") return p;  // teachers: leave UI untouched
         document.body.classList.add("role-admin");
         document.querySelectorAll(".sb-admin-only").forEach((el) => el.classList.remove("hidden"));
         const superNumber = myUsername.match(/^super[._-]?admin[._-]?0*(\d+)$/i);
@@ -2355,9 +2361,17 @@
           if (typeof loadSchools === "function") loadSchools();  // prime the datalist
         }
         applyAdminLanguage();
-        document.getElementById("sb-home").addEventListener("click", () => showAdminLanding("overview"));
-        refreshAdmin();
-      }).catch(() => {});
+        return p;
+      }).catch(() => null);
+
+      document.getElementById("sb-admin").onclick = async () => {
+        await profileReady;
+        showAdminLanding("users");
+      };
+      document.getElementById("sb-home").addEventListener("click", async () => {
+        await profileReady;
+        if (myRole === "admin" || myRole === "super_admin") showAdminLanding("overview");
+      });
     })();
 
     // ============ Account menu: identity, theme, font size, logout ============
