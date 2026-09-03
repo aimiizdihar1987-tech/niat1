@@ -2364,13 +2364,25 @@
         return p;
       }).catch(() => null);
 
+      // The sidebar's "which item is bold" state lives in the OTHER wiring
+      // IIFE above (setActive() there is out of scope here), so it's set
+      // directly by id here instead — sb-admin never marked itself active at
+      // all, which left "Dashboard" looking bold/selected forever, making a
+      // click on "Manage accounts" look like it hadn't done anything.
+      const markSidebarActive = (id) =>
+        document.querySelectorAll(".sb-item").forEach((b) => b.classList.toggle("active", b.id === id));
+
       document.getElementById("sb-admin").onclick = async () => {
         await profileReady;
+        markSidebarActive("sb-admin");
         showAdminLanding("users");
       };
       document.getElementById("sb-home").addEventListener("click", async () => {
         await profileReady;
-        if (myRole === "admin" || myRole === "super_admin") showAdminLanding("overview");
+        if (myRole === "admin" || myRole === "super_admin") {
+          markSidebarActive("sb-home");
+          showAdminLanding("overview");
+        }
       });
     })();
 
