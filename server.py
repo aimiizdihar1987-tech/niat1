@@ -21,6 +21,7 @@ import hmac
 import json
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -95,31 +96,60 @@ def textbook_pdf_path(form_q):
     return None
 
 
-def textbook_pdf_bytes(form_q):
-    """Raw PDF bytes for a Form's textbook — local disk first, then Supabase
-    Storage. A Supabase hit is cached to TEXTBOOK_DIR so the rest of this
-    instance's lifetime serves it without another round trip."""
+TEXTBOOK_CHUNK = 65536
+
+
+def serve_textbook_pdf(handler, form_q):
+    """Stream a Form's textbook PDF straight to the HTTP client — local disk
+    first, then Supabase Storage. Streamed in chunks rather than buffered
+    fully in memory: a ~40MB PDF read whole (the previous approach) was
+    consistently 500-ing on Cloud Run, almost certainly the container's
+    memory limit. `handler` is the request Handler (`self` in do_GET), used
+    directly for send_response/wfile so a Supabase 404 can still become a
+    clean 404 to the client — only the ACTUAL body streaming (after our own
+    200 is already committed) can no longer change status on failure."""
     src = TEXTBOOK_SOURCES.get(form_q)
-    if not src or src["type"] != "pdf":
-        return None
-    p = textbook_pdf_path(form_q)
-    if p:
-        with open(p, "rb") as f:
-            return f.read()
-    if not sb.configured():
-        return None
-    try:
-        data = sb.storage_download(TEXTBOOK_BUCKET, src["file"])
-    except sb.SupabaseError:
-        return None
-    if data:
+    local_path = textbook_pdf_path(form_q) if src and src["type"] == "pdf" else None
+    if local_path:
         try:
-            os.makedirs(TEXTBOOK_DIR, exist_ok=True)
-            with open(os.path.join(TEXTBOOK_DIR, src["file"]), "wb") as f:
-                f.write(data)
+            size = os.path.getsize(local_path)
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/pdf")
+            handler.send_header("Content-Length", str(size))
+            handler.end_headers()
+            with open(local_path, "rb") as f:
+                shutil.copyfileobj(f, handler.wfile, length=TEXTBOOK_CHUNK)
+        except (OSError, ConnectionError, BrokenPipeError):
+            pass  # client went away mid-download — nothing left to do
+        return True
+    if not (src and src["type"] == "pdf" and sb.configured()):
+        return False
+    try:
+        resp = sb.storage_open(TEXTBOOK_BUCKET, src["file"])
+    except sb.SupabaseError:
+        return False  # not in Supabase either — caller sends the 404 JSON
+    os.makedirs(TEXTBOOK_DIR, exist_ok=True)
+    cache_tmp = os.path.join(TEXTBOOK_DIR, src["file"] + ".part")
+    cache_final = os.path.join(TEXTBOOK_DIR, src["file"])
+    try:
+        with resp:
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/pdf")
+            handler.end_headers()  # no Content-Length — HTTP/1.0 close-delimits the body
+            with open(cache_tmp, "wb") as cache_f:
+                while True:
+                    chunk = resp.read(TEXTBOOK_CHUNK)
+                    if not chunk:
+                        break
+                    handler.wfile.write(chunk)
+                    cache_f.write(chunk)
+        os.replace(cache_tmp, cache_final)  # atomic — never leaves a half-written cache file
+    except (OSError, ConnectionError, BrokenPipeError):
+        try:
+            os.remove(cache_tmp)
         except OSError:
-            pass  # best-effort cache; still serve what we downloaded
-    return data
+            pass
+    return True
 
 
 def textbook_available(form_q, storage_names=None):
@@ -2625,10 +2655,7 @@ class Handler(BaseHTTPRequestHandler):
             form_q = (qs.get("form", ["1"])[0] or "1").strip()
             if form_q not in TEXTBOOK_SOURCES:
                 form_q = "1"
-            data = textbook_pdf_bytes(form_q)
-            if data:
-                self._send(200, data, "application/pdf")
-            else:
+            if not serve_textbook_pdf(self, form_q):
                 self._send(404, {
                     "ralat": "textbook file not found",
                     "form": form_q,

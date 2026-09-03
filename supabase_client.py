@@ -186,9 +186,35 @@ def storage_upload(bucket, path, data, content_type="application/octet-stream"):
 
 
 def storage_download(bucket, path):
-    """Download a file's raw bytes."""
+    """Download a file's raw bytes. Fine for small files (avatars); for
+    anything that might be tens of MB (textbook PDFs) use
+    storage_download_stream instead — buffering a large file fully in
+    memory is what was causing Cloud Run to 500 on textbook downloads."""
     return _request_raw("GET", "/storage/v1/object/{}/{}".format(bucket, urllib.parse.quote(path)),
                          "application/octet-stream", None)
+
+
+def storage_open(bucket, path, timeout=120):
+    """Open a streaming GET to a Storage object and return the raw response
+    (a context manager you can .read(chunk_size) off of, with .status).
+    Two-phase on purpose: this raises SupabaseError (e.g. a 404) BEFORE the
+    caller has committed to sending its own response headers, so a caller
+    proxying this to an HTTP client can still send a clean 404 — buffering
+    the whole file first (storage_download) was what made large PDFs 500 on
+    Cloud Run, so this is the version to use for anything big."""
+    if not URL:
+        raise SupabaseError("supabase_config.txt is not filled in yet (SUPABASE_URL missing).")
+    req = urllib.request.Request(
+        URL + "/storage/v1/object/{}/{}".format(bucket, urllib.parse.quote(path)), method="GET")
+    req.add_header("apikey", SERVICE_KEY)
+    req.add_header("Authorization", "Bearer " + SERVICE_KEY)
+    try:
+        return urllib.request.urlopen(req, timeout=timeout)
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "ignore")
+        raise SupabaseError("GET {} -> {}".format(path, detail)) from None
+    except (urllib.error.URLError, OSError) as e:
+        raise SupabaseError("GET {} -> unreachable: {}".format(path, e)) from None
 
 
 def storage_delete(bucket, path):
