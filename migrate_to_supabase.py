@@ -20,6 +20,7 @@ Usage (run from this folder):
                                              push question bank + lessons + classrooms,
                                              students, per-teacher timetables and settings
     python migrate_to_supabase.py --timetable push only durable timetable settings
+    python migrate_to_supabase.py --settings  push only schools + announcement settings
     python migrate_to_supabase.py --all       both of the above
 
 Safe to re-run: questions/classrooms/students/timetables/settings are upserted
@@ -308,12 +309,15 @@ def main():
                          "Supabase (safe to re-run, never duplicates)")
     ap.add_argument("--timetable", action="store_true",
                     help="upsert every teacher timetable into app_settings")
+    ap.add_argument("--settings", action="store_true",
+                    help="upsert the schools registry and announcement into app_settings")
     ap.add_argument("--owner", default="",
                     help="Supabase username that owns migrated local lessons")
     args = ap.parse_args()
     MIGRATION_OWNER = args.owner
 
-    if not any([args.check, args.users, args.data, args.all, args.sync, args.timetable]):
+    if not any([args.check, args.users, args.data, args.all, args.sync,
+                args.timetable, args.settings]):
         ap.print_help()
         return
 
@@ -335,6 +339,8 @@ def main():
         sync_bank_and_lessons()
     if args.timetable and not (args.data or args.all):
         migrate_timetable()
+    if args.settings and not (args.data or args.all):
+        migrate_app_settings()
     print("\nDone.")
 
 

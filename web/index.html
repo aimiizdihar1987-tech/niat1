@@ -646,8 +646,32 @@
     .admin-dash{max-width:1000px;margin:0 auto;padding:clamp(22px,4.5vh,48px) 24px 46px;animation:rise .45s ease;display:none;}
     body.role-admin .teacher-only{display:none !important;}
     body.role-admin.landing .dash{display:none;}
-    body.role-admin.landing .admin-dash{display:block;}
+    /* Dashboard (read-only overview) vs Manage accounts (editing) are two separate
+       sections toggled by the .admin-manage body class — they must never both
+       render the same markup, or the two sidebar items look identical again. */
+    body.role-admin.landing.admin-manage .admin-dash{display:block;}
     body.role-admin:not(.landing) .admin-dash{display:none;}
+    body.role-admin.landing:not(.admin-manage) .admin-overview-dash{display:block;}
+    body.role-admin:not(.landing) .admin-overview-dash,body:not(.role-admin) .admin-overview-dash,body.admin-manage .admin-overview-dash{display:none;}
+
+    /* ---- Admin Dashboard: futuristic read-only summary (distinct from Manage accounts' tabs/tables) ---- */
+    .admin-overview-dash{max-width:1100px;margin:0 auto;padding:clamp(22px,4.5vh,48px) 24px 46px;animation:rise .45s ease;display:none;}
+    .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:6px 0 20px;}
+    .ov-card{position:relative;overflow:hidden;border-radius:22px;padding:20px 22px;background:linear-gradient(165deg,var(--card) 0%,var(--panel) 100%);border:2px solid var(--line);box-shadow:var(--clay);transition:transform .18s ease,box-shadow .18s ease;}
+    .ov-card:hover{transform:translateY(-3px);box-shadow:var(--clay),0 12px 26px rgba(34,51,62,.10);}
+    .ov-card::after{content:"";position:absolute;top:-46px;right:-46px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,var(--hue-50,var(--blue-50)) 0%,transparent 72%);pointer-events:none;}
+    .ov-card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;position:relative;}
+    .ov-ico{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--hue-50,var(--blue-50));color:var(--hue-deep,var(--blue-700));flex:none;}
+    .ov-ico .ico{width:16px;height:16px;}
+    .ov-card h4{margin:0;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}
+    .ov-big{font-size:28px;font-weight:900;color:var(--ink);line-height:1.05;letter-spacing:-.01em;position:relative;}
+    .ov-sub{font-size:12px;color:var(--muted);margin:2px 0 0;position:relative;}
+    .ov-list{list-style:none;margin:12px 0 0;padding:12px 0 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px;position:relative;}
+    .ov-list li{font-size:12.5px;color:var(--ink);display:flex;justify-content:space-between;gap:10px;}
+    .ov-list li span:last-child{font-weight:800;color:var(--hue-deep,var(--blue-700));}
+    .ov-go{display:inline-flex;align-items:center;gap:5px;margin-top:14px;font-size:11.5px;font-weight:800;letter-spacing:.02em;color:var(--hue-deep,var(--blue-700));cursor:pointer;background:none;border:0;padding:0;position:relative;font-family:inherit;}
+    .ov-go:hover{text-decoration:underline;}
+    .ov-note{margin:4px 0 18px;color:var(--muted);font-size:12.5px;}
 
     @media (max-width:560px){.topbar{padding:12px 16px;}.brand-text h1{font-size:25px;}.logo-img{width:44px;height:44px;}.panel{padding:22px 16px;}.steps .lbl{display:none;}.steps li{padding:8px;}}
 
@@ -716,6 +740,8 @@
     <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-mega" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1Z"/><path d="M16 9a4 4 0 0 1 0 6"/></symbol>
     <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   </svg>
   <script>
@@ -746,7 +772,6 @@
         <button id="btn-remind" class="pop-item" tabindex="-1"><span class="sb-emo" aria-hidden="true">⏰</span> Remind (Agent 6)</button>
         <button id="btn-library" class="pop-item" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg> My Lessons</button>
         <span id="bank-badge" class="pop-item"><svg class="ico" aria-hidden="true"><use href="#i-db"/></svg> Bank: <b id="bank-count">…</b></span>
-        <button id="btn-textbook" class="pop-item" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg> Textbook</button>
         <button id="btn-logout" class="pop-item" tabindex="-1"><svg class="ico" aria-hidden="true"><use href="#i-out"/></svg> Log out</button>
       </div>
     </div>
@@ -794,7 +819,6 @@
       <button class="sb-item teacher-only" id="sb-library" type="button"><span class="sb-emo">📚</span> My lessons</button>
       <button class="sb-item teacher-only" id="sb-progress" type="button"><span class="sb-emo">📊</span> Class progress</button>
       <p class="sb-label teacher-only">Resources</p>
-      <button class="sb-item teacher-only" id="sb-textbook" type="button"><span class="sb-emo">📖</span> Textbook</button>
       <button class="sb-item teacher-only" id="sb-bank" type="button" title="Browse questions saved in the bank"><span class="sb-emo">🗂️</span> Question bank <span class="sb-count" id="sb-bank-count">…</span></button>
       <p class="sb-label sb-admin-only hidden" id="sb-admin-label">Administration</p>
       <button class="sb-item sb-admin-only hidden" id="sb-admin" type="button"><span class="sb-emo">👤</span> Manage accounts</button>
@@ -828,6 +852,18 @@
     </div>
   </section>
 
+  <!-- ============ ADMIN DASHBOARD (landing, read-only summary — distinct from Manage accounts) ============ -->
+  <section class="admin-overview-dash" aria-label="Admin dashboard">
+    <div class="dash-head">
+      <p class="eyebrow" id="admov-eyebrow">Niat ® Administration</p>
+      <h2 id="admov-greet">Welcome, <em>Administrator</em>.</h2>
+      <p class="dash-sub" id="admov-subtitle">A live snapshot of your school — open <b>Manage accounts</b> to make changes.</p>
+    </div>
+    <div class="admin-stats" id="admin-dash-stats"></div>
+    <p class="ov-note" id="admov-note"><span class="ai-dot" aria-hidden="true"></span>Live totals across the whole school. Figures refresh whenever you open the dashboard.</p>
+    <div class="ov-grid" id="ov-grid"></div>
+  </section>
+
   <!-- ============ ADMIN CONSOLE (landing, admins only) ============ -->
   <section class="admin-dash" aria-label="Admin console">
     <div class="dash-head">
@@ -841,19 +877,12 @@
     </div>
 
     <div class="admin-tabs" role="tablist">
-      <button class="admin-tab active" data-tab="overview" type="button">Overview</button>
       <button class="admin-tab admin-super-only hidden" data-tab="schools" type="button">Schools</button>
-      <button class="admin-tab" data-tab="users" type="button">Users</button>
+      <button class="admin-tab active" data-tab="users" type="button">Users</button>
       <button class="admin-tab" data-tab="lessons" type="button">Lessons</button>
       <button class="admin-tab" data-tab="timetables" type="button">Timetables</button>
       <button class="admin-tab" data-tab="resources" type="button">Resources</button>
       <button class="admin-tab" data-tab="announce" type="button">Announcement</button>
-    </div>
-
-    <!-- Overview -->
-    <div class="admin-pane active" data-pane="overview">
-      <div class="admin-stats" id="admin-dash-stats"></div>
-      <p class="muted small"><span class="ai-dot" aria-hidden="true"></span>Live totals across the whole school. Figures refresh whenever you open the console.</p>
     </div>
 
     <!-- Schools (super admin only) -->
@@ -869,7 +898,7 @@
     </div>
 
     <!-- Users -->
-    <div class="admin-pane" data-pane="users">
+    <div class="admin-pane active" data-pane="users">
       <div class="admin-bar">
         <b>Teacher &amp; admin accounts</b>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -977,6 +1006,7 @@
     }
     document.getElementById("brand-home").onclick = () => {
       document.body.classList.add("landing");
+      document.body.classList.remove("admin-manage");
       window.scrollTo({ top: 0 });
       const home = document.getElementById("sb-home");
       if (home) document.querySelectorAll(".sb-item").forEach((b) => b.classList.toggle("active", b === home));
@@ -1529,31 +1559,6 @@
     </div>
   </div>
 
-  <!-- ============ TEXTBOOK READER MODAL ============ -->
-  <div id="textbook-modal" class="modal hidden">
-    <div class="modal-box" style="max-width:980px;height:92vh;display:flex;flex-direction:column;">
-      <h3 style="display:flex;align-items:center;gap:10px;">
-        <span id="textbook-title-text">Textbook</span>
-        <a id="textbook-open-link" class="pill hidden" href="/textbook.pdf" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none;">Open in new tab</a>
-      </h3>
-      <div id="textbook-picker" style="flex:1;display:flex;align-items:center;justify-content:center;">
-        <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
-          <button class="pill textbook-pick" data-form="1" type="button">Form 1</button>
-          <button class="pill textbook-pick" data-form="2" type="button">Form 2</button>
-          <button class="pill textbook-pick" data-form="3" type="button">Form 3</button>
-          <button class="pill textbook-pick" data-form="4" type="button">Form 4</button>
-          <button class="pill textbook-pick" data-form="5" type="button">Form 5</button>
-        </div>
-      </div>
-      <div id="textbook-missing" class="hidden" style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted,#666);font-size:15px;"></div>
-      <iframe id="textbook-frame" class="hidden" title="English textbook" style="flex:1;width:100%;border:1px solid var(--line);border-radius:12px;margin-top:10px;background:#fff;"></iframe>
-      <div class="actions">
-        <button id="btn-textbook-back" class="ghost hidden">Back to list</button>
-        <button id="btn-close-textbook" class="ghost">Close</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ============ QUESTION BANK (read-only browse for teachers) ============ -->
   <div id="bank-modal" class="modal hidden">
     <div class="modal-box" style="max-width:820px;height:88vh;display:flex;flex-direction:column;">
@@ -1618,7 +1623,6 @@
       document.getElementById("sb-brand").onclick = () => document.getElementById("sb-home").click();
       proxy("sb-library", "btn-library");
       proxy("sb-progress", "btn-progress");
-      proxy("sb-textbook", "btn-textbook");
       // Mobile ☰ toggle: same open/outside-click-close pattern as .acct-menu / .tools-menu.
       const sbToggle = document.getElementById("sidebar-toggle"), sidebarEl = document.getElementById("sidebar");
       if (sbToggle && sidebarEl) {
@@ -1672,6 +1676,11 @@
           question:"Question", standard:"SP", level:"Level", announcementHeading:"Announcement to all teachers",
           announcementHelp:"Fill any of the 10 slots below — each one becomes a card in the moving carousel on every teacher's dashboard. Leave a slot empty to skip it; clear all and save to remove announcements.", announcementExample:"e.g. Please submit Week 24 RPHs by Friday.", saveAnnouncement:"Save announcement",
           teachers:"Teachers", activeTeachers:"Active teachers", admins:"Admins", savedLessons:"Lessons", bankQuestions:"Bank questions",
+          dashboardSubtitle:"A live snapshot of your school — open Manage accounts to make changes.", dashboardSubtitleSuper:"A live snapshot of the whole programme — open Manage accounts to make changes.",
+          ovUsersTitle:"Users", ovUsersSub:"{teachers} teachers · {admins} admins", ovLessonsTitle:"Lessons", ovLessonsSub:"lessons saved school-wide",
+          ovTimetableTitle:"Timetables", ovTimetableSub:"of {total} teachers have a timetable set", ovResourcesTitle:"Resources", ovResourcesSub:"classrooms registered",
+          ovAnnounceTitle:"Announcement", ovAnnounceSub:"active slot(s)", ovAnnounceNone:"No announcement posted yet.",
+          ovBankLabel:"Bank questions", ovStudentsLabel:"Students", ovOpen:"Open",
           loading:"Loading…", couldNotLoadUsers:"Could not load users.", noAccounts:"No accounts.", teacher:"Teacher", admin:"Admin", superAdmin:"Super Admin", you:"you",
           active:"Active", inactive:"Inactive", deactivate:"Deactivate", reactivate:"Reactivate", resetPassword:"Reset password", deleteAccount:"Delete account",
           roleUpdated:"Role updated for {user}.", roleFailed:"Could not change role.", deactivated:"Deactivated {user}.", reactivated:"Reactivated {user}.", statusFailed:"Could not change status.",
@@ -1702,6 +1711,11 @@
           question:"Soalan", standard:"SP", level:"Aras", announcementHeading:"Pengumuman kepada semua guru",
           announcementHelp:"Isi mana-mana daripada 10 slot di bawah — setiap satu menjadi kad dalam karusel bergerak pada dashboard setiap guru. Biarkan slot kosong untuk melangkaunya; kosongkan semua dan simpan untuk memadamkan pengumuman.", announcementExample:"cth. Sila hantar RPH Minggu 24 sebelum Jumaat.", saveAnnouncement:"Simpan pengumuman",
           teachers:"Guru", activeTeachers:"Guru aktif", admins:"Pentadbir", savedLessons:"Pelajaran", bankQuestions:"Soalan bank",
+          dashboardSubtitle:"Gambaran terkini sekolah anda — buka Urus akaun untuk membuat perubahan.", dashboardSubtitleSuper:"Gambaran terkini seluruh program — buka Urus akaun untuk membuat perubahan.",
+          ovUsersTitle:"Pengguna", ovUsersSub:"{teachers} guru · {admins} pentadbir", ovLessonsTitle:"Pelajaran", ovLessonsSub:"pelajaran disimpan seluruh sekolah",
+          ovTimetableTitle:"Jadual Waktu", ovTimetableSub:"daripada {total} guru telah menetapkan jadual waktu", ovResourcesTitle:"Sumber", ovResourcesSub:"kelas Classroom didaftarkan",
+          ovAnnounceTitle:"Pengumuman", ovAnnounceSub:"slot aktif", ovAnnounceNone:"Belum ada pengumuman disiarkan.",
+          ovBankLabel:"Soalan bank", ovStudentsLabel:"Murid", ovOpen:"Buka",
           loading:"Memuatkan…", couldNotLoadUsers:"Tidak dapat memuatkan pengguna.", noAccounts:"Tiada akaun.", teacher:"Guru", admin:"Pentadbir", superAdmin:"Super Admin", you:"anda",
           active:"Aktif", inactive:"Tidak aktif", deactivate:"Nyahaktif", reactivate:"Aktifkan semula", resetPassword:"Tetapkan semula kata laluan", deleteAccount:"Padam akaun",
           roleUpdated:"Peranan {user} telah dikemas kini.", roleFailed:"Tidak dapat menukar peranan.", deactivated:"{user} telah dinyahaktifkan.", reactivated:"{user} telah diaktifkan semula.", statusFailed:"Tidak dapat menukar status.",
@@ -1744,6 +1758,10 @@
         document.getElementById("admin-eyebrow").textContent = tr("eyebrow");
         document.getElementById("admin-subtitle").textContent = tr(isSuper ? "subtitleSuper" : "subtitle");
         document.getElementById("admin-greet").innerHTML = tr("welcome") + ", <em>" + esc(myAdminDisplayName) + "</em>.";
+        document.getElementById("admov-eyebrow").textContent = tr("eyebrow");
+        document.getElementById("admov-subtitle").textContent = tr(isSuper ? "dashboardSubtitleSuper" : "dashboardSubtitle");
+        document.getElementById("admov-greet").innerHTML = tr("welcome") + ", <em>" + esc(myAdminDisplayName) + "</em>.";
+        document.getElementById("admov-note").innerHTML = '<span class="ai-dot" aria-hidden="true"></span>' + esc(tr(isSuper ? "overviewNoteSuper" : "overviewNote"));
         document.querySelector("#sidebar > .sb-label").textContent = tr("navigate");
         document.getElementById("sb-admin-label").textContent = tr("administration");
         setButtonLabel("sb-home", "dashboard"); setButtonLabel("sb-admin", "manageAccounts");
@@ -1757,9 +1775,8 @@
         if (fontLabel && fontLabel.firstChild) fontLabel.firstChild.nodeValue = tr("fontSize") + " ";
         setButtonLabel("acct-logout", "logOut");
         document.getElementById("acct-role").textContent = roleLabel(myRole);
-        const tabKeys = { overview: "overview", schools: "schools", users: "users", lessons: "lessons", timetables: "timetables", resources: "resources", announce: "announcement" };
+        const tabKeys = { schools: "schools", users: "users", lessons: "lessons", timetables: "timetables", resources: "resources", announce: "announcement" };
         document.querySelectorAll(".admin-tab").forEach((el) => { el.textContent = tr(tabKeys[el.dataset.tab]); });
-        document.querySelector('[data-pane="overview"] > p').textContent = tr(isSuper ? "overviewNoteSuper" : "overviewNote");
         const schoolsBarB = document.querySelector('[data-pane="schools"] .admin-bar b');
         if (schoolsBarB) schoolsBarB.textContent = tr("schoolsHeading");
         const schoolsHelpP = document.querySelector('[data-pane="schools"] p.muted');
@@ -1806,6 +1823,23 @@
       document.getElementById("admin-lang-bm").onclick = () => changeAdminLanguage("bm");
       document.getElementById("admin-lang-en").onclick = () => changeAdminLanguage("en");
 
+      function ovCard({ hue, ico, title, big, sub, list, goto }) {
+        const listHtml = list && list.length
+          ? `<ul class="ov-list">${list.map(([k, v]) => `<li><span>${esc(k)}</span><span>${esc(v)}</span></li>`).join("")}</ul>`
+          : "";
+        return `
+          <div class="ov-card" style="--hue:var(--${hue});--hue-deep:var(--${hue}-700, var(--${hue}-deep));--hue-50:var(--${hue}-50)">
+            <div class="ov-card-head">
+              <div class="ov-ico"><svg class="ico" aria-hidden="true"><use href="#${ico}"/></svg></div>
+              <h4>${esc(title)}</h4>
+            </div>
+            <div class="ov-big">${esc(big)}</div>
+            <p class="ov-sub">${esc(sub)}</p>
+            ${listHtml}
+            <button type="button" class="ov-go" data-goto="${esc(goto)}">${esc(tr("ovOpen"))} →</button>
+          </div>`;
+      }
+
       async function loadOverview() {
         try {
           const o = await (await fetch("/api/admin/overview")).json();
@@ -1823,8 +1857,40 @@
               <div class="admin-stat-ico"><svg class="ico" aria-hidden="true"><use href="#${ico}"/></svg></div>
               <b>${esc(n)}</b><span>${esc(label)}</span>
             </div>`).join("");
+
+          const previewText = o.announcement_preview || "";
+          const announceSub = o.announcement_count
+            ? previewText.slice(0, 60) + (previewText.length > 60 ? "…" : "")
+            : tr("ovAnnounceNone");
+          const ovCards = [
+            ovCard({
+              hue: "blue", ico: "i-user", title: tr("ovUsersTitle"), big: o.users_total,
+              sub: tr("ovUsersSub", { teachers: o.teachers, admins: o.admins }), goto: "users",
+            }),
+            ovCard({
+              hue: "sun", ico: "i-book", title: tr("ovLessonsTitle"), big: o.lessons_total,
+              sub: tr("ovLessonsSub"), list: [[tr("ovBankLabel"), o.bank_total]], goto: "lessons",
+            }),
+            ovCard({
+              hue: "violet", ico: "i-calendar", title: tr("ovTimetableTitle"), big: `${o.timetables_filled}/${o.timetables_total}`,
+              sub: tr("ovTimetableSub", { total: o.timetables_total }), goto: "timetables",
+            }),
+            ovCard({
+              hue: "pink", ico: "i-folder", title: tr("ovResourcesTitle"), big: o.classrooms_total,
+              sub: tr("ovResourcesSub"), list: [[tr("ovStudentsLabel"), o.students_total]], goto: "resources",
+            }),
+            ovCard({
+              hue: "blue", ico: "i-mega", title: tr("ovAnnounceTitle"), big: o.announcement_count,
+              sub: (o.announcement_count ? tr("ovAnnounceSub") + " — " : "") + announceSub, goto: "announce",
+            }),
+          ];
+          document.getElementById("ov-grid").innerHTML = ovCards.join("");
         } catch (e) { /* non-fatal */ }
       }
+      document.getElementById("ov-grid").addEventListener("click", (e) => {
+        const btn = e.target.closest(".ov-go");
+        if (btn) goManage(btn.dataset.goto);
+      });
 
       let allUsers = [];
       async function loadUsers() {
@@ -1926,7 +1992,7 @@
       });
 
       // ---------- Tabs ----------
-      let activeTab = "overview";
+      let activeTab = "users";
       const tabLoaders = {}; // filled below
       function switchTab(name) {
         activeTab = name;
@@ -2311,24 +2377,37 @@
       };
 
       tabLoaders.schools = loadSchools;
-      tabLoaders.overview = loadOverview;
       tabLoaders.users = loadUsers;
       tabLoaders.lessons = loadLessons;
       tabLoaders.timetables = async () => { await loadTimetableTemplates(); loadTimetables(); };
       tabLoaders.resources = loadResources;
       tabLoaders.announce = loadAnnouncement;
 
-      function refreshAdmin() { switchTab(activeTab); }
+      function refreshAdmin() {
+        loadOverview();
+        if (document.body.classList.contains("admin-manage")) switchTab(activeTab);
+      }
 
-      // "Dashboard" and "Manage accounts" both take an admin to the admin
-      // console (there is no lesson-generation flow for admins) but land on
-      // a different tab — Overview for Dashboard, Users for Manage accounts —
-      // so the two nav items don't show identical content.
-      function showAdminLanding(tab) {
+      // "Dashboard" and "Manage accounts" are two DIFFERENT sections (toggled by
+      // the .admin-manage body class) — Dashboard is a read-only summary bento
+      // grid, Manage accounts is the tabbed editing console. They must never
+      // render the same markup, or the two sidebar items look identical again.
+      function showAdminOverview() {
         document.body.classList.add("landing");
+        document.body.classList.remove("admin-manage");
         window.scrollTo({ top: 0 });
         loadOverview();
-        switchTab(tab || "overview");
+      }
+      function showAdminManage(tab) {
+        document.body.classList.add("landing", "admin-manage");
+        window.scrollTo({ top: 0 });
+        switchTab(tab || "users");
+      }
+      // goManage() is what a Dashboard card's "Open →" button calls to jump
+      // straight into the matching Manage-accounts tab.
+      function goManage(tab) {
+        markSidebarActive("sb-admin");
+        showAdminManage(tab);
       }
       // Decide, once, whether this account is an admin and set the whole UI mode.
       // Both nav clicks below AWAIT this promise instead of only wiring up once
@@ -2361,6 +2440,7 @@
           if (typeof loadSchools === "function") loadSchools();  // prime the datalist
         }
         applyAdminLanguage();
+        loadOverview();  // populate the Dashboard summary immediately, no click required
         return p;
       }).catch(() => null);
 
@@ -2375,13 +2455,13 @@
       document.getElementById("sb-admin").onclick = async () => {
         await profileReady;
         markSidebarActive("sb-admin");
-        showAdminLanding("users");
+        showAdminManage("users");
       };
       document.getElementById("sb-home").addEventListener("click", async () => {
         await profileReady;
         if (myRole === "admin" || myRole === "super_admin") {
           markSidebarActive("sb-home");
-          showAdminLanding("overview");
+          showAdminOverview();
         }
       });
     })();

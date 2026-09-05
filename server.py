@@ -21,7 +21,6 @@ import hmac
 import json
 import os
 import re
-import shutil
 import sys
 import threading
 import time
@@ -61,115 +60,6 @@ OUTPUT_DIR = (os.environ.get("NIAT_OUTPUT_DIR", "").strip()
               or ("/tmp/niat-output" if CONTAINER_MODE else os.path.join(ROOT, "output")))
 DSKP_FILE = os.path.join(ROOT, "dskp_english_f3.json")  # default / backward-compat
 DSKP_FORMS = (1, 2, 3, 4, 5)
-TEXTBOOK_DIR = os.path.join(ROOT, "textbooks")
-
-# English textbook per Form: Form 1/2/5 ship as a PDF in textbooks/, Form 3/4
-# only exist as a hosted flipbook link (no PDF to serve).
-TEXTBOOK_SOURCES = {
-    # Pulse 2 is the official KPM-prescribed textbook for BOTH Form 1 and
-    # Form 2 (book code FT021002) — same book, not a duplicate-file mistake.
-    "1": {"type": "pdf", "file": "PULSE 2 STUDENT'S BOOK FORM 1.pdf", "label": "Pulse 2 — Buku Teks Rasmi Tingkatan 1"},
-    "2": {"type": "pdf", "file": "PULSE 2 STUDENT'S BOOK FORM 2.pdf", "label": "Pulse 2 — Buku Teks Rasmi Tingkatan 2"},
-    "3": {"type": "link", "url": "https://online.anyflip.com/iejhp/heqo/mobile/index.html", "label": "Form 3 textbook"},
-    "4": {"type": "link", "url": "https://online.anyflip.com/rojry/ynby/mobile/index.html", "label": "Form 4 textbook"},
-    "5": {"type": "pdf", "file": "ENGLISH DOWNLOAD F5 STUDENT BOOK.pdf", "label": "Form 5 Student Book"},
-}
-
-
-TEXTBOOK_BUCKET = "textbooks"
-# textbooks/ is gitignored (copyrighted PDFs never get committed), so a fresh
-# Cloud Run instance boots with an empty disk. Supabase Storage — same
-# "private bucket, proxy the bytes through an authenticated endpoint" pattern
-# as AVATAR_BUCKET above — is the durable home; local disk is a warm cache.
-
-
-def textbook_pdf_path(form_q):
-    """Absolute path to the Form's textbook PDF on THIS disk, or None if it
-    isn't a PDF source or no local copy is cached yet."""
-    src = TEXTBOOK_SOURCES.get(form_q)
-    if not src or src["type"] != "pdf":
-        return None
-    for base in (TEXTBOOK_DIR, os.path.join(ROOT, "private", "rujukan"), ROOT):
-        cand = os.path.join(base, src["file"])
-        if os.path.isfile(cand):
-            return cand
-    return None
-
-
-TEXTBOOK_CHUNK = 65536
-
-
-def serve_textbook_pdf(handler, form_q):
-    """Stream a Form's textbook PDF straight to the HTTP client — local disk
-    first, then Supabase Storage. Streamed in chunks rather than buffered
-    fully in memory: a ~40MB PDF read whole (the previous approach) was
-    consistently 500-ing on Cloud Run, almost certainly the container's
-    memory limit. `handler` is the request Handler (`self` in do_GET), used
-    directly for send_response/wfile so a Supabase 404 can still become a
-    clean 404 to the client — only the ACTUAL body streaming (after our own
-    200 is already committed) can no longer change status on failure."""
-    src = TEXTBOOK_SOURCES.get(form_q)
-    local_path = textbook_pdf_path(form_q) if src and src["type"] == "pdf" else None
-    if local_path:
-        try:
-            size = os.path.getsize(local_path)
-            handler.send_response(200)
-            handler.send_header("Content-Type", "application/pdf")
-            handler.send_header("Content-Length", str(size))
-            handler.end_headers()
-            with open(local_path, "rb") as f:
-                shutil.copyfileobj(f, handler.wfile, length=TEXTBOOK_CHUNK)
-        except (OSError, ConnectionError, BrokenPipeError):
-            pass  # client went away mid-download — nothing left to do
-        return True
-    if not (src and src["type"] == "pdf" and sb.configured()):
-        return False
-    try:
-        resp = sb.storage_open(TEXTBOOK_BUCKET, src["file"])
-    except sb.SupabaseError:
-        return False  # not in Supabase either — caller sends the 404 JSON
-    os.makedirs(TEXTBOOK_DIR, exist_ok=True)
-    cache_tmp = os.path.join(TEXTBOOK_DIR, src["file"] + ".part")
-    cache_final = os.path.join(TEXTBOOK_DIR, src["file"])
-    try:
-        with resp:
-            handler.send_response(200)
-            handler.send_header("Content-Type", "application/pdf")
-            handler.end_headers()  # no Content-Length — HTTP/1.0 close-delimits the body
-            with open(cache_tmp, "wb") as cache_f:
-                while True:
-                    chunk = resp.read(TEXTBOOK_CHUNK)
-                    if not chunk:
-                        break
-                    handler.wfile.write(chunk)
-                    cache_f.write(chunk)
-        os.replace(cache_tmp, cache_final)  # atomic — never leaves a half-written cache file
-    except (OSError, ConnectionError, BrokenPipeError):
-        try:
-            os.remove(cache_tmp)
-        except OSError:
-            pass
-    return True
-
-
-def textbook_available(form_q, storage_names=None):
-    """Whether this Form's PDF can actually be served right now. Pass
-    `storage_names` (a set from sb.storage_list) when checking several forms
-    at once, so callers hit Supabase once instead of per form."""
-    src = TEXTBOOK_SOURCES.get(form_q)
-    if not src or src["type"] != "pdf":
-        return False
-    if textbook_pdf_path(form_q):
-        return True
-    if storage_names is not None:
-        return src["file"] in storage_names
-    if not sb.configured():
-        return False
-    try:
-        names = {o.get("name") for o in sb.storage_list(TEXTBOOK_BUCKET)}
-    except sb.SupabaseError:
-        return False
-    return src["file"] in names
 
 
 def dskp_file_for(form):
@@ -1743,6 +1633,25 @@ def admin_overview():
         schools_total = len(admin_get_schools().get("schools", []))
     except Exception:  # noqa: BLE001
         schools_total = 0
+    try:
+        tt_teachers = _load_timetable_all().get("teachers", {})
+        timetables_filled = sum(1 for block in tt_teachers.values() if block.get("classes"))
+        timetables_total = len(tt_teachers)
+    except Exception:  # noqa: BLE001
+        timetables_filled = 0
+        timetables_total = 0
+    try:
+        classrooms_total = len(admin_get_classrooms().get("classes", {}))
+    except Exception:  # noqa: BLE001
+        classrooms_total = 0
+    try:
+        students_total = load_students().get("jumlah", 0)
+    except Exception:  # noqa: BLE001
+        students_total = 0
+    try:
+        announce_items = get_announcement().get("items", [])
+    except Exception:  # noqa: BLE001
+        announce_items = []
     return {
         "users_total": len(users),
         "teachers": sum(1 for u in users if u["role"] == "teacher"),
@@ -1751,6 +1660,12 @@ def admin_overview():
         "lessons_total": lesson_total,
         "bank_total": bank_total,
         "schools_total": schools_total,
+        "timetables_filled": timetables_filled,
+        "timetables_total": timetables_total,
+        "classrooms_total": classrooms_total,
+        "students_total": students_total,
+        "announcement_count": len(announce_items),
+        "announcement_preview": announce_items[0] if announce_items else "",
     }
 
 
@@ -2622,48 +2537,6 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/ready":
             status = runtime_readiness(check_database=True)
             self._send(200 if status["ready"] else 503, status)
-            return
-        if path == "/api/textbook-list":
-            # Drives the Textbook picker: which Forms are PDF (served locally
-            # or from Supabase Storage) vs. link-only (hosted flipbook), and
-            # whether the PDF can actually be served right now.
-            storage_names = None
-            if sb.configured():
-                try:
-                    storage_names = {o.get("name") for o in sb.storage_list(TEXTBOOK_BUCKET)}
-                except sb.SupabaseError:
-                    storage_names = set()  # bucket unreachable — fall back to disk-only checks
-            out = []
-            for n in ("1", "2", "3", "4", "5"):
-                src = TEXTBOOK_SOURCES.get(n)
-                if not src:
-                    out.append({"form": n, "type": "missing"})
-                elif src["type"] == "pdf":
-                    out.append({
-                        "form": n, "type": "pdf", "label": src["label"],
-                        "available": textbook_available(n, storage_names),
-                    })
-                else:
-                    out.append({"form": n, "type": "link", "label": src["label"], "url": src["url"]})
-            self._send(200, {"forms": out})
-            return
-        if path == "/textbook.pdf":
-            # Buku teks rujukan — dilindungi login seperti yang lain.
-            # Only Form 1/2/5 are PDF sources; Form 3/4 are link-only (see
-            # /api/textbook-list) and never reach this endpoint from the UI.
-            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            form_q = (qs.get("form", ["1"])[0] or "1").strip()
-            if form_q not in TEXTBOOK_SOURCES:
-                form_q = "1"
-            if not serve_textbook_pdf(self, form_q):
-                self._send(404, {
-                    "ralat": "textbook file not found",
-                    "form": form_q,
-                    "mesej": (
-                        "Buku teks Tingkatan {} belum dimuat naik ke dalam sistem. "
-                        "Sila hubungi admin untuk memuat naik fail rasmi."
-                    ).format(form_q),
-                })
             return
         if path == "/api/bank-stats":
             try:
