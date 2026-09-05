@@ -134,8 +134,12 @@
     @keyframes pin-drop{from{opacity:0;transform:translateY(-14px);}to{opacity:1;transform:translateY(0);}}
     .steps.working{z-index:60;}
     .steps.working::after{content:attr(data-msg);position:absolute;left:50%;top:calc(100% + 10px);transform:translateX(-50%);white-space:nowrap;font-size:12.5px;font-weight:800;color:var(--blue-700);}
-    /* running across the whole bar while working (overrides the idle left position) */
-    .steps.working .agent-bot{left:0 !important;animation:bot-run-across 3.4s cubic-bezier(.45,0,.55,1) infinite;}
+    /* jogs in place right on top of the step currently being worked on — it
+       keeps the idle `left` (set by positionAgentBot() to the active step),
+       it does NOT reset to the start of the bar, so the robot visibly moves
+       from step 1 to 2 to 3 etc. as goto() repositions it between agents,
+       rather than sprinting across the whole bar regardless of progress. */
+    .steps.working .agent-bot{animation:bot-run-across 1.1s cubic-bezier(.45,0,.55,1) infinite;}
     .agent-bot svg{width:46px;height:46px;overflow:visible;filter:drop-shadow(0 4px 6px rgba(34,51,62,.22));}
     /* the inner group holds the vertical bob; idle = gentle breathing, working = fast running bounce */
     .agent-bot .bot-inner{position:absolute;left:0;bottom:100%;width:46px;height:46px;transform-origin:50% 100%;animation:bot-idle 2.6s ease-in-out infinite;}
@@ -151,7 +155,7 @@
     .agent-bot .bot-eye{animation:bot-blink 3.4s ease-in-out infinite;transform-origin:center;}
     .agent-bot .puff{opacity:0;transform-origin:center;}
     .steps.working .agent-bot .puff{animation:bot-puff .5s ease-out infinite;}
-    @keyframes bot-run-across{0%{transform:translateX(6px) scaleX(1);}47%{transform:translateX(calc(100% - 52px)) scaleX(1);}50%{transform:translateX(calc(100% - 52px)) scaleX(-1);}97%{transform:translateX(6px) scaleX(-1);}100%{transform:translateX(6px) scaleX(1);}}
+    @keyframes bot-run-across{0%{transform:translateX(-18px) scaleX(-1);}47%{transform:translateX(18px) scaleX(-1);}50%{transform:translateX(18px) scaleX(1);}97%{transform:translateX(-18px) scaleX(1);}100%{transform:translateX(-18px) scaleX(-1);}}
     @keyframes bot-idle{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-2px) rotate(0deg);}}
     @keyframes bot-bob{0%,100%{transform:translateY(0) rotate(-2deg);}50%{transform:translateY(-5px) rotate(2deg);}}
     @keyframes bot-leg-l{0%,100%{transform:rotate(26deg);}50%{transform:rotate(-26deg);}}
@@ -177,7 +181,11 @@
     .panel-head .sub{margin:6px 0 0;color:var(--muted);font-size:15.5px;}
 
     /* ---- Cards ---- */
-    fieldset.card{border:2px solid var(--line);border-radius:var(--radius);margin:0 0 18px;padding:22px 24px;background:var(--card);transition:border-color .2s,box-shadow .2s;}
+    /* Browsers default <fieldset> to min-width:min-content, so a <select>
+       with long option text (e.g. a full unit/topic name) forces the whole
+       card — and everything above it — wider than the phone/tablet viewport. */
+    fieldset.card{border:2px solid var(--line);border-radius:var(--radius);margin:0 0 18px;padding:22px 24px;background:var(--card);transition:border-color .2s,box-shadow .2s;min-width:0;}
+    select{max-width:100%;}
     fieldset.card:hover{border-color:var(--line-strong);box-shadow:0 8px 22px rgba(34,51,62,.07);}
     legend{font-weight:800;font-size:13.5px;padding:0 10px;display:flex;align-items:center;gap:8px;color:var(--ink);font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;}
     legend .ic{font-size:14px;}
@@ -192,6 +200,10 @@
 
     /* ---- Form fields ---- */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+    /* Grid items default to min-width:auto, so a <select> with long option
+       text refuses to shrink below its content and forces the whole grid
+       (and everything above it) wider than the viewport on phones/tablets. */
+    .grid > *{min-width:0;}
     label{display:flex;flex-direction:column;font-size:14px;font-weight:700;gap:6px;color:#3b4f5c;}
     label.block{margin:12px 0 8px;}
     .hint{font-weight:400;color:var(--muted);font-size:13px;}

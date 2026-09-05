@@ -110,6 +110,44 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:latest")
 ENGINE_MODE = os.environ.get("NIAT_ENGINE", "auto").strip().lower()
 
+# --- Login brute-force lockout -----------------------------------------------
+# Per-username counter, kept in this process's memory (good enough for a
+# single small-school deployment; resets on restart/redeploy, which is fine —
+# an attacker who can force a restart has bigger problems to exploit). Keyed
+# by username, not IP, so it can't be trivially bypassed by rotating IPs.
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 15 * 60
+LOGIN_LOCKOUT_SECONDS = 15 * 60
+_login_attempts_lock = threading.Lock()
+_login_attempts = {}  # username -> {"count", "first_fail", "locked_until"}
+
+
+def _login_locked_seconds(username):
+    """Seconds left in the lockout for this username, or 0 if not locked."""
+    with _login_attempts_lock:
+        rec = _login_attempts.get(username)
+        if not rec:
+            return 0
+        remaining = rec.get("locked_until", 0) - time.time()
+        return int(remaining) if remaining > 0 else 0
+
+
+def _login_note_failure(username):
+    now = time.time()
+    with _login_attempts_lock:
+        rec = _login_attempts.get(username)
+        if not rec or now - rec.get("first_fail", now) > LOGIN_WINDOW_SECONDS:
+            rec = {"count": 0, "first_fail": now}
+        rec["count"] += 1
+        if rec["count"] >= LOGIN_MAX_ATTEMPTS:
+            rec["locked_until"] = now + LOGIN_LOCKOUT_SECONDS
+        _login_attempts[username] = rec
+
+
+def _login_note_success(username):
+    with _login_attempts_lock:
+        _login_attempts.pop(username, None)
+
 
 def runtime_configuration_errors():
     """Return secret-free configuration problems that make production unsafe."""
@@ -2721,8 +2759,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/login":
             time.sleep(0.4)  # slow down password guessing
-            user = (body.get("username") or "").strip()
+            user = (body.get("username") or "").strip().lower()
             password = body.get("password") or ""
+            locked_for = _login_locked_seconds(user)
+            if locked_for:
+                self._send(429, {"ok": False, "ralat":
+                           "Too many failed attempts. Try again in {} minute(s).".format(
+                               max(1, (locked_for + 59) // 60))})
+                return
             ok = False
             if sb.configured():
                 try:
@@ -2733,10 +2777,12 @@ class Handler(BaseHTTPRequestHandler):
             if not ok:
                 ok = auth.verify(user, password)  # legacy accounts not yet migrated
             if ok:
-                token = auth.make_token(user.lower())
-                self._send(200, {"ok": True, "user": user.lower()},
+                _login_note_success(user)
+                token = auth.make_token(user)
+                self._send(200, {"ok": True, "user": user},
                            headers={"Set-Cookie": auth.session_cookie(token)})
             else:
+                _login_note_failure(user)
                 self._send(401, {"ok": False, "ralat": "Wrong username or password."})
             return
         if path == "/api/signup":
