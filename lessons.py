@@ -47,14 +47,23 @@ def init_db():
                 plan_json     TEXT,
                 worksheet_json TEXT,
                 inputs_json   TEXT,
-                score         REAL
+                score         REAL,
+                classroom_doc_id TEXT,
+                classroom_url    TEXT,
+                report_text      TEXT
             )
             """
         )
-        # Migration: add the score column to older databases that lack it.
+        # Migrations: add columns older databases lack.
         cols = [r[1] for r in c.execute("PRAGMA table_info(lessons)").fetchall()]
         if "score" not in cols:
             c.execute("ALTER TABLE lessons ADD COLUMN score REAL")
+        if "classroom_doc_id" not in cols:
+            c.execute("ALTER TABLE lessons ADD COLUMN classroom_doc_id TEXT")
+        if "classroom_url" not in cols:
+            c.execute("ALTER TABLE lessons ADD COLUMN classroom_url TEXT")
+        if "report_text" not in cols:
+            c.execute("ALTER TABLE lessons ADD COLUMN report_text TEXT")
 
 
 def _local_iso(ts):
@@ -99,6 +108,11 @@ def save_lesson(rec, owner_username=None):
         "theme": plan.get("tema_bidang") or inputs.get("theme", ""),
         "topic": plan.get("tajuk") or inputs.get("topic", ""),
         "skill": plan.get("mata_pelajaran", ""),
+        # Set when the RPH was auto-posted to the "Lesson Plan" Classroom
+        # (Agent 1 approval step) — lets the reflection/report update the SAME
+        # Doc later instead of creating a new Classroom post each time.
+        "classroom_doc_id": rec.get("classroom_doc_id") or None,
+        "classroom_url": rec.get("classroom_url") or None,
     }
 
     if sb.use_cloud():
@@ -120,14 +134,15 @@ def save_lesson(rec, owner_username=None):
         cur = c.execute(
             """INSERT INTO lessons
                (created_at, title, kelas, tarikh, minggu, theme, topic, skill,
-                plan_json, worksheet_json, inputs_json)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                plan_json, worksheet_json, inputs_json, classroom_doc_id, classroom_url)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 now, fields["title"], fields["kelas"], fields["tarikh"],
                 fields["minggu"], fields["theme"], fields["topic"], fields["skill"],
                 json.dumps(plan, ensure_ascii=False),
                 json.dumps(ws, ensure_ascii=False),
                 json.dumps(inputs, ensure_ascii=False),
+                fields["classroom_doc_id"], fields["classroom_url"],
             ),
         )
         return cur.lastrowid
@@ -194,6 +209,8 @@ def get_lesson(lesson_id, owner_username=None):
             "plan": _as_obj(r.get("plan_json")),
             "worksheet": _as_obj(r.get("worksheet_json")),
             "inputs": _as_obj(r.get("inputs_json")),
+            "classroom_doc_id": r.get("classroom_doc_id"),
+            "classroom_url": r.get("classroom_url"),
         }
 
     init_db()
@@ -210,6 +227,8 @@ def get_lesson(lesson_id, owner_username=None):
         "plan": _as_obj(r["plan_json"]),
         "worksheet": _as_obj(r["worksheet_json"]),
         "inputs": _as_obj(r["inputs_json"]),
+        "classroom_doc_id": r["classroom_doc_id"] if "classroom_doc_id" in r.keys() else None,
+        "classroom_url": r["classroom_url"] if "classroom_url" in r.keys() else None,
     }
 
 
@@ -229,8 +248,11 @@ def delete_lesson(lesson_id, owner_username=None):
     return {"deleted": True, "id": lesson_id}
 
 
-def update_reflection(lesson_id, refleksi, score=None, owner_username=None):
-    """Write the reflection into a saved lesson; optionally record the class score (%)."""
+def update_reflection(lesson_id, refleksi, score=None, report="", owner_username=None):
+    """Write the reflection + class report into a saved lesson; optionally
+    record the class score (%). Returns the lesson's classroom_doc_id/url (if
+    any) so the caller can push the same refleksi/report into the Classroom
+    Doc this lesson was auto-posted to, without a second round-trip."""
     try:
         score_val = float(str(score).replace("%", "").strip()) if score not in (None, "") else None
     except (ValueError, TypeError):
@@ -244,32 +266,36 @@ def update_reflection(lesson_id, refleksi, score=None, owner_username=None):
                 return {"ok": False, "id": lesson_id}
             match["owner"] = "eq." + owner
         params = dict(match)
-        params["select"] = "plan_json"
+        params["select"] = "plan_json,classroom_doc_id,classroom_url"
         rows = sb.select("lessons", params=params)
         if not rows:
             return {"ok": False, "id": lesson_id}
         plan = _as_obj(rows[0].get("plan_json"))
         plan["refleksi"] = refleksi
-        patch = {"plan_json": plan}
+        patch = {"plan_json": plan, "report_text": report or ""}
         if score_val is not None:
             patch["score"] = score_val
         sb.update("lessons", match, patch)
-        return {"ok": True, "id": lesson_id, "score": score_val}
+        return {"ok": True, "id": lesson_id, "score": score_val,
+                "classroom_doc_id": rows[0].get("classroom_doc_id"),
+                "classroom_url": rows[0].get("classroom_url")}
 
     init_db()
     with _conn() as c:
-        r = c.execute("SELECT plan_json FROM lessons WHERE id=?", (lesson_id,)).fetchone()
+        r = c.execute("SELECT plan_json, classroom_doc_id, classroom_url FROM lessons WHERE id=?",
+                      (lesson_id,)).fetchone()
         if not r:
             return {"ok": False, "id": lesson_id}
         plan = json.loads(r["plan_json"] or "{}")
         plan["refleksi"] = refleksi
         if score_val is not None:
-            c.execute("UPDATE lessons SET plan_json=?, score=? WHERE id=?",
-                      (json.dumps(plan, ensure_ascii=False), score_val, lesson_id))
+            c.execute("UPDATE lessons SET plan_json=?, score=?, report_text=? WHERE id=?",
+                      (json.dumps(plan, ensure_ascii=False), score_val, report or "", lesson_id))
         else:
-            c.execute("UPDATE lessons SET plan_json=? WHERE id=?",
-                      (json.dumps(plan, ensure_ascii=False), lesson_id))
-    return {"ok": True, "id": lesson_id, "score": score_val}
+            c.execute("UPDATE lessons SET plan_json=?, report_text=? WHERE id=?",
+                      (json.dumps(plan, ensure_ascii=False), report or "", lesson_id))
+    return {"ok": True, "id": lesson_id, "score": score_val,
+            "classroom_doc_id": r["classroom_doc_id"], "classroom_url": r["classroom_url"]}
 
 
 def progress(owner_username=None):

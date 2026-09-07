@@ -1516,7 +1516,7 @@
   <div id="reflect-modal" class="modal hidden">
     <div class="modal-box">
       <h3>Differentiate &amp; Reflect — <span id="reflect-title"></span></h3>
-      <p class="muted small">Fetch the class's quiz results straight from Google Forms. Then Agent 4 decides differentiated worksheet levels for the NEXT lesson, and Agent 5 writes the RPH reflection + a class report for THIS lesson.</p>
+      <p class="muted small">Fetch the class's quiz results straight from Google Forms. Agent 5 then drafts the RPH reflection + a class report automatically — no extra click — and you can still edit it before saving. Agent 4 decides differentiated worksheet levels for the NEXT lesson.</p>
       <div class="actions" style="justify-content:flex-start;margin-top:0">
         <button id="btn-get-results" class="primary">📊 Fetch quiz results</button>
         <span class="muted small">reads the responses from the Google Form Niat created</span>
@@ -1538,7 +1538,8 @@
       <label class="block">Notes — how did the class do? <span class="hint">(weak questions, common mistakes, strengths)</span></label>
       <textarea id="reflect-results" placeholder="e.g. Average 72%. Most pupils missed Q3 (inference) and Q5 (vocabulary). Strong on identifying the main idea."></textarea>
       <div class="actions" style="justify-content:flex-start">
-        <button id="btn-gen-reflection" class="primary">Generate reflection &amp; report (Agent 5)</button>
+        <button id="btn-gen-reflection" class="ghost">🔄 Regenerate reflection &amp; report (Agent 5)</button>
+        <span class="muted small">auto-drafted once results are fetched — use this only for a fresh AI pass</span>
       </div>
       <div id="reflect-output" class="hidden"></div>
       <div class="actions">

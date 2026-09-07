@@ -40,6 +40,7 @@ import guardrail
 import lessons
 import peringatan
 import prestasi_murid
+import student_levels
 import wordlist
 
 # When launched with pythonw.exe (windowless, e.g. the auto-start task),
@@ -894,9 +895,21 @@ def email_reflection(body):
 
 
 def lesson_reflection_route(body):
-    return lessons.update_reflection(
-        int(body.get("id")), body.get("refleksi", ""), body.get("score"),
+    refleksi = body.get("refleksi", "")
+    report = body.get("report", "")
+    result = lessons.update_reflection(
+        int(body.get("id")), refleksi, body.get("score"), report=report,
         owner_username=body.get("_actor_username"))
+    # If this lesson was auto-posted to the "Lesson Plan" Classroom, push the
+    # (teacher-approved) reflection + report into that SAME Doc — no second
+    # click, and no new Classroom post for the same lesson.
+    doc_id = result.get("classroom_doc_id")
+    if result.get("ok") and doc_id:
+        result["classroom_sync"] = _post_hub({
+            "action": "updatelessonplan", "docId": doc_id,
+            "refleksi": refleksi, "report": report,
+        })
+    return result
 
 
 def distribute_direct(body):
@@ -1270,14 +1283,17 @@ def _plan_rows(plan):
 
 
 def classroom_lessonplan(body):
-    """One click: RPH -> Doc+PDF -> the 'Lesson Plan' Classroom via the hub."""
+    """One click (now also called automatically on RPH approval): RPH -> Doc+PDF
+    -> the 'Lesson Plan' Classroom via the hub. Sends the course NAME as well
+    as the stored id — the id in Supabase's classrooms table goes stale if
+    that Classroom is ever recreated, so the hub falls back to a name lookup."""
     plan = body.get("plan") or {}
     course = (_load_classrooms() or {}).get("lesson_plan", "")
     title = "RPH — {} — {}".format(plan.get("tingkatan_kelas", "Class"),
                                    plan.get("tarikh", ""))
     return _post_hub({
-        "action": "lessonplan", "courseId": course, "title": title,
-        "school": body.get("school", ""), "rows": _plan_rows(plan),
+        "action": "lessonplan", "courseId": course, "courseName": "Lesson Plan",
+        "title": title, "school": body.get("school", ""), "rows": _plan_rows(plan),
     })
 
 
@@ -1314,9 +1330,19 @@ def classroom_materials(body):
 
 
 def classroom_worksheet(body):
-    """One click: worksheet -> Form quiz -> the pupils' Classroom + emails."""
-    ws = body.get("worksheet") or {}
+    """One click: worksheet -> Form quiz -> the pupils' Classroom + emails.
+
+    If the class has pre-assigned pupil levels (student_levels.py — the
+    teacher's own "id delima murid dan level.txt"), this automatically fans
+    out into a differentiated distribution instead: one AI-generated
+    worksheet per level, pitched to TODAY'S topic, posted only to its own
+    pupils — no extra click, no quiz history needed first."""
     class_name = (body.get("class_name") or "").strip()
+    static_bands = student_levels.bands_for_class(class_name)
+    if static_bands:
+        return _distribute_static_differentiated(body, class_name, static_bands)
+
+    ws = body.get("worksheet") or {}
     cls_map = (_load_classrooms() or {}).get("classes", {})
     course = ""
     for name, cid in cls_map.items():
@@ -1347,6 +1373,69 @@ def classroom_worksheet(body):
                "points": ws.get("jumlah_markah") or len(questions)},
         "studentEmails": load_students().get("students", []),
     })
+
+
+def _distribute_static_differentiated(body, class_name, static_bands):
+    """The agentic part: generate one Agent-3 worksheet per band, freshly
+    written for TODAY'S topic (base_inputs.plan/theme/topic), then post each
+    only to the pupils that band belongs to (per student_levels.py) via the
+    hub's per-student assignment action. Mirrors differentiate()'s use of
+    _worksheet_for_band, just keyed by a fixed level instead of quiz history."""
+    base_inputs = dict(body.get("inputs") or {})
+    base_inputs["plan"] = body.get("plan") or {}
+    base_inputs["nama_kelas"] = class_name
+
+    by_band = {}
+    for emel, band in static_bands.items():
+        by_band.setdefault(band, []).append(emel)
+
+    cls_map = (_load_classrooms() or {}).get("classes", {})
+    course = ""
+    for name, cid in cls_map.items():
+        if name.strip().lower() == class_name.lower():
+            course = cid
+            break
+
+    due_iso = ""
+    if body.get("due_date") and body.get("due_time"):
+        due_iso = "{}T{}:00+08:00".format(body["due_date"], body["due_time"])
+
+    groups, errors = [], []
+    for band in BAND_ORDER:
+        emails = by_band.get(band)
+        if not emails:
+            continue
+        try:
+            ws = _worksheet_for_band(base_inputs, band)
+        except Exception as e:  # noqa: BLE001 — one band's failure shouldn't sink the rest
+            errors.append("{}: {}".format(band, e))
+            continue
+        questions = [{
+            "q": q.get("soalan", ""), "opts": q.get("pilihan", []),
+            "answerIndex": "ABCD".find(str(q.get("jawapan_betul", "A"))[:1]),
+            "points": int(q.get("markah", 1) or 1),
+            "feedback": q.get("maklum_balas", ""),
+        } for q in (ws.get("soalan") or [])]
+        groups.append({
+            "band": band, "title": ws.get("tajuk") or "English Quiz",
+            "description": (ws.get("arahan_murid") or "").strip()
+                or "Answer all questions and submit before the due date. Good luck!",
+            "questions": questions,
+            "points": ws.get("jumlah_markah") or len(questions),
+            "studentEmails": emails,
+        })
+    if not groups:
+        return {"ok": False, "error": "Could not generate any differentiated worksheet"
+                + ((": " + "; ".join(errors)) if errors else " — no bands to distribute.")}
+    res = _post_hub({
+        "action": "differentiatedworksheet", "courseId": course, "courseName": class_name,
+        "dueIso": due_iso, "groups": groups,
+    })
+    res.setdefault("ok", True)
+    res["differentiated"] = True
+    if errors:
+        res["partial_errors"] = errors
+    return res
 
 
 def quiz_results(body):

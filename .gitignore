@@ -26,6 +26,7 @@ niat_mail_webhook.gs
 # ---- Student & personal PII ----
 Email Student Prototype.txt
 jadualwaktu*.pdf
+id delima murid dan level.txt
 
 # ---- Private folder: personal docs, reference PDFs, school data ----
 # (dokumen-peribadi/, rujukan/, data-sekolah/ — never commit, never deploy)

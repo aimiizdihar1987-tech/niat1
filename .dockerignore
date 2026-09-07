@@ -13,6 +13,7 @@
 !wordlist.py
 !peringatan.py
 !prestasi_murid.py
+!student_levels.py
 !remind_cron.py
 !niat_google.py
 !export_docx.py

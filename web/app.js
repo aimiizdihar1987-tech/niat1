@@ -17,6 +17,7 @@ let lastInputs = null;      // Agent-1 inputs used (for saving / duplicating)
 let STUDENTS = [];          // pilot students from "Email Student Prototype.txt"
 let lastMaterials = null;   // generated teaching materials (slides object)
 let materialsUsed = false;  // did the teacher choose to use the materials?
+let lastClassroomDoc = null; // {doc_id, doc_url, classroom_url} once auto-posted to the Lesson Plan Classroom
 
 const $ = (id) => document.getElementById(id);
 
@@ -390,6 +391,7 @@ async function genLessonPlan(note = "") {
     const data = await api("/api/generate-rph", inp, "Crafting your lesson plan — objectives, activities and all…");
     lastPlan = data.rph;
     lastContext = data.konteks;
+    lastClassroomDoc = null; // a fresh plan needs its own Classroom post, not the previous one's
     renderPlan(lastPlan);
     goto(2);
     guardrailNotice(data._guardrail);
@@ -397,6 +399,27 @@ async function genLessonPlan(note = "") {
   } catch (e) {
     toast(e.message, true);
   }
+}
+
+// Fire-and-forget: post the (just-approved) lesson plan as a Google Doc to the
+// "Lesson Plan" Classroom via the hub, no teacher click needed. Keeps the
+// resulting doc_id so the reflection/report can update the SAME doc later
+// instead of creating a new post each time. Never blocks the lesson flow —
+// if the hub isn't configured or the call fails, Niat works exactly as before.
+async function autoPostLessonPlanToClassroom() {
+  if (!lastPlan) return;
+  lastClassroomDoc = null;
+  try {
+    const r = await fetch("/api/classroom-lessonplan", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ plan: lastPlan, school: (profile && profile.school) || "" }),
+    });
+    const d = await r.json();
+    if (d && d.ok) {
+      lastClassroomDoc = { doc_id: d.doc_id || "", doc_url: d.doc_url || "", classroom_url: d.classroom_url || "" };
+      toast("📄 Lesson plan auto-posted to the Lesson Plan Classroom ✓");
+    }
+  } catch (e) { /* non-fatal — the hub may not be configured yet */ }
 }
 
 function renderPlan(r) {
@@ -699,7 +722,9 @@ async function approveAndSave() {
     let libNote = "";
     try {
       await api("/api/save-lesson",
-        { plan: lastPlan, worksheet: lastWorksheet, materials: materialsUsed ? lastMaterials : null, inputs: lastInputs }, "Saving to library…");
+        { plan: lastPlan, worksheet: lastWorksheet, materials: materialsUsed ? lastMaterials : null, inputs: lastInputs,
+          classroom_doc_id: (lastClassroomDoc && lastClassroomDoc.doc_id) || "",
+          classroom_url: (lastClassroomDoc && lastClassroomDoc.classroom_url) || "" }, "Saving to library…");
       libNote = `<li>📚 Saved to <b>My Lessons</b> library</li>`;
     } catch (e) { /* non-fatal — files are already saved */ }
     $("saved-list").innerHTML =
@@ -1159,14 +1184,28 @@ async function directWorksheet() {
         worksheet: lastWorksheet, class_name: className,
         due_date: ($("due-date") ? $("due-date").value : ""),
         due_time: ($("due-time") ? $("due-time").value : ""),
+        // Only used if this class has pre-assigned pupil levels (Agent 4,
+        // student_levels.py) — lets the server regenerate one worksheet per
+        // level for TODAY'S topic instead of reusing this single one.
+        inputs: lastInputs, plan: lastPlan,
       }),
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || "Failed.");
-    toast("✅ Quiz posted to Classroom (" + className + ") — " +
-          (d.students_emailed || 0) + " pupil(s) emailed!");
-    if (d.classroom_url) window.open(d.classroom_url, "_blank");
-    else if (d.form_url) window.open(d.form_url, "_blank");
+    if (d.differentiated) {
+      const lines = (d.results || []).map((res) => res.ok
+        ? "✅ " + res.band + ": assigned to " + res.assigned + " pupil(s)"
+          + (res.missing && res.missing.length ? " (not enrolled yet: " + res.missing.join(", ") + ")" : "")
+        : "⚠️ " + res.band + ": " + (res.error || "failed"));
+      toast("🧩 Differentiated worksheets posted (" + className + "):\n" + lines.join("\n"));
+      const first = (d.results || []).find((res) => res.ok && res.classroom_url);
+      if (first) window.open(first.classroom_url, "_blank");
+    } else {
+      toast("✅ Quiz posted to Classroom (" + className + ") — " +
+            (d.students_emailed || 0) + " pupil(s) emailed!");
+      if (d.classroom_url) window.open(d.classroom_url, "_blank");
+      else if (d.form_url) window.open(d.form_url, "_blank");
+    }
   } catch (e) { toast(e.message, true); } finally { hideOverlay(); }
 }
 
@@ -1346,6 +1385,10 @@ async function fetchResults() {
       + (weak ? "<br>Weakest: " + esc(weak) : "")
       + (rows ? "<table class='g-table' style='margin-top:8px'><tr><th>Pupil</th><th style='text-align:right'>Score</th></tr>" + rows + "</table>" : "");
     toast("Results loaded — average " + d.average_percent + "%.");
+    // Human-in-the-loop: Agent 5 drafts the reflection & report automatically
+    // the moment results are in — no extra click — but everything it writes
+    // stays fully editable before the teacher saves it.
+    generateReflectionUI();
   } catch (e) {
     box.innerHTML = "⚠️ Could not reach the Niat Hub. Check APPSCRIPT_HUB_URL in reminder_config.txt.";
   } finally {
@@ -1391,8 +1434,12 @@ async function saveReflectionUI() {
   const text = $("reflect-edit") ? $("reflect-edit").value.trim() : (reflectLesson._refleksi || "");
   if (!text) return toast("Nothing to save — generate or write a reflection first.", true);
   try {
-    await api("/api/lesson-reflection",
-      { id: reflectLesson.id, refleksi: text, score: $("reflect-score").value.trim() },
+    // Sends the report too, so the server can sync BOTH into the SAME Classroom
+    // Doc this lesson was auto-posted to (REFLEKSI cell + a class-report section)
+    // — nothing new to click, it rides along with the normal Save action.
+    const syncRes = await api("/api/lesson-reflection",
+      { id: reflectLesson.id, refleksi: text, report: reflectLesson._report || "",
+        score: $("reflect-score").value.trim() },
       "Saving reflection…");
     // Keep the open lesson plan in sync so the REFLEKSI row updates live.
     if (lastPlan && reflectLesson.plan &&
@@ -1410,7 +1457,10 @@ async function saveReflectionUI() {
       const rd = await rr.json();
       if (rd && rd.ok) saved = rd.saved || "";
     } catch (e) { /* keep going — the lesson reflection is saved regardless */ }
-    toast("Reflection saved into the lesson plan ✓" + (saved ? " — report written to " + saved : ""));
+    const synced = syncRes && syncRes.classroom_sync && syncRes.classroom_sync.ok;
+    toast("Reflection saved into the lesson plan ✓"
+      + (saved ? " — report written to " + saved : "")
+      + (synced ? " — Classroom doc updated ✓" : ""));
     closeReflectModal();
   } catch (e) { toast(e.message, true); }
 }
@@ -1751,7 +1801,7 @@ function wireEvents() {
   $("btn-dl-drive").onclick = downloadDriveScript;
   $("btn-close-drive").onclick = closeDriveModal;
   document.addEventListener("click", closeExportMenu);
-  $("btn-approve-rph").onclick = () => genMaterials();
+  $("btn-approve-rph").onclick = () => { genMaterials(); autoPostLessonPlanToClassroom(); };
   // Step 3 — Teaching Materials
   $("btn-back-mat").onclick = () => goto(2);
   $("btn-regen-mat").onclick = () => genMaterials($("nota-mat").value.trim());
