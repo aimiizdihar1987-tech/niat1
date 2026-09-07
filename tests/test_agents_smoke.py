@@ -55,16 +55,7 @@ class AgentSmokeTests(unittest.TestCase):
             result = server.generate_worksheet(dict(self.inputs))
         self.assertEqual(result["worksheet"]["jumlah_soalan"], 1)
 
-    def test_agent_4_orchestration(self):
-        payload = {"refleksi": "Completed.", "report": "Good progress."}
-        with patch.object(server, "call_llm_json", return_value=payload):
-            result = server.generate_reflection({
-                "plan": {"tingkatan_kelas": "Container Test"},
-                "results": "OK", "score_avg": "75",
-            })
-        self.assertEqual(result["refleksi"], "Completed.")
-
-    def test_agent_5_decision_preview(self):
+    def test_agent_4_decision_preview(self):
         performance = [{
             "emel": "test-subject@example.invalid", "nama": "Test Subject",
             "purata": 45, "bil": 2, "terkini": 40, "trend": "down",
@@ -80,6 +71,15 @@ class AgentSmokeTests(unittest.TestCase):
                 "class_name": "Container Test", "form": 3, "decide_only": True})
         self.assertTrue(result["ok"])
         self.assertEqual(result["assignments"][0]["band"], "remedial")
+
+    def test_agent_5_orchestration(self):
+        payload = {"refleksi": "Completed.", "report": "Good progress."}
+        with patch.object(server, "call_llm_json", return_value=payload):
+            result = server.generate_reflection({
+                "plan": {"tingkatan_kelas": "Container Test"},
+                "results": "OK", "score_avg": "75",
+            })
+        self.assertEqual(result["refleksi"], "Completed.")
 
 
 if __name__ == "__main__":

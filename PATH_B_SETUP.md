@@ -39,11 +39,11 @@ In the project: **APIs & Services → Library**, enable:
   - `https://www.googleapis.com/auth/drive.file`
   - `https://www.googleapis.com/auth/classroom.courses.readonly`
   - `https://www.googleapis.com/auth/classroom.coursework.me`
-  - `https://www.googleapis.com/auth/classroom.coursework.students` — Agent 5: post a different worksheet to different pupils
-  - `https://www.googleapis.com/auth/classroom.rosters.readonly` — Agent 5: map pupil email → Classroom user id
+  - `https://www.googleapis.com/auth/classroom.coursework.students` — Agent 4: post a different worksheet to different pupils
+  - `https://www.googleapis.com/auth/classroom.rosters.readonly` — Agent 4: map pupil email → Classroom user id
 
-> The last two exist only for Agent 5 (differentiated distribution). Without them
-> the ordinary one-worksheet-for-everyone distribution still works, but Agent 5
+> The last two exist only for Agent 4 (differentiated distribution). Without them
+> the ordinary one-worksheet-for-everyone distribution still works, but Agent 4
 > cannot post per-pupil and will stay in dry-run preview.
 
 ## Step 4 — Create credentials
@@ -59,16 +59,16 @@ The code (`niat_google.py`) is already written and wired up. Two things remain:
 pip install google-api-python-client google-auth google-auth-oauthlib
 ```
 
-Then, with `client_secret.json` in this folder, use Distribute (or Agent 5) once.
+Then, with `client_secret.json` in this folder, use Distribute (or Agent 4) once.
 A browser window opens for consent, and a `token.json` is saved for reuse.
 
 > Note: this is the one place Niat needs `pip install` — it's unavoidable for
 > Google's official APIs. The server itself stays stdlib-only; `niat_google` is
 > imported lazily, so a missing library never breaks the rest of the app.
 
-**If you re-run after adding the two Agent 5 scopes, delete `token.json` first.**
+**If you re-run after adding the two Agent 4 scopes, delete `token.json` first.**
 An existing token was granted the old, narrower scope set and will not gain the
-new permissions on refresh — Agent 5 would keep failing until you re-consent.
+new permissions on refresh — Agent 4 would keep failing until you re-consent.
 
 ---
 
@@ -104,7 +104,7 @@ new permissions on refresh — Agent 5 would keep failing until you re-consent.
 
 ---
 
-*Status: the code is built (`niat_google.py`, wired to `/api/distribute-direct` and to Agent 5
-via `/api/differentiate`) but **untested against the real Google APIs**. It stays inert — Agent 5
+*Status: the code is built (`niat_google.py`, wired to `/api/distribute-direct` and to Agent 4
+via `/api/differentiate`) but **untested against the real Google APIs**. It stays inert — Agent 4
 runs in dry-run preview — until `client_secret.json` exists, the libraries are installed, and the
 scopes above are approved.*

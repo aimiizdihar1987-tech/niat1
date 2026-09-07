@@ -153,8 +153,8 @@ alter table public.vocab_words enable row level security;
 create policy "vocab readable by authenticated users"
   on public.vocab_words for select using (auth.role() = 'authenticated');
 
--- ---------- prestasi_murid (per-pupil quiz performance; feeds Agent 5) ----------
--- Each read of a distributed quiz's results banks one row per pupil. Agent 5
+-- ---------- prestasi_murid (per-pupil quiz performance; feeds Agent 4) ----------
+-- Each read of a distributed quiz's results banks one row per pupil. Agent 4
 -- averages these across recent lessons to decide a differentiated worksheet level.
 create table if not exists public.prestasi_murid (
   id         bigint generated always as identity primary key,

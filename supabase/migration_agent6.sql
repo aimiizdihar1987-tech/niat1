@@ -38,7 +38,7 @@ create policy "peringatan updatable by authenticated users"
   on public.peringatan for update using (auth.role() = 'authenticated');
 
 -- ---------- prestasi_murid (per-pupil quiz performance) ----------
--- Feeds Agent 5's banding and Agent 6's tone (a strong pupil and a struggling
+-- Feeds Agent 4's banding and Agent 6's tone (a strong pupil and a struggling
 -- pupil get very differently worded reminders).
 create table if not exists public.prestasi_murid (
   id         bigint generated always as identity primary key,

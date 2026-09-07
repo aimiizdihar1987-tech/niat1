@@ -30,7 +30,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/classroom.courses.readonly",
     "https://www.googleapis.com/auth/classroom.coursework.me",
-    # Differentiated distribution (Agent 5): create coursework for pupils in
+    # Differentiated distribution (Agent 4): create coursework for pupils in
     # courses the teacher owns, and read the roster to map email -> Classroom userId.
     "https://www.googleapis.com/auth/classroom.coursework.students",
     "https://www.googleapis.com/auth/classroom.rosters.readonly",

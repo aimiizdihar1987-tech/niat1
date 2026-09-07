@@ -5,7 +5,8 @@ A web app for teachers to automatically generate a **Daily Lesson Plan (DLP/RPH)
 
 Flow: **Setup** (teacher fills the form — not an agent) → **Agent 1** (lesson plan) → teacher
 approves → **Agent 2** (materials/slides) → **Agent 3** (worksheet) → teacher approves →
-save & distribute → **Agent 4** (reflection & report) → **Agent 5** (differentiation) →
+save & distribute → quiz score comes in → **Agent 4** (differentiation, decides levels for the
+NEXT lesson) → **Agent 5** (reflection & report, writes up THIS lesson) →
 **Agent 6** (reminds pupils who haven't submitted).
 
 ## How to run (EASY — recommended for teachers)
@@ -42,8 +43,8 @@ No `pip install` needed — the server uses the Python standard library only.
 | `prompts/agent1_rph.md` | Agent 1 system prompt (lesson plan) — **edit the format here** |
 | `prompts/agent2_materials.md` | Agent 2 system prompt (materials / slides) |
 | `prompts/agent3_worksheet.md` | Agent 3 system prompt (worksheet) |
-| `prompts/agent4_reflection.md` | Agent 4 system prompt (reflection & report) |
-| `prompts/agent5_differentiation.md` | Agent 5 system prompt (differentiated levels) |
+| `prompts/agent4_differentiation.md` | Agent 4 system prompt (differentiated levels) |
+| `prompts/agent5_reflection.md` | Agent 5 system prompt (reflection & report) |
 | `prompts/agent6_reminder.md` | Agent 6 system prompt (reminds non-submitters) |
 | `dskp_english_f3.json` | English Form 3 curriculum data (source of the dropdowns) |
 | `bank_soalan.py` | **Question Bank** — SQLite store of approved questions (reuse) |
@@ -148,7 +149,7 @@ Standards → Learning Standards, plus the 4 themes and the textbook (**Close-Up
   and (e) emails a **QR code** of the quiz. Only the Classroom service needs enabling.
 - ✅ **Lesson Library** (`lessons.py`): every approved lesson saved to SQLite — search, reopen,
   re-download, duplicate, delete (📚 My Lessons).
-- ✅ **Agent 4 — Reflect & Report** (`prompts/agent4_reflection.md`, `/api/reflect`): enter the class
+- ✅ **Agent 5 — Reflect & Report** (`prompts/agent5_reflection.md`, `/api/reflect`): enter the class
   score/notes → Gemini writes the RPH **reflection** + a **class report**; reflection saves into the
   lesson. One click then generates an **adaptive remedial worksheet** for the weak areas.
 - ✅ **CEFR Progress dashboard** (📊 Progress, `/api/progress`): per-class score charts + CEFR estimate.
@@ -164,6 +165,6 @@ Standards → Learning Standards, plus the 4 themes and the textbook (**Close-Up
   presses Send — nothing reaches a pupil unread. Runs automatically after the due date via
   **`remind_cron.py`** (see below); the cron only triggers — Agent 6 does the deciding.
 - ⏸ **Offline model fallback** (TinyLlama/Ollama) — deferred pending the local model check.
-- ✅ Direct Google Forms/Classroom API distribution is implemented for Agent 5. It becomes active after
+- ✅ Direct Google Forms/Classroom API distribution is implemented for Agent 4. It becomes active after
   one-time OAuth consent and may still require MOE domain-admin approval; containers receive the token
   through `GOOGLE_OAUTH_TOKEN_JSON`, never as a copied credential file.

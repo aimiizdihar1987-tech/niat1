@@ -1284,7 +1284,7 @@ async function libClick(e) {
   }
 }
 
-// ---- Reflect & Report (agent #6 / loop close) ----
+// ---- Reflect & Report (Agent 5 / loop close) ----
 let reflectLesson = null;
 function openReflectModal(rec) {
   reflectLesson = rec;
@@ -1293,6 +1293,7 @@ function openReflectModal(rec) {
   $("reflect-results").value = "";
   if ($("reflect-quick")) $("reflect-quick").value = "";
   if ($("results-box")) { $("results-box").classList.add("hidden"); $("results-box").innerHTML = ""; }
+  if ($("diff-output")) { $("diff-output").classList.add("hidden"); $("diff-output").innerHTML = ""; }
   $("reflect-output").classList.add("hidden");
   $("reflect-output").innerHTML = "";
   $("btn-save-reflection").classList.add("hidden");
@@ -1314,7 +1315,7 @@ async function fetchResults() {
   btn.disabled = true;
   try {
     // Pass the class so the server banks each pupil's score into their
-    // cumulative history (feeds Agent 5's differentiation decision).
+    // cumulative history (feeds Agent 4's differentiation decision).
     const className = (reflectLesson.plan && reflectLesson.plan.tingkatan_kelas) || "";
     const topic = (reflectLesson.inputs && reflectLesson.inputs.topic) ||
       (reflectLesson.plan && reflectLesson.plan.tajuk) || "";
@@ -1352,6 +1353,9 @@ async function fetchResults() {
   }
 }
 
+// Agent 5 — Reflect & Report. Runs independently of (and typically after)
+// Agent 4's differentiation above — this writes up THIS lesson, while Agent 4
+// decides worksheet levels for the NEXT one; neither blocks the other.
 async function generateReflectionUI() {
   if (!reflectLesson) return;
   try {
@@ -1372,13 +1376,10 @@ async function generateReflectionUI() {
         `<input id="reflect-email" type="email" placeholder="teacher@email.com" style="max-width:190px" />` +
         `<button id="btn-email-report" class="ghost">✉️ Email report</button>` +
         `<button id="btn-remedial" class="ghost">🎯 Generate remedial worksheet for weak areas</button>` +
-        `<button id="btn-differentiate" class="ghost">🧩 Differentiate by performance (Agent 5)</button>` +
-      `</div>` +
-      `<div id="diff-output" class="hidden" style="margin-top:10px"></div>`;
+      `</div>`;
     $("reflect-output").classList.remove("hidden");
     $("btn-save-reflection").classList.remove("hidden");
     const rb = $("btn-remedial"); if (rb) rb.onclick = generateRemedial;
-    const xb = $("btn-differentiate"); if (xb) xb.onclick = differentiateAndDistribute;
     const db = $("btn-download-report"); if (db) db.onclick = downloadReport;
     const eb = $("btn-email-report"); if (eb) eb.onclick = emailReport;
   } catch (e) { toast(e.message, true); }
@@ -1431,9 +1432,10 @@ async function generateRemedial() {
   } catch (e) { toast(e.message, true); }
 }
 
-// #3 Differentiated learning (Agent 5) — decide a worksheet LEVEL per pupil from
+// Differentiated learning (Agent 4) — decide a worksheet LEVEL per pupil from
 // their cumulative performance, generate one worksheet per level, and (fully
-// automatic) post each level to its own pupils in Google Classroom.
+// automatic) post each level to its own pupils in Google Classroom. Runs as
+// soon as the quiz score is in — before Agent 5 writes up the reflection.
 const BANDS = ["remedial", "core", "extension"];
 const BAND_CEFR = { remedial: "A2", core: "B1", extension: "B1+" };
 const BAND_COLOR = { remedial: "#e57373", core: "#64b5f6", extension: "#81c784" };
@@ -1454,7 +1456,7 @@ function diffBasePayload() {
   });
 }
 
-// Step 1: ask Agent 5 to PROPOSE a level per pupil (nothing generated/posted yet),
+// Step 1: ask Agent 4 to PROPOSE a level per pupil (nothing generated/posted yet),
 // then show an editable table so the teacher can override before distributing.
 async function differentiateAndDistribute() {
   if (!reflectLesson) return;
@@ -1464,7 +1466,7 @@ async function differentiateAndDistribute() {
   try {
     const payload = Object.assign(diffBasePayload(), { decide_only: true });
     const d = await api("/api/differentiate", payload,
-      "Agent 5: reading performance & proposing levels…");
+      "Agent 4: reading performance & proposing levels…");
     if (!d.ok) { if (out) { out.classList.remove("hidden"); out.innerHTML = "⚠️ " + esc(d.error || "Could not differentiate."); } return; }
     const rows = (d.assignments || []).map((a) => {
       const sel = "<select data-emel='" + esc(a.emel) + "' class='diff-band " + esc(a.band) + "'>" +
@@ -1485,7 +1487,7 @@ async function differentiateAndDistribute() {
       out.innerHTML =
         "<h4>🧩 Proposed levels</h4>"
         + "<p class='diff-ringkasan'>" + esc(d.ringkasan || "") + "</p>"
-        + "<p class='diff-hint'>Agent 5's suggestion — change any pupil's level, then post.</p>"
+        + "<p class='diff-hint'>Agent 4's suggestion — change any pupil's level, then post.</p>"
         + "<table class='g-table'><tr><th>Pupil</th><th style='text-align:right'>Average</th><th>Level</th><th>Why</th></tr>"
         + rows + "</table>"
         + "<div class='actions' style='justify-content:flex-start;margin-top:8px'>"
@@ -1796,6 +1798,7 @@ function wireEvents() {
   $("btn-save-reflection").onclick = saveReflectionUI;
   $("btn-close-reflect").onclick = closeReflectModal;
   if ($("btn-get-results")) $("btn-get-results").onclick = fetchResults;
+  if ($("btn-differentiate")) $("btn-differentiate").onclick = differentiateAndDistribute;
   if ($("btn-edit-ctx")) $("btn-edit-ctx").onclick = () => { const c = $("ctx-card"); if (c) c.classList.toggle("hidden"); };
   // Header ☰ menu: click/tap toggles; hover handled by CSS; closes on outside click or item pick.
   const tm = $("tools-menu"), tt = $("tools-trigger");

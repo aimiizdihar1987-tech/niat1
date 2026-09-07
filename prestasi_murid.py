@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Prestasi Murid — cumulative per-student performance store (Agent 5 / Pembezaan).
+Prestasi Murid — cumulative per-student performance store (Agent 4 / Pembezaan).
 
 Sumber isyarat untuk pembelajaran terbeza (differentiated learning): setiap kali
-keputusan kuiz Google Form dibaca, markah setiap murid disimpan di sini. Agent 5
+keputusan kuiz Google Form dibaca, markah setiap murid disimpan di sini. Agent 4
 kemudian mengira purata terkumpul setiap murid merentas beberapa pelajaran untuk
 memutuskan aras worksheet yang sesuai.
 

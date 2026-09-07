@@ -748,11 +748,15 @@ def delete_lesson_route(body):
 
 
 def generate_reflection(inputs):
-    """Agent 4: turn class results + the lesson into an RPH reflection + a teacher report."""
+    """Agent 5: turn class results + the lesson into an RPH reflection + a teacher report.
+
+    Runs AFTER differentiation (Agent 4) in the workflow — the teacher gets the
+    quiz score, decides worksheet levels for the next lesson first, then writes
+    up the reflection/report for THIS lesson."""
     plan = inputs.get("plan", {}) or {}
     results = (inputs.get("results", "") or "").strip()
     score = (inputs.get("score_avg", "") or "").strip()
-    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent4_reflection.md"))
+    system_prompt = read_text(os.path.join(PROMPT_DIR, "agent5_reflection.md"))
     sp = "; ".join(plan.get("standard_pembelajaran", []) or [])
     obj = "; ".join(plan.get("objektif_pembelajaran", []) or [])
     user_prompt = (
@@ -910,7 +914,7 @@ def distribute_direct(body):
 
 
 # ==========================================================================
-# Agent 5 — Differentiated distribution
+# Agent 4 — Differentiated distribution
 # Reads each pupil's cumulative performance, DECIDES a level per pupil, then
 # generates one worksheet per level and (fully automatic) posts each level to
 # its own pupils in the same Google Classroom.
@@ -993,7 +997,7 @@ def band_shape(band, form=3):
 
 
 def _decide_bands(cumulative, form=3):
-    """Agent 5: given cumulative per-pupil performance, return
+    """Agent 4: given cumulative per-pupil performance, return
     {emel: {band, cefr, sebab}} plus a summary. LLM first; if it fails or returns
     junk, fall back to a deterministic threshold rule so distribution still works.
     CEFR labels are pitched to the class's Form."""
@@ -1008,7 +1012,7 @@ def _decide_bands(cumulative, form=3):
     roster = "\n".join(lines)
     decided, summary = {}, ""
     try:
-        system_prompt = read_text(os.path.join(PROMPT_DIR, "agent5_differentiation.md"))
+        system_prompt = read_text(os.path.join(PROMPT_DIR, "agent4_differentiation.md"))
         user_prompt = ("Assign a differentiation band to every pupil below.\n\n"
                        "== CLASS PERFORMANCE ==\n" + roster +
                        "\n\nReturn JSON only.")
@@ -1063,7 +1067,11 @@ def _worksheet_for_band(base_inputs, band):
 
 
 def differentiate(body):
-    """Fully-automatic differentiated distribution (Agent 5).
+    """Fully-automatic differentiated distribution (Agent 4).
+
+    Runs right after the worksheet's quiz score comes in — BEFORE Agent 5
+    (reflection/report), since the differentiation decision belongs to the
+    NEXT lesson's worksheet, not this lesson's writeup.
 
     Steps: read the class's cumulative performance → decide a band per pupil →
     generate one worksheet per band that has pupils → post each band to its own
@@ -1346,7 +1354,7 @@ def quiz_results(body):
     the class report (average %, weakest questions, per-student scores).
 
     Side effect: when the caller tells us which class this quiz belongs to, each
-    pupil's score is banked in prestasi_murid.py so Agent 5 can later decide
+    pupil's score is banked in prestasi_murid.py so Agent 4 can later decide
     differentiated worksheet levels from the cumulative history."""
     res = _post_hub({
         "action": "results",

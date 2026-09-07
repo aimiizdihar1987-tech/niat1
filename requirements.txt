@@ -5,7 +5,7 @@
 # There is no web framework and no LLM SDK to install.
 #
 # The packages below are needed by niat_google.py (Path B — direct Google
-# Forms/Classroom calls used by Agent 5 and Agent 6). It is imported LAZILY, so
+# Forms/Classroom calls used by Agent 4 and Agent 6). It is imported LAZILY, so
 # the server still boots without them, but the Cloud Run image installs them
 # because /api/distribute-direct and the reminder job depend on them.
 

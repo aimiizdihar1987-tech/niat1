@@ -34,7 +34,7 @@ python migrate_to_supabase.py --data --owner YOUR_USERNAME
 
 The container deliberately refuses to start with local storage. Question bank,
 lessons, teacher-owned timetables, classroom mappings, student records, schools,
-announcements, Agent 5 performance and Agent 6 reminder history are therefore
+announcements, Agent 4 performance and Agent 6 reminder history are therefore
 not lost when an instance restarts.
 
 ## 3. Prepare Google integrations
@@ -44,7 +44,7 @@ the hub using the operational account `jpn-perlis-cm16@moe-dl.edu.my`, then keep
 its URL and key as secrets named `apps-script-hub-url` and
 `apps-script-hub-key`.
 
-Agent 5 automatic Google Forms/Classroom posting needs one-time OAuth consent.
+Agent 4 automatic Google Forms/Classroom posting needs one-time OAuth consent.
 On this PC, use the same operational account:
 
 ```powershell
@@ -126,6 +126,6 @@ stored in Supabase to make retries safe. The flags above follow the official
 - `/api/health` returns HTTP 200.
 - `/api/ready` returns HTTP 200 and `database_reachable: true`.
 - A Supabase teacher account can sign in.
-- Agent 5 completes one controlled Classroom post.
+- Agent 4 completes one controlled Classroom post.
 - Agent 6 completes one controlled overdue-submission check.
 - No local data or credential file appears in the Docker build context.

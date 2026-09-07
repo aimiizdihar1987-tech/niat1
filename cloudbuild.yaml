@@ -4,7 +4,7 @@
 #
 # Secrets (Gemini/Supabase/auth/Apps Script hub/cron) live in Secret Manager —
 # see DEPLOY_GCLOUD.md section 4. GOOGLE_OAUTH_TOKEN_JSON / NIAT_REQUIRE_GOOGLE_OAUTH
-# are deliberately omitted until Agent 5's one-time Google OAuth consent is done
+# are deliberately omitted until Agent 4's one-time Google OAuth consent is done
 # (python niat_google.py --authorize), per DEPLOY_GCLOUD.md section 3.
 
 steps:
