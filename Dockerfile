@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt \
 # outputs and unrelated prototypes never become image layers.
 COPY --chown=niat:niat server.py auth.py bank_soalan.py lessons.py ./
 COPY --chown=niat:niat supabase_client.py guardrail.py wordlist.py ./
+COPY --chown=niat:niat resilience.py orchestrator.py ./
 COPY --chown=niat:niat peringatan.py prestasi_murid.py student_levels.py remind_cron.py niat_google.py ./
 COPY --chown=niat:niat export_docx.py export_pptx.py ./
 COPY --chown=niat:niat dskp_english_f1.json dskp_english_f2.json dskp_english_f3.json ./

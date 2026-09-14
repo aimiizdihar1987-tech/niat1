@@ -31,7 +31,11 @@ from datetime import datetime, timezone
 import resilience
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-RUNS_DIR = os.path.join(ROOT, "data", "runs")
+# On Cloud Run only /tmp is reliably writable, and NIAT_OUTPUT_DIR already
+# points there; on the desktop the traces live beside the rest of the data.
+RUNS_DIR = os.path.join(
+    os.environ.get("NIAT_OUTPUT_DIR") or os.path.join(ROOT, "data"), "runs"
+)
 MAX_RUNS_KEPT = 200
 
 # --------------------------------------------------------------------------
