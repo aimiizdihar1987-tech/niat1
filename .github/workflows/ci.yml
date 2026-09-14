@@ -56,9 +56,22 @@ jobs:
       - name: Boot the container and probe its health endpoints
         # Proves the image actually serves traffic — a build that compiles but
         # cannot answer /api/health is not a deployable build.
+        # The image refuses to boot with an unsafe configuration (see
+        # runtime_configuration_errors) — that guard is the point, so CI feeds
+        # it a well-formed *dummy* configuration. No real credentials: the
+        # probe only exercises the endpoints that do not call out, and the
+        # unreachable Supabase is exactly what /api/status should report as
+        # "degraded" rather than crash on.
         run: |
           docker run -d --name niat-ci -p 8080:8080 \
             -e NIAT_CONTAINER=1 -e PORT=8080 -e NIAT_BUILD_SHA=${GITHUB_SHA::7} \
+            -e NIAT_STORAGE=supabase \
+            -e NIAT_AUTH_SECRET=ci-dummy-secret-not-used-in-production-0123456789 \
+            -e GOOGLE_API_KEY=ci-dummy-key \
+            -e SUPABASE_URL=https://ci-dummy.supabase.co \
+            -e SUPABASE_ANON_KEY=ci-dummy-anon-key \
+            -e SUPABASE_SERVICE_ROLE_KEY=ci-dummy-service-key \
+            -e NIAT_JSON_LOGS=1 \
             niat:ci
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:8080/api/health > /dev/null; then
