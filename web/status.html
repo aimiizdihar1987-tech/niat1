@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Niat — Live System Status</title>
+<style>
+  :root{
+    --bg:#fff7ed; --card:#fffdf9; --ink:#4a3f35; --muted:#9b8b7b;
+    --up:#7fc8a9; --warn:#f6c667; --down:#f29b9b; --line:#f0e4d6;
+    --shadow: 8px 8px 20px rgba(190,160,130,.18), -6px -6px 16px rgba(255,255,255,.9);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 16px 56px;background:var(--bg);color:var(--ink);
+       font:15px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 22px}
+  .card{background:var(--card);border-radius:22px;padding:18px 20px;margin-bottom:16px;
+        box-shadow:var(--shadow)}
+  .banner{display:flex;align-items:center;gap:14px}
+  .dot{width:16px;height:16px;border-radius:50%;flex:0 0 auto}
+  .dot.healthy{background:var(--up)} .dot.degraded{background:var(--warn)}
+  .dot.down{background:var(--down)} .dot.unknown{background:var(--line)}
+  .banner b{font-size:20px;text-transform:capitalize}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+  .kv{background:var(--bg);border-radius:16px;padding:12px 14px}
+  .kv span{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;
+           letter-spacing:.04em;margin-bottom:3px}
+  .kv b{font-size:15px;font-weight:600;word-break:break-word}
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+     margin:0 0 12px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.up,.pill.configured,.pill.closed{background:#e6f6ee;color:#3f7f63}
+  .pill.half_open{background:#fdf1d6;color:#8a6a1c}
+  .pill.down,.pill.open{background:#fde9e9;color:#a35252}
+  .foot{color:var(--muted);font-size:13px;text-align:center;margin-top:22px}
+  code{background:var(--bg);padding:1px 6px;border-radius:8px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Niat — Live System Status</h1>
+  <p class="sub">Public, unauthenticated health of the running deployment. Refreshes every 15 seconds.
+     Raw payload: <code>/api/status</code> · metrics: <code>/api/metrics</code> ·
+     agent graph: <code>/api/workflow</code></p>
+
+  <div class="card banner">
+    <div class="dot unknown" id="dot"></div>
+    <div><b id="state">checking…</b><div class="sub" style="margin:0" id="stateNote"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>Deployment</h2>
+    <div class="grid" id="deploy"></div>
+  </div>
+
+  <div class="card">
+    <h2>Dependencies</h2>
+    <table><thead><tr><th>Service</th><th>State</th><th>Latency</th><th>Detail</th></tr></thead>
+      <tbody id="deps"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Circuit breakers</h2>
+    <table><thead><tr><th>Target</th><th>State</th><th>Consecutive failures</th><th>Reopens in</th></tr></thead>
+      <tbody id="breakers"><tr><td colspan="4" class="sub">No calls yet this instance.</td></tr></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Call metrics (this instance)</h2>
+    <table><thead><tr><th>Call</th><th>Calls</th><th>Success</th><th>Avg</th><th>Max</th></tr></thead>
+      <tbody id="metrics"><tr><td colspan="5" class="sub">No calls yet this instance.</td></tr></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Agent orchestration</h2>
+    <div class="grid" id="orch"></div>
+  </div>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const kv = (k, v) => `<div class="kv"><span>${esc(k)}</span><b>${esc(v || "—")}</b></div>`;
+const pill = s => `<span class="pill ${esc(s)}">${esc(s)}</span>`;
+
+function uptime(sec){
+  if (sec == null) return "—";
+  const d = Math.floor(sec/86400), h = Math.floor(sec%86400/3600), m = Math.floor(sec%3600/60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+}
+
+async function refresh(){
+  try {
+    const r = await fetch("/api/status", {cache:"no-store"});
+    const s = await r.json();
+    const st = s.status || "unknown";
+    $("dot").className = "dot " + st;
+    $("state").textContent = st;
+    $("stateNote").textContent = st === "healthy"
+      ? "All configured dependencies are reachable."
+      : (s.readiness?.configuration_errors || []).join(" · ") || "One or more dependencies are degraded.";
+
+    const d = s.deployment || {};
+    $("deploy").innerHTML = kv("Platform", d.platform) + kv("Region", d.region)
+      + kv("Instance / revision", d.instance) + kv("Build", d.build_sha)
+      + kv("Started", d.started_at) + kv("Uptime", uptime(d.uptime_seconds))
+      + kv("Storage", s.readiness?.storage) + kv("Public URL", d.public_url);
+
+    $("deps").innerHTML = (s.dependencies || []).map(c =>
+      `<tr><td>${esc(c.name)}</td><td>${pill(c.status)}</td>
+        <td>${c.latency_ms != null ? c.latency_ms + " ms" : "—"}</td>
+        <td class="sub">${esc(c.detail || c.model || c.breaker || "")}</td></tr>`).join("")
+      || `<tr><td colspan="4" class="sub">No dependencies configured.</td></tr>`;
+
+    const b = s.circuit_breakers || [];
+    if (b.length) $("breakers").innerHTML = b.map(x =>
+      `<tr><td>${esc(x.name)}</td><td>${pill(x.state)}</td>
+        <td>${esc(x.consecutive_failures)}</td><td>${x.opens_for_s ? x.opens_for_s + "s" : "—"}</td></tr>`).join("");
+
+    const m = s.metrics || {};
+    const rows = Object.entries(m);
+    if (rows.length) $("metrics").innerHTML = rows.map(([k, v]) =>
+      `<tr><td>${esc(k)}</td><td>${esc(v.calls)}</td><td>${esc(v.success_rate)}%</td>
+        <td>${esc(v.avg_ms)} ms</td><td>${esc(v.max_ms)} ms</td></tr>`).join("");
+
+    const o = s.orchestration || {};
+    $("orch").innerHTML = kv("Agents registered", o.agents_registered)
+      + kv("Autonomous agents", o.autonomous_agents)
+      + kv("Teacher checkpoints", o.human_checkpoints)
+      + kv("Recent runs", o.recent_runs)
+      + kv("Run success rate", o.recent_success_rate != null ? o.recent_success_rate + "%" : "—")
+      + kv("Last run", o.last_run ? `${o.last_run.run_id} (${o.last_run.status})` : "—");
+
+    $("foot").textContent = "Checked " + (s.checked_at || "") + " · service " + (s.service || "");
+  } catch (e) {
+    $("dot").className = "dot down";
+    $("state").textContent = "unreachable";
+    $("stateNote").textContent = "The status endpoint did not respond: " + e;
+  }
+}
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>

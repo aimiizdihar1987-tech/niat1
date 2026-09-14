@@ -1,0 +1,47 @@
+name: Uptime probe
+
+# Independent, external proof that the deployed instance is alive: every 30
+# minutes GitHub (not the server itself) calls the public health endpoints and
+# fails loudly if the service is down or degraded.
+#
+# Set the repository variable NIAT_PUBLIC_URL to the live base URL
+# (Settings -> Secrets and variables -> Actions -> Variables), e.g.
+#   NIAT_PUBLIC_URL = https://niat.onrender.com
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: Probe the live deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the public URL is configured
+        run: |
+          if [ -z "${{ vars.NIAT_PUBLIC_URL }}" ]; then
+            echo "::error::NIAT_PUBLIC_URL repository variable is not set."
+            exit 1
+          fi
+
+      - name: Liveness
+        run: curl -fsS --max-time 30 "${{ vars.NIAT_PUBLIC_URL }}/api/health" | tee health.json
+
+      - name: Deep status
+        run: |
+          curl -fsS --max-time 30 "${{ vars.NIAT_PUBLIC_URL }}/api/status" | tee status.json
+          python - <<'PY'
+          import json, sys
+          s = json.load(open("status.json"))
+          print("status:", s.get("status"))
+          print("uptime_s:", s.get("deployment", {}).get("uptime_seconds"))
+          down = [d["name"] for d in s.get("dependencies", []) if d.get("status") == "down"]
+          if down:
+              print("::warning::dependencies down: " + ", ".join(down))
+          if s.get("status") == "down":
+              sys.exit("service reports itself down")
+          PY
+
+      - name: Agent graph is served
+        run: curl -fsS --max-time 30 "${{ vars.NIAT_PUBLIC_URL }}/api/workflow" > /dev/null

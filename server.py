@@ -21,6 +21,7 @@ import hmac
 import json
 import os
 import re
+import socket
 import sys
 import threading
 import time
@@ -38,8 +39,10 @@ import export_docx
 import export_pptx
 import guardrail
 import lessons
+import orchestrator
 import peringatan
 import prestasi_murid
+import resilience
 import student_levels
 import wordlist
 
@@ -266,10 +269,11 @@ def call_gemini(system_prompt, user_prompt, max_tokens=8000):
             "responseMimeType": "application/json",
         },
     }
-    # Cuba sehingga 3 kali untuk ralat sementara (429 kuota / 5xx / rangkaian).
-    data = None
-    last_err = None
-    for attempt in range(3):
+    # Transient failures (429 quota / 5xx / network) are retried with
+    # exponential backoff + jitter, behind a circuit breaker so a sustained
+    # Gemini outage fails fast instead of making every teacher wait 3x120s.
+    # See resilience.py; the breaker state is visible at /api/status.
+    def _one_call():
         req = urllib.request.Request(
             GEMINI_URL.format(model=MODEL),
             data=json.dumps(payload).encode("utf-8"),
@@ -281,20 +285,24 @@ def call_gemini(system_prompt, user_prompt, max_tokens=8000):
         )
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            break
+                return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")
-            last_err = "Gemini API ralat {}: {}".format(e.code, detail[:400])
-            if e.code not in (429, 500, 502, 503) or attempt == 2:
-                raise RuntimeError(last_err)
-        except (urllib.error.URLError, TimeoutError, OSError) as e:
-            last_err = "Rangkaian gagal: {}".format(e)
-            if attempt == 2:
-                raise RuntimeError(last_err)
-        time.sleep(2 * (attempt + 1))  # 2s, 4s
+            msg = "Gemini API ralat {}: {}".format(e.code, detail[:400])
+            if e.code == 429:
+                raise resilience.RateLimited(msg)
+            if e.code in (500, 502, 503, 504):
+                raise resilience.UpstreamError(msg)
+            # 400/401/403 won't fix themselves — don't burn the teacher's time.
+            raise resilience.ConfigurationError(msg) from e
+        except (TimeoutError, socket.timeout) as e:
+            raise resilience.UpstreamTimeout("Gemini timeout: {}".format(e)) from e
+        except (urllib.error.URLError, OSError) as e:
+            raise resilience.UpstreamError("Rangkaian gagal: {}".format(e)) from e
+
+    data = resilience.guard("gemini", _one_call, attempts=3, base_delay=2.0)
     if data is None:
-        raise RuntimeError(last_err or "Gemini tiada respons")
+        raise resilience.UpstreamError("Gemini tiada respons")
     candidates = data.get("candidates", [])
     if not candidates:
         raise RuntimeError("Gemini tiada respons (mungkin disekat): " + json.dumps(data)[:400])
@@ -2533,6 +2541,80 @@ def runtime_readiness(check_database=False):
         },
     }
 
+def _probe(name, fn):
+    """Time one dependency check and never let it raise."""
+    started = time.time()
+    try:
+        fn()
+        return {"name": name, "status": "up",
+                "latency_ms": int((time.time() - started) * 1000)}
+    except Exception as e:  # noqa: BLE001
+        err = resilience.classify(e)
+        return {"name": name, "status": "down", "code": err.code,
+                "latency_ms": int((time.time() - started) * 1000),
+                "detail": str(e)[:200]}
+
+
+def _deployment_info():
+    """Where this instance is actually running.
+
+    Cloud Run injects K_SERVICE/K_REVISION; Render injects RENDER_*; anything
+    else is treated as a self-managed host. The build sha is baked in by CI
+    (NIAT_BUILD_SHA) so the reviewer can match the live instance to a commit.
+    """
+    if os.environ.get("K_SERVICE"):
+        platform, instance = "google-cloud-run", os.environ.get("K_REVISION", "")
+    elif os.environ.get("RENDER_SERVICE_ID"):
+        platform, instance = "render", os.environ.get("RENDER_SERVICE_NAME", "")
+    elif CONTAINER_MODE:
+        platform, instance = "container", socket.gethostname()
+    else:
+        platform, instance = "self-hosted", socket.gethostname()
+    return {
+        "platform": platform,
+        "instance": instance,
+        "region": os.environ.get("NIAT_REGION") or os.environ.get("RENDER_REGION") or "",
+        "public_url": os.environ.get("NIAT_PUBLIC_URL", ""),
+        "build_sha": os.environ.get("NIAT_BUILD_SHA", "dev"),
+        "built_at": os.environ.get("NIAT_BUILD_TIME", ""),
+        "started_at": datetime.fromtimestamp(resilience.STARTED_AT).isoformat(timespec="seconds"),
+        "uptime_seconds": resilience.uptime_seconds(),
+    }
+
+
+def system_status():
+    """Deep status: deployment identity, live dependency probes, circuit-breaker
+    state, call metrics and orchestration health. This is what /api/status and
+    the public /status.html page render, and it is deliberately secret-free so
+    it can be read without logging in."""
+    checks = [_probe("self", lambda: True)]
+    if sb.configured():
+        checks.append(_probe("supabase",
+                             lambda: sb.select("app_settings",
+                                               params={"select": "key", "limit": "1"})))
+    if GOOGLE_API_KEY:
+        checks.append({"name": "gemini", "status": "configured",
+                       "model": MODEL,
+                       "breaker": resilience.breaker("gemini").snapshot()["state"]})
+    cfg = _read_reminder_cfg()
+    if cfg.get("APPSCRIPT_HUB_URL"):
+        checks.append({"name": "apps_script_hub", "status": "configured"})
+    readiness = runtime_readiness(check_database=False)
+    degraded = [c for c in checks if c.get("status") == "down"]
+    return {
+        "service": "niat",
+        "status": "down" if any(c["name"] == "self" and c.get("status") == "down" for c in checks)
+                  else ("degraded" if degraded or not readiness["ready"] else "healthy"),
+        "deployment": _deployment_info(),
+        "dependencies": checks,
+        "circuit_breakers": resilience.breakers_snapshot(),
+        "metrics": resilience.metrics_snapshot(),
+        "orchestration": orchestrator.health(),
+        "readiness": readiness,
+        "checked_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".js": "application/javascript; charset=utf-8",
@@ -2576,7 +2658,11 @@ class Handler(BaseHTTPRequestHandler):
     # Paths reachable WITHOUT logging in (login page + its logo + health probe
     # + PWA manifest/service worker, which browsers fetch outside the session).
     PUBLIC_GET = ("/login.html", "/signup.html", "/niat-logo.png", "/api/health", "/api/ready", "/favicon.ico",
-                  "/manifest.json", "/sw.js", "/icon-192.png", "/icon-512.png")
+                  "/manifest.json", "/sw.js", "/icon-192.png", "/icon-512.png",
+                  # Operational transparency: the status page and the payload it
+                  # reads are secret-free on purpose, so uptime can be verified
+                  # (by a reviewer, by JPN, by an external monitor) without a login.
+                  "/status.html", "/api/status", "/api/metrics", "/api/workflow")
 
     def _current_user(self):
         return auth.user_from_cookie(self.headers.get("Cookie", ""))
@@ -2618,6 +2704,44 @@ class Handler(BaseHTTPRequestHandler):
         return user, role
 
     def do_GET(self):
+        self._dispatch("GET", self._handle_GET)
+
+    def do_POST(self):
+        self._dispatch("POST", self._handle_POST)
+
+    def _dispatch(self, verb, handler):
+        """Single error boundary for every request.
+
+        Without this, an unexpected exception inside a handler killed the
+        connection and the browser just saw a dead request. Now every failure
+        is classified, logged with a correlation id, and returned as the same
+        JSON shape the front end already understands (`ralat`), while the
+        correlation id goes back in a header so a teacher's screenshot is
+        enough to find the matching log line.
+        """
+        cid = resilience.new_correlation_id()
+        started = time.time()
+        path = self.path.split("?", 1)[0]
+        try:
+            handler()
+            resilience.debug("http.request", verb=verb, path=path,
+                             ms=int((time.time() - started) * 1000))
+        except (BrokenPipeError, ConnectionResetError):
+            resilience.debug("http.client_disconnected", verb=verb, path=path)
+        except Exception as exc:  # noqa: BLE001
+            err = resilience.classify(exc)
+            resilience.error("http.unhandled", verb=verb, path=path, code=err.code,
+                             message=str(exc)[:400],
+                             ms=int((time.time() - started) * 1000))
+            try:
+                payload = err.to_dict()
+                payload["correlation_id"] = cid
+                self._send(err.http_status, payload,
+                           headers={"X-Correlation-Id": cid})
+            except Exception:  # noqa: BLE001 - response already started
+                pass
+
+    def _handle_GET(self):
         path = self.path.split("?", 1)[0]
         if path == "/":
             path = "/index.html"
@@ -2672,6 +2796,39 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/ready":
             status = runtime_readiness(check_database=True)
             self._send(200 if status["ready"] else 503, status)
+            return
+        if path == "/api/status":
+            # Deep status for humans and monitors: deployment identity, live
+            # dependency probes, breaker state, metrics, orchestration health.
+            st = system_status()
+            self._send(200 if st["status"] != "down" else 503, st,
+                       headers={"Cache-Control": "no-store"})
+            return
+        if path == "/api/metrics":
+            self._send(200, {
+                "uptime_seconds": resilience.uptime_seconds(),
+                "calls": resilience.metrics_snapshot(),
+                "circuit_breakers": resilience.breakers_snapshot(),
+                "recent_errors": resilience.recent_logs(limit=20, level="error"),
+            })
+            return
+        if path == "/api/workflow":
+            # The agent graph itself — who depends on whom, which steps are
+            # autonomous, where the teacher has to approve.
+            self._send(200, orchestrator.registry())
+            return
+        if path == "/api/orchestrator/runs":
+            q = parse_qs(urlparse(self.path).query)
+            mine = q.get("mine", ["1"])[0] == "1"
+            self._send(200, {"runs": orchestrator.list_runs(
+                limit=int(q.get("limit", ["25"])[0]),
+                owner=self._current_user() if mine else None)})
+            return
+        if path == "/api/orchestrator/run":
+            rid = parse_qs(urlparse(self.path).query).get("id", [""])[0]
+            run = orchestrator.Run.load(rid) if rid else None
+            self._send(200 if run else 404,
+                       run.to_dict() if run else {"ralat": "run not found"})
             return
         if path == "/api/bank-stats":
             try:
@@ -2829,7 +2986,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._send(404, {"ralat": "tidak dijumpai: " + path})
 
-    def do_POST(self):
+    def _handle_POST(self):
         path = self.path.split("?", 1)[0]
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length) if length else b"{}"
@@ -2917,6 +3074,34 @@ class Handler(BaseHTTPRequestHandler):
         # ---- Everything else needs a valid session ----
         if not self._current_user():
             self._send(401, {"ralat": "not logged in"})
+            return
+        # ---- Orchestration: start a lesson-cycle run, approve a checkpoint ----
+        if path == "/api/orchestrator/start":
+            run = orchestrator.Run.start(
+                context={k: body.get(k) for k in ("kelas", "form", "tajuk", "tarikh")
+                         if body.get(k)},
+                owner=self._current_user(),
+                agents=body.get("agents") or None,
+            )
+            self._send(200, run.to_dict())
+            return
+        if path in ("/api/orchestrator/approve", "/api/orchestrator/skip"):
+            run = orchestrator.Run.load(body.get("run_id") or "")
+            if not run:
+                self._send(404, {"ralat": "run not found"})
+                return
+            if run.data.get("owner") not in (None, self._current_user()):
+                self._send(403, {"ralat": "not your run"})
+                return
+            try:
+                if path.endswith("approve"):
+                    step = run.approve(body.get("agent_id"), by=self._current_user())
+                else:
+                    step = run.skip(body.get("agent_id"), reason=body.get("reason", ""))
+            except resilience.NiatError as e:
+                self._send(e.http_status, e.to_dict())
+                return
+            self._send(200, {"ok": True, "step": step, "run": run.summary()})
             return
         try:
             if path == "/api/export-docx":

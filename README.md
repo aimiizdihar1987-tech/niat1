@@ -9,6 +9,43 @@ save & distribute → quiz score comes in → **Agent 4** (differentiation, deci
 NEXT lesson) → **Agent 5** (reflection & report, writes up THIS lesson) →
 **Agent 6** (reminds pupils who haven't submitted).
 
+[![CI](https://github.com/aimiizdihar1987-tech/niat1/actions/workflows/ci.yml/badge.svg)](https://github.com/aimiizdihar1987-tech/niat1/actions/workflows/ci.yml)
+[![Uptime probe](https://github.com/aimiizdihar1987-tech/niat1/actions/workflows/uptime.yml/badge.svg)](https://github.com/aimiizdihar1987-tech/niat1/actions/workflows/uptime.yml)
+
+## Live deployment
+
+| | |
+|---|---|
+| **Live app** | <https://niat-1094321285675.asia-southeast1.run.app> |
+| **Public status page** (no login) | <https://niat-1094321285675.asia-southeast1.run.app/status.html> |
+| Liveness / readiness | `/api/health` · `/api/ready` |
+| Deep status (deployment, dependencies, breakers, metrics) | `/api/status` |
+| Agent workflow graph | `/api/workflow` |
+
+The status page shows the platform, region, revision, build sha and uptime of
+the instance that is actually serving, plus live dependency latency and
+circuit-breaker state. An external GitHub Actions job probes it every 30
+minutes. Full evidence: **[RELIABILITY.md](RELIABILITY.md)**.
+
+## Architecture at a glance
+
+```
+Teacher (browser, PWA)
+        |
+        v
+server.py  — single-process stdlib HTTP server
+        |     - one error boundary per request (classify -> JSON + correlation id)
+        |     - session auth, role gates, login lockout
+        |
+        +-- orchestrator.py  6-agent graph, run state machine, durable traces
+        +-- resilience.py    retry + backoff + jitter, circuit breakers,
+        |                    error taxonomy, structured JSON logs, metrics
+        +-- supabase_client   Postgres (cloud) / JSON files (desktop fallback)
+        +-- niat_google.py    Classroom + Forms (OAuth)
+        +-- niat_hub.gs       Apps Script hub — reads Classroom as the teacher
+        +-- Gemini            with local Ollama fallback when configured
+```
+
 ## How to run (EASY — recommended for teachers)
 
 1. Install Python 3.10+ (already present: 3.12).
