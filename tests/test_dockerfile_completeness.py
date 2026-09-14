@@ -53,6 +53,16 @@ def _dockerfile_copied_files():
     return copied
 
 
+def _dockerignore_allowlist():
+    """Files re-admitted with `!` after the deny-by-default `**` rule."""
+    with open(os.path.join(ROOT, ".dockerignore"), encoding="utf-8") as f:
+        return {
+            os.path.basename(line.strip()[1:].rstrip("/"))
+            for line in f
+            if line.strip().startswith("!")
+        }
+
+
 class DockerfileCompletenessTests(unittest.TestCase):
     def test_every_module_the_server_imports_is_in_the_image(self):
         expected = _first_party(_server_imports())
@@ -66,10 +76,27 @@ class DockerfileCompletenessTests(unittest.TestCase):
             "image would crash on boot with ModuleNotFoundError: " + ", ".join(missing),
         )
 
+    def test_every_copied_module_is_allowed_into_the_build_context(self):
+        # `.dockerignore` denies by default, so a file can be named in a COPY
+        # and still be absent from the context — the build then fails with
+        # "not found" even though the file exists in the repo.
+        allowed = _dockerignore_allowlist()
+        expected = _first_party(_server_imports())
+        missing = sorted(
+            "{}.py".format(m) for m in expected if "{}.py".format(m) not in allowed
+        )
+        self.assertEqual(
+            missing, [],
+            ".dockerignore does not admit these modules into the build context: "
+            + ", ".join(missing),
+        )
+
     def test_the_new_reliability_modules_are_included(self):
         copied = _dockerfile_copied_files()
-        self.assertIn("resilience.py", copied)
-        self.assertIn("orchestrator.py", copied)
+        allowed = _dockerignore_allowlist()
+        for module in ("resilience.py", "orchestrator.py"):
+            self.assertIn(module, copied)
+            self.assertIn(module, allowed)
 
     def test_the_public_status_page_ships_with_the_web_assets(self):
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "web", "status.html")))

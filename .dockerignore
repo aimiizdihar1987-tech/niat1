@@ -11,6 +11,8 @@
 !supabase_client.py
 !guardrail.py
 !wordlist.py
+!resilience.py
+!orchestrator.py
 !peringatan.py
 !prestasi_murid.py
 !student_levels.py
