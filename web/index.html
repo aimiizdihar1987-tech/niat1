@@ -43,12 +43,26 @@
     body{margin:0;font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;font-size:16px;color:var(--ink);line-height:1.6;min-height:100vh;
       background:
         radial-gradient(720px 520px at 92% -10%, rgba(38,193,178,.13), transparent 62%),
-        radial-gradient(640px 480px at -8% 18%, rgba(238,111,160,.10), transparent 60%),
+        radial-gradient(640px 480px at -8% 18%, rgba(139,124,246,.09), transparent 60%),
         radial-gradient(700px 520px at 50% 118%, rgba(246,185,59,.12), transparent 62%),
         radial-gradient(rgba(20,184,166,.07) 1.5px, transparent 1.5px),
         var(--bg);
       background-size:auto,auto,auto,28px 28px,auto;
       -webkit-font-smoothing:antialiased;}
+    /* ---- "Smart" cursor-reactive backdrop: a soft glow follows the pointer,
+       with an occasional subtle sparkle in its trail. Desktop-only, and off
+       under reduced-motion — texture, not decoration you have to notice. */
+    .cursor-glow{position:fixed;top:0;left:0;width:560px;height:560px;z-index:1;border-radius:50%;pointer-events:none;opacity:0;
+      background:radial-gradient(circle, rgba(20,184,166,.13) 0%, rgba(139,124,246,.07) 42%, transparent 70%);
+      transform:translate3d(calc(var(--mx, 50vw) - 280px), calc(var(--my, 40vh) - 280px), 0);
+      transition:opacity .5s ease; will-change:transform;}
+    body.pointer-fine .cursor-glow{opacity:1;}
+    .sparkle{position:fixed;z-index:2;pointer-events:none;color:var(--blue);opacity:0;animation:sparkle-pop 1s ease-out forwards;}
+    .sparkle svg{width:100%;height:100%;filter:drop-shadow(0 0 4px rgba(20,184,166,.45));}
+    @keyframes sparkle-pop{0%{opacity:0;transform:scale(.2) rotate(0deg);}25%{opacity:1;}100%{opacity:0;transform:scale(1) rotate(45deg) translateY(-10px);}}
+    html[data-theme="dark"] .cursor-glow{background:radial-gradient(circle, rgba(47,208,188,.15) 0%, rgba(167,139,250,.08) 42%, transparent 70%);}
+    html[data-theme="dark"] .sparkle{color:#2fd0bc;}
+    @media (pointer:coarse),(prefers-reduced-motion:reduce){.cursor-glow,.sparkle{display:none;}}
     .brand-text h1,.dash-head h2,.panel-head h2,.nc-class,.output h3,.modal-box h3,.stat-row b,.slide-title{font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;}
     ::selection{background:rgba(38,193,178,.3);}
     ::-webkit-scrollbar{width:11px;height:11px;}
@@ -395,7 +409,7 @@
     .sb-flow-badge{flex:none;width:30px;height:30px;border-radius:10px;background:var(--blue-50);color:var(--blue-700);display:grid;place-items:center;}
     .sb-flow-badge .ico{width:16px;height:16px;}
     .sb-flow-head .sb-flow-title{min-width:0;}
-    .sb-flow-head b{display:block;font-size:15.5px;font-weight:900;color:var(--blue-700);line-height:1.15;font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap;}
+    .sb-flow-head b{display:block;font-size:12.5px;font-weight:900;color:var(--blue-700);line-height:1.15;font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap;}
     .sb-flow-head span{display:block;font-size:10.5px;color:var(--muted);font-weight:700;margin-top:2px;}
     .sb-flow-phase{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 10px;margin:0 0 7px;}
     .sb-flow-phase.before{background:var(--blue-50);color:var(--blue-700);}
@@ -763,6 +777,7 @@
 
 </head>
 <body class="landing">
+  <div class="cursor-glow" id="cursor-glow" aria-hidden="true"></div>
   <svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
     <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></symbol>
@@ -869,18 +884,18 @@
         <p class="sb-flow-phase before">Before class</p>
         <ol class="sb-flow-steps before">
           <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-pen"/></svg></span>
-            <div class="sf-text"><b>You set up</b><small>Pick the class, theme &amp; topic</small></div></li>
+            <div class="sf-text"><b>You set up</b><small>Pick the class, theme &amp; topic.</small></div></li>
           <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg></span>
-            <div class="sf-text"><b>Niat generates</b><small>Lesson plan, slides &amp; worksheet</small></div></li>
+            <div class="sf-text"><b>Niat generates</b><small>Lesson plan, slides &amp; worksheet.</small></div></li>
           <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-send"/></svg></span>
-            <div class="sf-text"><b>Shared with pupils</b><small>Worksheet posted to Google Classroom</small></div></li>
+            <div class="sf-text"><b>Shared with pupils</b><small>Worksheet posted to Google Classroom.</small></div></li>
         </ol>
         <p class="sb-flow-phase after">After class</p>
         <ol class="sb-flow-steps after">
           <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg></span>
-            <div class="sf-text"><b>Niat differentiates</b><small>Levels the next worksheet by each pupil's results</small></div></li>
+            <div class="sf-text"><b>Niat differentiates</b><small>Levels the next worksheet by each pupil's results.</small></div></li>
           <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-mega"/></svg></span>
-            <div class="sf-text"><b>Niat follows up</b><small>Writes your report, nudges pupils who haven't submitted</small></div></li>
+            <div class="sf-text"><b>Niat follows up</b><small>Writes your report, nudges pupils who haven't submitted.</small></div></li>
         </ol>
       </div>
 
@@ -1688,6 +1703,33 @@
 
   <script src="app.js"></script>
   <script>
+    // ============ "Smart" cursor-reactive background: soft glow + occasional sparkle ============
+    (() => {
+      const fine = window.matchMedia("(pointer: fine)").matches;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!fine || reduceMotion) return;
+      document.body.classList.add("pointer-fine");
+      const root = document.documentElement.style;
+      const STAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l2.2 8.1L22 10l-7.8 1.9L12 20l-2.2-8.1L2 10l7.8-1.9Z"/></svg>';
+      let lastSparkle = 0;
+      document.addEventListener("mousemove", (e) => {
+        root.setProperty("--mx", e.clientX + "px");
+        root.setProperty("--my", e.clientY + "px");
+        const now = performance.now();
+        if (now - lastSparkle < 260) return; // throttle: a trail, not a swarm
+        lastSparkle = now;
+        const s = document.createElement("span");
+        s.className = "sparkle";
+        const size = 5 + Math.random() * 5;
+        s.style.left = (e.clientX + (Math.random() * 20 - 10) - size / 2) + "px";
+        s.style.top = (e.clientY + (Math.random() * 20 - 10) - size / 2) + "px";
+        s.style.width = s.style.height = size + "px";
+        s.innerHTML = STAR;
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 1050);
+      }, { passive: true });
+    })();
+
     // ============ Sidebar navigation (proxies the hidden menu buttons app.js wires) ============
     (() => {
       const setActive = (btn) =>
