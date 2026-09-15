@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign in — Niat</title>
+  <title>Sign in — NIAT</title>
   <link rel="icon" type="image/png" href="niat-logo.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0b6b60" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Niat" />
+  <meta name="apple-mobile-web-app-title" content="NIAT" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
     /* ============ NIAT · SIGN-IN GATEWAY ============
        A bolder, single-purpose screen: saturated teal brand gradient + grid
        texture + floating outline icons (echoes the app's own icon language),
-       centred brand mark, then a split card — a rotating "what Niat does"
+       centred brand mark, then a split card — a rotating "what NIAT does"
        promo panel on the left, the actual sign-in form on the right. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html,body{height:100%;}
@@ -35,7 +35,7 @@
         linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px);
       background-size: 34px 34px;
     }
-    .bg-ico { position: fixed; color: #fff; opacity: .10; pointer-events: none; z-index: 0; }
+    .bg-ico { position: fixed; color: #fff; opacity: .10; pointer-events: none; z-index: 0; transition: opacity .4s ease; }
     .bg-ico svg { width: 100%; height: 100%; }
     .bg-ico.i1 { width: 58px; height: 58px; top: 8%; left: 7%; }
     .bg-ico.i2 { width: 46px; height: 46px; top: 16%; right: 9%; }
@@ -43,6 +43,33 @@
     .bg-ico.i4 { width: 40px; height: 40px; bottom: 20%; right: 12%; }
     .bg-ico.i5 { width: 34px; height: 34px; top: 46%; left: 3%; }
     @media (max-width: 720px){ .bg-ico { display: none; } }
+
+    /* ---- "Smart" background: a soft light that follows the cursor, plus an
+       occasional subtle sparkle in its trail. Desktop-only (pointer: fine),
+       and off entirely for reduced-motion — it's texture, not decoration you
+       have to notice. */
+    .cursor-glow {
+      position: fixed; top: 0; left: 0; width: 620px; height: 620px; z-index: 0;
+      border-radius: 50%; pointer-events: none; opacity: 0;
+      background: radial-gradient(circle, rgba(255,255,255,.14) 0%, rgba(31,192,171,.08) 38%, transparent 70%);
+      transform: translate3d(calc(var(--mx, 50vw) - 310px), calc(var(--my, 40vh) - 310px), 0);
+      transition: opacity .5s ease;
+      will-change: transform;
+    }
+    body.pointer-fine .cursor-glow { opacity: 1; }
+    .sparkle {
+      position: fixed; z-index: 1; pointer-events: none; color: #fff;
+      opacity: 0; animation: sparkle-pop 1s ease-out forwards;
+    }
+    .sparkle svg { width: 100%; height: 100%; filter: drop-shadow(0 0 4px rgba(255,255,255,.8)); }
+    @keyframes sparkle-pop {
+      0% { opacity: 0; transform: scale(.2) rotate(0deg); }
+      25% { opacity: 1; }
+      100% { opacity: 0; transform: scale(1) rotate(45deg) translateY(-10px); }
+    }
+    @media (pointer: coarse), (prefers-reduced-motion: reduce) {
+      .cursor-glow, .sparkle { display: none; }
+    }
 
     /* ---- Brand header ---- */
     .brand-head { position: relative; z-index: 1; text-align: center; }
@@ -141,6 +168,7 @@
   </style>
 </head>
 <body>
+  <div class="cursor-glow" id="cursor-glow" aria-hidden="true"></div>
   <!-- decorative outline icons, same visual language as the app's own icon set -->
   <span class="bg-ico i1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/></svg></span>
   <span class="bg-ico i2" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/></svg></span>
@@ -149,10 +177,10 @@
   <span class="bg-ico i5" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
 
   <div class="brand-head">
-    <img class="logo-badge" src="niat-logo.png" alt="Niat logo" />
-    <h1>Ni<span>at</span></h1>
+    <img class="logo-badge" src="niat-logo.png" alt="NIAT logo" />
+    <h1>NI<span>AT</span></h1>
     <p class="tagline">From Intention to Intervention</p>
-    <p class="subtag">AI teaching assistant for English Language teachers</p>
+    <p class="subtag">AI Teaching Assistant specially designed for AI Powered Classroom</p>
   </div>
 
   <div class="auth-card">
@@ -160,7 +188,7 @@
       <span class="promo-badge" id="promo-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
       <div class="promo-slide">
         <p class="promo-title" id="promo-title">Set up in seconds</p>
-        <p class="promo-text" id="promo-text">Pick a class and topic — Niat takes it from there.</p>
+        <p class="promo-text" id="promo-text">Pick a class and topic — NIAT takes it from there.</p>
       </div>
       <div class="promo-dots" id="promo-dots">
         <span class="on"></span><span></span><span></span>
@@ -186,10 +214,37 @@
     </form>
   </div>
 
-  <p class="page-foot">© 2026 Niat · From Intention to Intervention</p>
+  <p class="page-foot">© 2026 NIAT · From Intention to Intervention</p>
 
   <script>
     const $ = (id) => document.getElementById(id);
+
+    // ---- "smart" cursor-reactive background: soft glow + occasional sparkle ----
+    (() => {
+      const fine = window.matchMedia("(pointer: fine)").matches;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!fine || reduceMotion) return;
+      document.body.classList.add("pointer-fine");
+      const root = document.documentElement.style;
+      const STAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l2.2 8.1L22 10l-7.8 1.9L12 20l-2.2-8.1L2 10l7.8-1.9Z"/></svg>';
+      let lastSparkle = 0;
+      document.addEventListener("mousemove", (e) => {
+        root.setProperty("--mx", e.clientX + "px");
+        root.setProperty("--my", e.clientY + "px");
+        const now = performance.now();
+        if (now - lastSparkle < 260) return; // throttle: a trail, not a swarm
+        lastSparkle = now;
+        const s = document.createElement("span");
+        s.className = "sparkle";
+        const size = 5 + Math.random() * 5;
+        s.style.left = (e.clientX + (Math.random() * 20 - 10) - size / 2) + "px";
+        s.style.top = (e.clientY + (Math.random() * 20 - 10) - size / 2) + "px";
+        s.style.width = s.style.height = size + "px";
+        s.innerHTML = STAR;
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 1050);
+      }, { passive: true });
+    })();
 
     // ---- password visibility toggle ----
     const pwInput = $("p"), pwToggle = $("pw-toggle");
@@ -200,14 +255,14 @@
       pwToggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
     });
 
-    // ---- rotating "what Niat does" promo panel ----
+    // ---- rotating "what NIAT does" promo panel ----
     const PROMO = [
       { ico: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
-        title: "Set up in seconds", text: "Pick a class and topic — Niat takes it from there." },
+        title: "Set up in seconds", text: "Pick a class and topic — NIAT takes it from there." },
       { ico: '<path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/>',
         title: "AI-generated lesson kits", text: "Full lesson plan, slides and worksheet, ready to teach." },
       { ico: '<path d="M18 20V10M12 20V4M6 20v-6"/>',
-        title: "Automatic follow-up", text: "Niat differentiates worksheets and reminds pupils who haven't submitted." },
+        title: "Automatic follow-up", text: "NIAT differentiates worksheets and reminds pupils who haven't submitted." },
     ];
     let pIdx = 0;
     const renderPromo = () => {
