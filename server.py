@@ -2652,6 +2652,7 @@ CONTENT_TYPES = {
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "PenjanaRPH/1.0"
+    _head_only = False  # set for the duration of do_HEAD; _send reads it below
 
     def log_message(self, fmt, *args):
         sys.stderr.write("  %s\n" % (fmt % args))
@@ -2667,7 +2668,9 @@ class Handler(BaseHTTPRequestHandler):
         for k, v in (headers or {}).items():
             self.send_header(k, v)
         self.end_headers()
-        self.wfile.write(body)
+        # HEAD must return the same headers a GET would, minus the body.
+        if not self._head_only:
+            self.wfile.write(body)
 
     def _redirect(self, location, headers=None):
         self.send_response(302)
@@ -2727,6 +2730,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self._dispatch("GET", self._handle_GET)
+
+    def do_HEAD(self):
+        # Without this, Python's BaseHTTPRequestHandler answers every HEAD
+        # request with 501 Not Implemented (no do_HEAD = unrecognised verb) —
+        # exactly the kind of response an uptime monitor or health probe reads
+        # as "server broken", even though GET works fine. Reuse the GET route
+        # table and just suppress the body.
+        self._head_only = True
+        try:
+            self._dispatch("GET", self._handle_GET)
+        finally:
+            self._head_only = False
 
     def do_POST(self):
         self._dispatch("POST", self._handle_POST)
