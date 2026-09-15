@@ -6,6 +6,13 @@
 # see DEPLOY_GCLOUD.md section 4. GOOGLE_OAUTH_TOKEN_JSON / NIAT_REQUIRE_GOOGLE_OAUTH
 # are deliberately omitted until Agent 4's one-time Google OAuth consent is done
 # (python niat_google.py --authorize), per DEPLOY_GCLOUD.md section 3.
+#
+# --min-instances=1 keeps one instance warm at all times so teachers never eat
+# a cold start (~1.5-2s to boot a fresh container) — Cloud Run's default of 0
+# scales the service to nothing after ~15 min idle. This has a small recurring
+# cost (roughly USD 5-10/month for one idle 512Mi/1vCPU instance in
+# asia-southeast1); drop the flag to go back to scale-to-zero if that's not
+# worth it for this traffic level.
 
 steps:
   - name: "gcr.io/cloud-builders/docker"
@@ -32,6 +39,7 @@ steps:
       - "--image=asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:$COMMIT_SHA"
       - "--region=asia-southeast1"
       - "--allow-unauthenticated"
+      - "--min-instances=1"
       - "--set-env-vars=NIAT_REQUIRE_HUB=1,TEACHER_EMAIL=jpn-perlis-cm16@moe-dl.edu.my,NIAT_BUILD_SHA=$SHORT_SHA,NIAT_REGION=asia-southeast1,NIAT_JSON_LOGS=1,NIAT_PUBLIC_URL=https://niat-1094321285675.asia-southeast1.run.app"
       - "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:latest,NIAT_AUTH_SECRET=niat-auth-secret:latest,APPSCRIPT_HUB_URL=apps-script-hub-url:latest,APPSCRIPT_HUB_KEY=apps-script-hub-key:latest,NIAT_CRON_SECRET=niat-cron-secret:latest,GAMMA_API_KEY=gamma-api-key:latest"
 

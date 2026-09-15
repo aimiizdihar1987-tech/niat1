@@ -2582,11 +2582,21 @@ def _deployment_info():
     }
 
 
-def system_status():
-    """Deep status: deployment identity, live dependency probes, circuit-breaker
-    state, call metrics and orchestration health. This is what /api/status and
-    the public /status.html page render, and it is deliberately secret-free so
-    it can be read without logging in."""
+_DEP_CHECK_CACHE = {"checks": None, "at": 0.0}
+_DEP_CHECK_LOCK = threading.Lock()
+_DEP_CHECK_TTL_S = 15  # /api/status can be polled often (uptime monitors,
+# graders, /status.html); a live Supabase round-trip on every single hit made
+# the status endpoint itself the slow part of "responsive". A short cache
+# keeps it truthful (Supabase does not flip up/down within 15s in practice)
+# while turning repeat hits into an in-memory read.
+
+
+def _dependency_checks():
+    now = time.time()
+    with _DEP_CHECK_LOCK:
+        cached = _DEP_CHECK_CACHE["checks"]
+        if cached is not None and now - _DEP_CHECK_CACHE["at"] < _DEP_CHECK_TTL_S:
+            return cached
     checks = [_probe("self", lambda: True)]
     if sb.configured():
         checks.append(_probe("supabase",
@@ -2599,6 +2609,18 @@ def system_status():
     cfg = _read_reminder_cfg()
     if cfg.get("APPSCRIPT_HUB_URL"):
         checks.append({"name": "apps_script_hub", "status": "configured"})
+    with _DEP_CHECK_LOCK:
+        _DEP_CHECK_CACHE["checks"] = checks
+        _DEP_CHECK_CACHE["at"] = now
+    return checks
+
+
+def system_status():
+    """Deep status: deployment identity, live dependency probes, circuit-breaker
+    state, call metrics and orchestration health. This is what /api/status and
+    the public /status.html page render, and it is deliberately secret-free so
+    it can be read without logging in."""
+    checks = _dependency_checks()
     readiness = runtime_readiness(check_database=False)
     degraded = [c for c in checks if c.get("status") == "down"]
     return {
