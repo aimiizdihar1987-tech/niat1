@@ -74,8 +74,8 @@
 
     /* ---- Smart dashboard (landing) ---- */
     .dash{max-width:1000px;margin:0 auto;padding:clamp(22px,4.5vh,48px) 24px 46px;animation:rise .45s ease;}
-    .eyebrow{font-size:12.5px;font-weight:800;color:var(--pink-deep);margin:0 0 10px;display:flex;align-items:center;gap:8px;}
-    .eyebrow::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--pink);display:inline-block;box-shadow:0 0 0 4px var(--pink-50);}
+    .eyebrow{font-size:12.5px;font-weight:800;color:var(--blue-700);margin:0 0 10px;display:flex;align-items:center;gap:8px;}
+    .eyebrow::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--blue);display:inline-block;box-shadow:0 0 0 4px var(--blue-50);}
     .dash-head h2{font-size:clamp(30px,4.2vw,42px);font-weight:900;letter-spacing:-.02em;margin:0 0 4px;}
     .dash-head h2 em{font-style:normal;color:var(--blue);}
     .dash-sub{color:var(--muted);font-size:16px;margin:0 0 26px;}
@@ -224,8 +224,8 @@
     .sp-list .kod{font-weight:800;color:var(--blue-700);margin-right:6px;}
     .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
     .chip{padding:9px 18px;border-radius:999px;background:var(--panel);border:2px solid var(--line);cursor:pointer;font-size:13.5px;font-weight:700;color:var(--muted);user-select:none;transition:.15s;box-shadow:0 2px 0 rgba(34,51,62,.04);}
-    .chip:hover{border-color:var(--pink);color:var(--pink-deep);transform:translateY(-2px);}
-    .chip.on{background:var(--pink);color:#fff;border-color:var(--pink);box-shadow:0 4px 0 #cf4f83;}
+    .chip:hover{border-color:var(--blue);color:var(--blue-700);transform:translateY(-2px);}
+    .chip.on{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:0 4px 0 var(--blue-700);}
 
     /* ---- Buttons: chunky clay pills ---- */
     .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px;align-items:center;}
@@ -291,7 +291,7 @@
     .saved-list{list-style:none;padding:0;font-size:15.5px;max-width:560px;margin:0 auto 6px;}
     .saved-list li{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:13px 17px;margin-bottom:8px;}
     .saved-list code{background:var(--blue-50);color:var(--blue-700);padding:2px 7px;border-radius:6px;font-size:14px;}
-    .done-check{width:74px;height:74px;margin:0 auto 14px;border-radius:50%;background:linear-gradient(120deg,#14b8a6,#ee6fa0);color:#fff;font-size:38px;display:grid;place-items:center;box-shadow:0 14px 30px rgba(238,111,160,.3);animation:pop .4s ease;}
+    .done-check{width:74px;height:74px;margin:0 auto 14px;border-radius:50%;background:linear-gradient(120deg,#14b8a6,#8b7cf6);color:#fff;font-size:38px;display:grid;place-items:center;box-shadow:0 14px 30px rgba(20,184,166,.3);animation:pop .4s ease;}
     @keyframes pop{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
     .foot{text-align:center;color:var(--muted);font-size:13px;font-weight:600;padding:8px 16px 34px;}
     .foot b{color:var(--blue-700);}
@@ -381,8 +381,39 @@
     .sb-item:hover{background:var(--card);color:var(--ink);border-color:var(--line);}
     .sb-item.active{background:var(--blue-50);color:var(--blue-700);border-color:var(--blue-50);box-shadow:0 4px 12px rgba(20,184,166,.14);}
     .sb-emo{font-size:18px;line-height:1;flex:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.08));}
-    .sb-count{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:800;background:var(--pink-50);color:var(--pink-deep);border-radius:999px;padding:2px 9px;}
+    .sb-count{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:800;background:var(--blue-50);color:var(--blue-700);border-radius:999px;padding:2px 9px;}
     .sb-foot{margin-top:auto;padding:10px;font-size:11.5px;color:var(--muted);font-weight:600;}
+
+    /* ---- Sidebar system-workflow explainer: sits above the nav list, always
+       visible, so a teacher understands what Niat actually does at a glance.
+       Plain language, professional type — no "Agent N" jargon here. Styled as
+       its own highlighted card since this is the single most important thing
+       a new teacher needs to understand about the system. */
+    .sb-flow{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:14px 11px 12px;margin-bottom:14px;position:relative;overflow:hidden;box-shadow:var(--clay);}
+    .sb-flow::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--blue),var(--violet));}
+    .sb-flow-head{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
+    .sb-flow-badge{flex:none;width:30px;height:30px;border-radius:10px;background:var(--blue-50);color:var(--blue-700);display:grid;place-items:center;}
+    .sb-flow-badge .ico{width:16px;height:16px;}
+    .sb-flow-head .sb-flow-title{min-width:0;}
+    .sb-flow-head b{display:block;font-size:15.5px;font-weight:900;color:var(--blue-700);line-height:1.15;font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap;}
+    .sb-flow-head span{display:block;font-size:10.5px;color:var(--muted);font-weight:700;margin-top:2px;}
+    .sb-flow-phase{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 10px;margin:0 0 7px;}
+    .sb-flow-phase.before{background:var(--blue-50);color:var(--blue-700);}
+    .sb-flow-phase.after{background:var(--violet-50);color:var(--violet-deep);margin-top:11px;}
+    /* Plain divided rows, not a timeline — a fragile absolute-positioned
+       connector line looked broken once titles wrapped to two lines, so each
+       step is just an icon chip + text with a dashed rule between rows. */
+    .sb-flow-steps{list-style:none;margin:0;padding:0;}
+    .sb-flow-steps li{display:flex;align-items:flex-start;gap:7px;padding:8px 0;border-bottom:1px dashed var(--line);}
+    .sb-flow-steps li:last-child{border-bottom:0;padding-bottom:0;}
+    .sb-flow-steps li:first-child{padding-top:0;}
+    .sb-flow-dot{flex:none;width:21px;height:21px;border-radius:7px;display:grid;place-items:center;margin-top:1px;}
+    .sb-flow-steps.before .sb-flow-dot{background:var(--blue-50);color:var(--blue-700);}
+    .sb-flow-steps.after .sb-flow-dot{background:var(--violet-50);color:var(--violet-deep);}
+    .sb-flow-dot .ico{width:11px;height:11px;}
+    .sb-flow-steps .sf-text{min-width:0;}
+    .sb-flow-steps b{display:block;font-size:11px;color:var(--ink);font-weight:800;line-height:1.3;font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;text-transform:uppercase;letter-spacing:0;white-space:nowrap;}
+    .sb-flow-steps small{display:block;font-size:11px;color:var(--muted);line-height:1.4;margin-top:2px;font-weight:600;}
     .sidebar-toggle{display:none;}
     @media(min-width:881px){
       body{padding-left:242px;}
@@ -395,7 +426,7 @@
       .sidebar-toggle{display:inline-flex;order:1;}
       .sidebar{position:absolute;top:100%;left:12px;right:12px;bottom:auto;width:auto;flex-direction:column;border:0;border-radius:20px;box-shadow:none;padding:0;gap:2px;max-height:0;opacity:0;overflow:hidden;pointer-events:none;transition:max-height .2s ease,opacity .15s ease,padding .2s ease;}
       .sidebar.open{max-height:min(70vh,520px);opacity:1;pointer-events:auto;overflow-y:auto;padding:10px;border:2px solid var(--line);box-shadow:var(--shadow-lg);}
-      .sb-foot,.sb-brand{display:none;}
+      .sb-foot,.sb-brand,.sb-flow{display:none;}
       /* Single row: ☰ (left) — logo+title (center, shrinks to fit) — avatar (right). LED ticker wraps to its own row below. */
       .topbar{flex-wrap:wrap;}
       .topbar .brand{order:2;flex:1 1 0%;min-width:0;justify-content:center;}
@@ -408,9 +439,9 @@
        carousel is hidden until the admin posts a notice). Without it the
        space-between fallback drags the avatar over to the left. */
     .acct-menu{position:relative;margin-left:auto;}
-    .acct-trigger{position:relative;overflow:hidden;width:42px;height:42px;border-radius:50%;background:var(--pink);color:#fff;font-weight:800;font-size:16px;border:2px solid transparent;cursor:pointer;display:grid;place-items:center;font-family:inherit;box-shadow:0 0 0 3px var(--pink-50);}
+    .acct-trigger{position:relative;overflow:hidden;width:42px;height:42px;border-radius:50%;background:var(--blue);color:#fff;font-weight:800;font-size:16px;border:2px solid transparent;cursor:pointer;display:grid;place-items:center;font-family:inherit;box-shadow:0 0 0 3px var(--blue-50);}
     .acct-trigger img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;display:none;}
-    .acct-trigger:hover{box-shadow:0 0 0 4px var(--pink-50),0 8px 18px rgba(238,111,160,.3);}
+    .acct-trigger:hover{box-shadow:0 0 0 4px var(--blue-50),0 8px 18px rgba(14,133,120,.3);}
     .acct-pop{position:absolute;right:0;top:calc(100% + 10px);background:var(--panel);border:2px solid var(--line);border-radius:22px;box-shadow:var(--shadow-lg);padding:8px;display:none;flex-direction:column;min-width:256px;z-index:45;}
     .acct-menu.open .acct-pop{display:flex;}
     .acct-row{display:flex;align-items:center;gap:10px;padding:10px 12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);border-radius:12px;background:transparent;border:none;text-align:left;}
@@ -421,7 +452,7 @@
     .acct-sep{height:2px;background:var(--line);margin:6px 4px;border-radius:2px;}
     .acct-label{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8ba0ac;padding:6px 12px 2px;margin:0;}
     .acct-head{display:flex;align-items:center;gap:13px;padding:14px 13px;background:var(--grad-soft);border:2px solid var(--line);border-radius:18px;margin:2px 2px 8px;}
-    .acct-ava{position:relative;width:52px;height:52px;border-radius:50%;background:var(--pink);flex:none;cursor:pointer;display:grid;place-items:center;box-shadow:0 0 0 2px #fff,0 0 0 5px var(--pink);}
+    .acct-ava{position:relative;width:52px;height:52px;border-radius:50%;background:var(--blue);flex:none;cursor:pointer;display:grid;place-items:center;box-shadow:0 0 0 2px #fff,0 0 0 5px var(--blue);}
     .acct-ava img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;display:none;}
     #acct-ava-initial{font-weight:800;font-size:20px;color:#fff;}
     .ava-edit{position:absolute;right:-5px;bottom:-5px;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;border:2px solid #fff;}
@@ -447,13 +478,13 @@
     @keyframes gflow{to{background-position:300% 0;}}
     @keyframes gflow2{to{background-position:0 0,300% 0;}}
     @keyframes gfloat{from{transform:translateY(0);}to{transform:translateY(-3px);}}
-    .guide-fab{position:fixed;right:22px;bottom:22px;z-index:65;display:inline-flex;align-items:center;gap:8px;padding:12px 19px;border-radius:999px;border:3px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(90deg,#14b8a6,#f6b93b,#ee6fa0,#14b8a6) border-box;background-size:auto,300% 100%;animation:gflow2 5s linear infinite;color:var(--ink);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;box-shadow:var(--shadow-lg);transition:box-shadow .18s,transform .18s;}
-    .guide-fab:hover{box-shadow:var(--shadow-lg),0 10px 24px rgba(238,111,160,.28);transform:translateY(-2px);}
-    .guide-fab .ico{width:16px;height:16px;color:var(--pink);}
-    .guide-fab.pulse::after{content:"";position:absolute;inset:-5px;border-radius:999px;border:3px solid rgba(238,111,160,.5);animation:gpulse 1.7s ease-out infinite;}
+    .guide-fab{position:fixed;right:22px;bottom:22px;z-index:65;display:inline-flex;align-items:center;gap:8px;padding:12px 19px;border-radius:999px;border:3px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(90deg,#14b8a6,#f6b93b,#14b8a6) border-box;background-size:auto,300% 100%;animation:gflow2 5s linear infinite;color:var(--ink);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;box-shadow:var(--shadow-lg);transition:box-shadow .18s,transform .18s;}
+    .guide-fab:hover{box-shadow:var(--shadow-lg),0 10px 24px rgba(14,133,120,.28);transform:translateY(-2px);}
+    .guide-fab .ico{width:16px;height:16px;color:var(--blue);}
+    .guide-fab.pulse::after{content:"";position:absolute;inset:-5px;border-radius:999px;border:3px solid rgba(14,133,120,.5);animation:gpulse 1.7s ease-out infinite;}
     @keyframes gpulse{from{opacity:1;transform:scale(1);}to{opacity:0;transform:scale(1.22);}}
     .guide-pop{position:fixed;right:22px;bottom:80px;z-index:65;width:min(370px,calc(100vw - 34px));background:var(--panel);border:2px solid var(--line);border-radius:24px;box-shadow:var(--shadow-lg);padding:16px 14px 14px;display:none;overflow:hidden;}
-    .guide-pop::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,#14b8a6,#f6b93b,#ee6fa0,#14b8a6);background-size:300% 100%;animation:gflow 4s linear infinite;}
+    .guide-pop::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,#14b8a6,#f6b93b,#14b8a6);background-size:300% 100%;animation:gflow 4s linear infinite;}
     .guide.open .guide-pop{display:block;animation:rise .25s ease;}
     .guide-head{display:flex;align-items:center;gap:11px;margin-bottom:11px;}
     .guide-head img{width:40px;height:40px;object-fit:contain;background:#fff;border-radius:13px;padding:3px;flex:none;animation:gfloat 2.6s ease-in-out infinite alternate;box-shadow:0 4px 10px rgba(34,51,62,.12);}
@@ -556,7 +587,7 @@
       white-space:nowrap;will-change:transform;animation:ac-marquee 20s linear infinite;}
     .announce-carousel:hover .ac-track{animation-play-state:paused;}
     .ac-item{display:inline-flex;align-items:center;gap:11px;}
-    .ac-eyebrow{flex:none;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--pink);border-radius:999px;padding:5px 13px;line-height:1;}
+    .ac-eyebrow{flex:none;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--blue);border-radius:999px;padding:5px 13px;line-height:1;}
     .ac-msg{font-size:18px;font-weight:700;color:var(--sun-deep);line-height:1.2;white-space:nowrap;}
     @keyframes ac-marquee{from{transform:translateX(0);}to{transform:translateX(-50%);}}
     @media(max-width:880px){.announce-carousel{flex-basis:100%;order:3;}}
@@ -595,7 +626,7 @@
     html[data-theme="dark"] .topbar{background:var(--bg);}
     html[data-theme="dark"] .pill{box-shadow:none;}
     html[data-theme="dark"] .chip{box-shadow:none;}
-    html[data-theme="dark"] .chip.on{background:var(--pink);color:#3c1024;border-color:var(--pink);box-shadow:0 4px 0 #b95580;}
+    html[data-theme="dark"] .chip.on{background:var(--blue);color:#06302a;border-color:var(--blue);box-shadow:0 4px 0 var(--blue-700);}
     html[data-theme="dark"] label{color:#c3d4dd;}
     html[data-theme="dark"] .rcpt-grid label,html[data-theme="dark"] .how-list{color:#c3d4dd;}
     html[data-theme="dark"] button.primary{color:#06302a;box-shadow:0 4px 0 #1a8a7c;}
@@ -631,7 +662,7 @@
     html[data-theme="dark"] .admin-status.off{background:rgba(248,113,113,.14);color:var(--err);}
     html[data-theme="dark"] .acct-trigger{color:#3c1024;}
     html[data-theme="dark"] #acct-ava-initial{color:#3c1024;}
-    html[data-theme="dark"] .acct-ava{box-shadow:0 0 0 2px var(--panel),0 0 0 5px var(--pink);}
+    html[data-theme="dark"] .acct-ava{box-shadow:0 0 0 2px var(--panel),0 0 0 5px var(--blue);}
     html[data-theme="dark"] .ava-edit{border-color:var(--panel);background:var(--ink);color:var(--bg);}
     html[data-theme="dark"] .theme-seg .theme-opt.on{color:#06302a;}
     html[data-theme="dark"] .lang-seg button.on{color:#06302a;}
@@ -642,10 +673,10 @@
     html[data-theme="dark"] .fs-slider::-webkit-slider-thumb{border-color:var(--panel);}
     html[data-theme="dark"] .done-check{color:#fff;}
     html[data-theme="dark"] .slide-notes{color:#c3d4dd;}
-    html[data-theme="dark"] .guide-fab{background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(90deg,#2fd0bc,#f7c948,#f585ae,#2fd0bc) border-box;background-size:auto,300% 100%;}
-    html[data-theme="dark"] .guide-pop::before{background:linear-gradient(90deg,#2fd0bc,#f7c948,#f585ae,#2fd0bc);background-size:300% 100%;}
+    html[data-theme="dark"] .guide-fab{background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(90deg,#2fd0bc,#f7c948,#2fd0bc) border-box;background-size:auto,300% 100%;}
+    html[data-theme="dark"] .guide-pop::before{background:linear-gradient(90deg,#2fd0bc,#f7c948,#2fd0bc);background-size:300% 100%;}
     html[data-theme="dark"] .g-chip.here{background:var(--blue);}
-    html[data-theme="dark"] .guide-fab .ico{color:var(--pink);}
+    html[data-theme="dark"] .guide-fab .ico{color:var(--blue);}
     html[data-theme="dark"] button.mini.danger:hover{background:#dc2626;color:#fff;}
     html[data-theme="dark"] button.acct-row.acct-logout:hover{background:rgba(248,113,113,.12);}
 
@@ -695,7 +726,7 @@
       --clay-shadow:8px 8px 20px rgba(103,86,150,.10),-6px -6px 16px rgba(255,255,255,.9);
       --clay-in:inset 3px 3px 7px rgba(103,86,150,.12),inset -3px -3px 7px rgba(255,255,255,.85);
       background:var(--clay-ground);color:var(--clay-ink);border-radius:22px;padding:20px;box-shadow:var(--clay-in);
-      font-family:"Segoe UI Rounded","SF Pro Rounded",ui-rounded,"Nunito",system-ui,sans-serif;}
+      font-family:"Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;}
     #diff-output h4{margin:.1em 0;font-size:17px;color:var(--clay-ink);}
     #diff-output .diff-ringkasan{color:var(--clay-soft);font-size:14px;margin:.3em 0 0;}
     #diff-output .diff-hint{color:var(--clay-soft);font-size:13px;margin:.2em 0 12px;}
@@ -755,6 +786,7 @@
     <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
     <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></symbol>
   </svg>
   <script>
     // Reminder deep-links (…?class=3%20Delima) skip the landing page entirely.
@@ -824,6 +856,34 @@
         <img src="niat-logo.png" alt="Niat logo" />
         <div><b>Ni<span>at</span></b><p>From Intention to Intervention</p></div>
       </div>
+
+      <!-- System workflow explainer: plain-language overview of what Niat
+           actually automates. Always visible (not a toggle) — this is the
+           single most important thing a teacher needs to understand about
+           the system, so it stays in view rather than hidden behind a click. -->
+      <div class="sb-flow" id="sb-flow">
+        <div class="sb-flow-head">
+          <span class="sb-flow-badge"><svg class="ico" aria-hidden="true"><use href="#i-compass"/></svg></span>
+          <div class="sb-flow-title"><b>How Niat Works</b><span>Your automated teaching workflow</span></div>
+        </div>
+        <p class="sb-flow-phase before">Before class</p>
+        <ol class="sb-flow-steps before">
+          <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-pen"/></svg></span>
+            <div class="sf-text"><b>You set up</b><small>Pick the class, theme &amp; topic</small></div></li>
+          <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg></span>
+            <div class="sf-text"><b>Niat generates</b><small>Lesson plan, slides &amp; worksheet</small></div></li>
+          <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-send"/></svg></span>
+            <div class="sf-text"><b>Shared with pupils</b><small>Worksheet posted to Google Classroom</small></div></li>
+        </ol>
+        <p class="sb-flow-phase after">After class</p>
+        <ol class="sb-flow-steps after">
+          <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg></span>
+            <div class="sf-text"><b>Niat differentiates</b><small>Levels the next worksheet by each pupil's results</small></div></li>
+          <li><span class="sb-flow-dot"><svg class="ico" aria-hidden="true"><use href="#i-mega"/></svg></span>
+            <div class="sf-text"><b>Niat follows up</b><small>Writes your report, nudges pupils who haven't submitted</small></div></li>
+        </ol>
+      </div>
+
       <p class="sb-label">Navigate</p>
       <button class="sb-item active" id="sb-home" type="button"><span class="sb-emo">🏠</span> Dashboard</button>
       <button class="sb-item teacher-only" id="sb-new" type="button"><span class="sb-emo">✨</span> New lesson</button>
@@ -1868,7 +1928,7 @@
           const cards = [
             [tr("teachers"), o.teachers, "i-user", "blue"],
             [tr("activeTeachers"), o.active_teachers, "i-eye", "violet"],
-            [tr("admins"), o.admins, "i-shield", "pink"],
+            [tr("admins"), o.admins, "i-shield", "violet"],
             [tr("savedLessons"), o.lessons_total, "i-book", "sun"],
             [tr("bankQuestions"), o.bank_total, "i-db", "blue"],
           ];
@@ -1898,7 +1958,7 @@
               sub: tr("ovTimetableSub", { total: o.timetables_total }), goto: "timetables",
             }),
             ovCard({
-              hue: "pink", ico: "i-folder", title: tr("ovResourcesTitle"), big: o.classrooms_total,
+              hue: "blue", ico: "i-folder", title: tr("ovResourcesTitle"), big: o.classrooms_total,
               sub: tr("ovResourcesSub"), list: [[tr("ovStudentsLabel"), o.students_total]], goto: "resources",
             }),
             ovCard({

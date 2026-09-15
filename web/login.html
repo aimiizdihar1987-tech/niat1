@@ -6,90 +6,220 @@
   <title>Sign in — Niat</title>
   <link rel="icon" type="image/png" href="niat-logo.png" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#0b6b60" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Niat" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
+    /* ============ NIAT · SIGN-IN GATEWAY ============
+       A bolder, single-purpose screen: saturated teal brand gradient + grid
+       texture + floating outline icons (echoes the app's own icon language),
+       centred brand mark, then a split card — a rotating "what Niat does"
+       promo panel on the left, the actual sign-in form on the right. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html,body{height:100%;}
     body {
-      font-family: "Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif; min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      color: #22333e;
-      background:
-        radial-gradient(700px 420px at 80% -10%, rgba(38,193,178,.16), transparent 60%),
-        radial-gradient(700px 460px at -8% 30%, rgba(238,111,160,.13), transparent 60%),
-        radial-gradient(600px 380px at 40% 110%, rgba(246,185,59,.16), transparent 60%),
-        radial-gradient(rgba(20,184,166,.07) 1.5px, transparent 1.5px),
-        #eef4f6;
-      background-size: auto, auto, auto, 28px 28px, auto;
+      font-family: "Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;
+      min-height: 100vh; color: #eafff8;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 26px; padding: 44px 18px; position: relative; overflow-x: hidden;
+      background: linear-gradient(160deg, #0a5f55 0%, #0e8578 42%, #17a595 75%, #1fc0ab 100%);
     }
-    .card {
-      background: #ffffff; border-radius: 28px; padding: 38px 36px 32px;
-      width: 100%; max-width: 380px; border: 2px solid #e2ebef;
-      box-shadow: 0 22px 48px rgba(34,51,62,.14);
-      text-align: center;
+    /* subtle grid, like graph paper — professional, not playful */
+    body::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px);
+      background-size: 34px 34px;
     }
+    .bg-ico { position: fixed; color: #fff; opacity: .10; pointer-events: none; z-index: 0; }
+    .bg-ico svg { width: 100%; height: 100%; }
+    .bg-ico.i1 { width: 58px; height: 58px; top: 8%; left: 7%; }
+    .bg-ico.i2 { width: 46px; height: 46px; top: 16%; right: 9%; }
+    .bg-ico.i3 { width: 64px; height: 64px; bottom: 10%; left: 9%; }
+    .bg-ico.i4 { width: 40px; height: 40px; bottom: 20%; right: 12%; }
+    .bg-ico.i5 { width: 34px; height: 34px; top: 46%; left: 3%; }
+    @media (max-width: 720px){ .bg-ico { display: none; } }
+
+    /* ---- Brand header ---- */
+    .brand-head { position: relative; z-index: 1; text-align: center; }
     @keyframes logo-float {
-      0%, 100% { transform: translate3d(0, 0, 0) rotate(-.7deg); box-shadow: 0 8px 18px rgba(34,51,62,.12); }
-      50% { transform: translate3d(0, -8px, 0) rotate(.9deg); box-shadow: 0 16px 26px rgba(34,51,62,.16); }
+      0%, 100% { transform: translate3d(0, 0, 0) rotate(-.7deg); }
+      50% { transform: translate3d(0, -8px, 0) rotate(.9deg); }
     }
-    .card img { width: 72px; height: 72px; object-fit: contain; margin-bottom: 10px;
-      background: #fff; border-radius: 20px; padding: 4px;
+    .logo-badge {
+      width: 76px; height: 76px; object-fit: contain; margin: 0 auto 12px;
+      background: #fff; border-radius: 22px; padding: 6px; display: block;
+      box-shadow: 0 14px 30px rgba(3,28,22,.35);
       animation: logo-float 5.6s ease-in-out infinite; transform-origin: 50% 55%;
-      will-change: transform, box-shadow; }
-    h1 { font-family: "Helvetica World","Helvetica Neue",Helvetica,"Inter",Arial,sans-serif; font-size: 30px;
-      font-weight: 900; letter-spacing: -.01em; color: #22333e; }
-    h1 span { color: #0e8578; }
-    .tag { font-size:12.5px; color: #5a707d;
-      font-weight: 600; margin: 6px 0 24px; }
-    label { display: block; text-align: left; font-size:14px; font-weight: 700;
-            color: #3b4f5c; margin: 12px 0 5px; }
+    }
+    .brand-head h1 {
+      font-size: 32px; font-weight: 900; letter-spacing: -.01em; color: #fff; line-height: 1;
+    }
+    .brand-head h1 span { color: #ffd166; }
+    .brand-head .tagline { font-size: 13px; font-weight: 700; color: #d3fff2; margin-top: 7px; }
+    .brand-head .subtag { font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,.62); margin-top: 3px; }
+
+    /* ---- Split card ---- */
+    .auth-card {
+      position: relative; z-index: 1; width: 100%; max-width: 760px;
+      display: flex; align-items: stretch; background: #fff; border-radius: 28px;
+      overflow: hidden; box-shadow: 0 30px 60px rgba(3,28,22,.38);
+    }
+    .auth-promo {
+      flex: 1 1 44%; position: relative; overflow: hidden; color: #fff;
+      padding: 34px 30px; display: flex; flex-direction: column; justify-content: center;
+      background: linear-gradient(165deg, #0a5f55 0%, #0e8578 55%, #16a695 100%);
+    }
+    .auth-promo::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background-image: radial-gradient(rgba(255,255,255,.12) 1.5px, transparent 1.5px);
+      background-size: 22px 22px;
+    }
+    .promo-badge {
+      position: relative; width: 42px; height: 42px; border-radius: 13px;
+      background: rgba(255,255,255,.16); display: grid; place-items: center; margin-bottom: 16px;
+    }
+    .promo-badge svg { width: 21px; height: 21px; }
+    .promo-slide { position: relative; min-height: 92px; }
+    .promo-title { font-size: 18.5px; font-weight: 900; margin-bottom: 8px; line-height: 1.25; }
+    .promo-text { font-size: 12.5px; line-height: 1.55; font-weight: 500; color: #e4fff7; }
+    .promo-dots { position: relative; display: flex; gap: 6px; margin-top: 22px; }
+    .promo-dots span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.32); transition: .25s; }
+    .promo-dots span.on { width: 20px; border-radius: 4px; background: #fff; }
+
+    .auth-form { flex: 1 1 56%; padding: 36px 32px 28px; text-align: left; }
+    .auth-form h2 { font-size: 21px; font-weight: 900; color: #22333e; letter-spacing: -.01em; }
+    .auth-form .sub { font-size: 12.5px; color: #5a707d; font-weight: 600; margin: 5px 0 20px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: #3b4f5c; margin: 12px 0 5px; }
+    label:first-of-type { margin-top: 0; }
+    .field { position: relative; }
     input {
       width: 100%; padding: 11px 13px; border: 2px solid #e2ebef;
-      border-radius: 14px; font-size:16px; outline: none; transition: .15s;
+      border-radius: 14px; font-size: 16px; outline: none; transition: .15s;
       background: #ffffff; color: #22333e; font-family: inherit;
     }
     input:focus { border-color: #0e8578; box-shadow: 0 0 0 4px rgba(20,184,166,.16); }
-    button {
-      width: 100%; margin-top: 22px; padding: 13px; border: 0; border-radius: 999px;
-      background: #0e8578; color: #ffffff;
-      font-size:15px; font-weight: 800;
+    .field input[type="password"], .field input[type="text"].pw { padding-right: 40px; }
+    .pw-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 30px; height: 30px; border: 0; background: none; color: #8ba0ac;
+      cursor: pointer; display: grid; place-items: center; border-radius: 8px;
+    }
+    .pw-toggle:hover { color: #0e8578; background: #eef4f6; }
+    .pw-toggle svg { width: 18px; height: 18px; }
+    .hint { font-size: 11.5px; color: #8ba0ac; font-weight: 600; margin-top: 8px; }
+    button.submit {
+      width: 100%; margin-top: 20px; padding: 13px; border: 0; border-radius: 999px;
+      background: #0e8578; color: #ffffff; font-size: 15px; font-weight: 800;
       cursor: pointer; transition: .18s; font-family: inherit;
       box-shadow: 0 4px 0 #0b6b60;
     }
-    button:hover { background: #0f978a; transform: translateY(-2px); box-shadow: 0 6px 0 #0b6b60, 0 12px 22px rgba(14,133,120,.25); }
-    button:active { transform: translateY(1px); box-shadow: 0 2px 0 #0b6b60; }
-    button:disabled { opacity: .6; cursor: wait; transform: none; box-shadow: none; }
+    button.submit:hover { background: #0f978a; transform: translateY(-2px); box-shadow: 0 6px 0 #0b6b60, 0 12px 22px rgba(14,133,120,.25); }
+    button.submit:active { transform: translateY(1px); box-shadow: 0 2px 0 #0b6b60; }
+    button.submit:disabled { opacity: .6; cursor: wait; transform: none; box-shadow: 0 4px 0 #0b6b60; }
     .err {
       display: none; margin-top: 14px; padding: 10px 12px; border-radius: 14px;
-      background: #fef2f2; border: 2px solid #fecaca; color: #b91c1c; font-size:14.5px;
+      background: #fef2f2; border: 2px solid #fecaca; color: #b91c1c; font-size: 13.5px; font-weight: 600;
     }
-    .foot { margin-top: 22px; font-size:13.5px; color: #5a707d; }
+    .foot { margin-top: 18px; font-size: 13px; color: #5a707d; text-align: center; }
     .foot a { color: #0b6b60; font-weight: 700; text-decoration: none; }
     .foot a:hover { text-decoration: underline; }
+
+    .page-foot { position: relative; z-index: 1; font-size: 11.5px; color: rgba(255,255,255,.6); font-weight: 600; text-align: center; }
+
+    @media (max-width: 720px) {
+      .auth-promo { display: none; }
+      .auth-form { padding: 30px 24px 26px; }
+    }
     @media (prefers-reduced-motion: reduce) {
-      .card img { animation: none; will-change: auto; }
+      .logo-badge { animation: none; }
     }
   </style>
 </head>
 <body>
-  <form class="card" id="f">
-    <img src="niat-logo.png" alt="Niat logo" />
+  <!-- decorative outline icons, same visual language as the app's own icon set -->
+  <span class="bg-ico i1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/></svg></span>
+  <span class="bg-ico i2" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/></svg></span>
+  <span class="bg-ico i3" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span>
+  <span class="bg-ico i4" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6l7-3Z"/><path d="M9 12l2 2 4-4"/></svg></span>
+  <span class="bg-ico i5" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+
+  <div class="brand-head">
+    <img class="logo-badge" src="niat-logo.png" alt="Niat logo" />
     <h1>Ni<span>at</span></h1>
-    <p class="tag">From Intention to Intervention</p>
-    <label for="u">Username</label>
-    <input id="u" autocomplete="username" autofocus required />
-    <label for="p">Password</label>
-    <input id="p" type="password" autocomplete="current-password" required />
-    <button id="b" type="submit">Sign in</button>
-    <div class="err" id="e"></div>
-    <p class="foot">New teacher? <a href="signup.html">Create an account</a></p>
-  </form>
+    <p class="tagline">From Intention to Intervention</p>
+    <p class="subtag">AI teaching assistant for English Language teachers</p>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-promo">
+      <span class="promo-badge" id="promo-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+      <div class="promo-slide">
+        <p class="promo-title" id="promo-title">Set up in seconds</p>
+        <p class="promo-text" id="promo-text">Pick a class and topic — Niat takes it from there.</p>
+      </div>
+      <div class="promo-dots" id="promo-dots">
+        <span class="on"></span><span></span><span></span>
+      </div>
+    </div>
+
+    <form class="auth-form" id="f">
+      <h2>Sign in</h2>
+      <p class="sub">Welcome back — let's prep today's lesson.</p>
+      <label for="u">Username</label>
+      <div class="field"><input id="u" autocomplete="username" autofocus required /></div>
+      <label for="p">Password</label>
+      <div class="field">
+        <input id="p" type="password" autocomplete="current-password" required />
+        <button type="button" class="pw-toggle" id="pw-toggle" aria-label="Show password">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <p class="hint">Forgot your password? Ask your school admin to reset it.</p>
+      <button class="submit" id="b" type="submit">Sign in</button>
+      <div class="err" id="e"></div>
+      <p class="foot">New teacher? <a href="signup.html">Create an account</a></p>
+    </form>
+  </div>
+
+  <p class="page-foot">© 2026 Niat · From Intention to Intervention</p>
+
   <script>
     const $ = (id) => document.getElementById(id);
+
+    // ---- password visibility toggle ----
+    const pwInput = $("p"), pwToggle = $("pw-toggle");
+    pwToggle.addEventListener("click", () => {
+      const show = pwInput.type === "password";
+      pwInput.type = show ? "text" : "password";
+      pwInput.classList.toggle("pw", show);
+      pwToggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    });
+
+    // ---- rotating "what Niat does" promo panel ----
+    const PROMO = [
+      { ico: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+        title: "Set up in seconds", text: "Pick a class and topic — Niat takes it from there." },
+      { ico: '<path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/>',
+        title: "AI-generated lesson kits", text: "Full lesson plan, slides and worksheet, ready to teach." },
+      { ico: '<path d="M18 20V10M12 20V4M6 20v-6"/>',
+        title: "Automatic follow-up", text: "Niat differentiates worksheets and reminds pupils who haven't submitted." },
+    ];
+    let pIdx = 0;
+    const renderPromo = () => {
+      const s = PROMO[pIdx];
+      $("promo-badge").innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${s.ico}</svg>`;
+      $("promo-title").textContent = s.title;
+      $("promo-text").textContent = s.text;
+      [...$("promo-dots").children].forEach((d, i) => d.classList.toggle("on", i === pIdx));
+    };
+    setInterval(() => { pIdx = (pIdx + 1) % PROMO.length; renderPromo(); }, 4200);
+
+    // ---- sign-in ----
     $("f").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       $("b").disabled = true; $("e").style.display = "none";
