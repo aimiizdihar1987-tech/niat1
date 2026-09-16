@@ -641,6 +641,57 @@ def _agihan_aras(n, lots, mots, hots):
 
 
 def generate_worksheet(inputs):
+    """Agent 3 entry point (the /api/generate-worksheet handler).
+
+    If this class has differentiated pupil levels assigned (student_levels.py),
+    generate one worksheet PER BAND for the teacher to review here — nothing
+    is posted to Classroom from this call. classroom_worksheet() later posts
+    only the bands the teacher actually saw (human in the loop), never
+    regenerating blind. Otherwise this is a normal single worksheet."""
+    class_name = (inputs.get("nama_kelas") or
+                  (inputs.get("plan") or {}).get("tingkatan_kelas") or "").strip()
+    static_bands = student_levels.bands_for_class(class_name) if class_name else {}
+    if static_bands:
+        return _generate_differentiated_review(inputs, class_name, static_bands)
+    return _generate_single_worksheet(inputs)
+
+
+def _generate_differentiated_review(inputs, class_name, static_bands):
+    """Generate one Agent-3 worksheet per band, concurrently, for the teacher
+    to review before sending — this IS the human-in-the-loop step."""
+    by_band = {}
+    for emel, band in static_bands.items():
+        by_band.setdefault(band, []).append(emel)
+    active_bands = [b for b in BAND_ORDER if by_band.get(b)]
+    if not active_bands:
+        return {"ok": False, "error": "No pupils assigned to any level for \"{}\".".format(class_name)}
+
+    errors = []
+    worksheets = {}
+    with ThreadPoolExecutor(max_workers=len(active_bands)) as pool:
+        futures = {pool.submit(_worksheet_for_band, inputs, band): band
+                   for band in active_bands}
+        for fut in futures:
+            band = futures[fut]
+            try:
+                worksheets[band] = fut.result()
+            except Exception as e:  # noqa: BLE001 — one band's failure shouldn't sink the rest
+                errors.append("{}: {}".format(band, e))
+
+    band_cefr = band_cefr_for_form(inputs.get("form", 3))
+    bands_payload = [{"band": band, "cefr": band_cefr[band], "emails": by_band[band],
+                      "worksheet": worksheets[band]}
+                     for band in active_bands if worksheets.get(band)]
+    if not bands_payload:
+        return {"ok": False, "error": "Could not generate any differentiated worksheet"
+                + ((": " + "; ".join(errors)) if errors else ".")}
+    cur = find_curriculum(inputs)
+    return {"ok": True, "differentiated": True, "class_name": class_name,
+            "bands": bands_payload, "konteks": cur_summary(cur, inputs),
+            "_partial_errors": errors or None, "_enjin": last_engine()}
+
+
+def _generate_single_worksheet(inputs):
     """Setiap worksheet mendapat soalan AI yang segar.
 
     1. Kira sasaran soalan setiap aras.
@@ -1103,7 +1154,10 @@ def _decide_bands(cumulative, form=3):
 
 def _worksheet_for_band(base_inputs, band):
     """Generate one worksheet pitched at `band` by reshaping the worksheet config
-    and letting Agent 3 (generate_worksheet) do the work."""
+    and letting Agent 3's core generator do the work. Calls
+    _generate_single_worksheet directly (not the public generate_worksheet
+    dispatcher) — base_inputs carries the class name, and re-entering the
+    dispatcher would try to differentiate this band's own generation again."""
     shape = band_shape(band, base_inputs.get("form", 3))
     inputs = dict(base_inputs)
     ws = dict(inputs.get("worksheet", {}) or {})
@@ -1115,7 +1169,7 @@ def _worksheet_for_band(base_inputs, band):
     # what we want so each level is genuinely different.
     nota = (base_inputs.get("nota_guru") or "").strip()
     inputs["nota_guru"] = shape["nota"] + (("\n\n" + nota) if nota else "")
-    out = generate_worksheet(inputs)
+    out = _generate_single_worksheet(inputs)
     ws_out = out.get("worksheet", {}) or {}
     base_title = ws_out.get("tajuk") or "Worksheet"
     ws_out["tajuk"] = "{} — {} ({})".format(base_title, band.title(), shape["cefr"])
@@ -1380,14 +1434,21 @@ def classroom_worksheet(body):
     """One click: worksheet -> Form quiz -> the pupils' Classroom + emails.
 
     If the class has pre-assigned pupil levels (student_levels.py — the
-    teacher's own "id delima murid dan level.txt"), this automatically fans
-    out into a differentiated distribution instead: one AI-generated
-    worksheet per level, pitched to TODAY'S topic, posted only to its own
-    pupils — no extra click, no quiz history needed first."""
+    teacher's own "id delima murid dan level.txt"), generate_worksheet()
+    already returned one AI-generated worksheet per level for the teacher to
+    review (human in the loop); this call POSTS exactly those reviewed bands
+    (body["bands"]) and never regenerates them blind. If a differentiated
+    class reaches here without reviewed bands, that's a client bug — refuse
+    rather than silently posting unreviewed content."""
     class_name = (body.get("class_name") or "").strip()
+    bands = body.get("bands")
+    if bands:
+        return _post_differentiated_worksheets(body, class_name, bands)
     static_bands = student_levels.bands_for_class(class_name)
     if static_bands:
-        return _distribute_static_differentiated(body, class_name, static_bands)
+        return {"ok": False, "error": "This class has differentiated levels — "
+                "generate the worksheet first so you can review each level's "
+                "questions before sending."}
 
     ws = body.get("worksheet") or {}
     cls_map = (_load_classrooms() or {}).get("classes", {})
@@ -1422,20 +1483,11 @@ def classroom_worksheet(body):
     })
 
 
-def _distribute_static_differentiated(body, class_name, static_bands):
-    """The agentic part: generate one Agent-3 worksheet per band, freshly
-    written for TODAY'S topic (base_inputs.plan/theme/topic), then post each
-    only to the pupils that band belongs to (per student_levels.py) via the
-    hub's per-student assignment action. Mirrors differentiate()'s use of
-    _worksheet_for_band, just keyed by a fixed level instead of quiz history."""
-    base_inputs = dict(body.get("inputs") or {})
-    base_inputs["plan"] = body.get("plan") or {}
-    base_inputs["nama_kelas"] = class_name
-
-    by_band = {}
-    for emel, band in static_bands.items():
-        by_band.setdefault(band, []).append(emel)
-
+def _post_differentiated_worksheets(body, class_name, bands):
+    """Post the teacher-reviewed per-band worksheets from
+    _generate_differentiated_review() to Classroom — no regeneration, this
+    posts exactly what the teacher saw on the review screen (human in the
+    loop). `bands` = [{band, cefr, emails, worksheet}, ...]."""
     cls_map = (_load_classrooms() or {}).get("classes", {})
     course = ""
     for name, cid in cls_map.items():
@@ -1447,28 +1499,12 @@ def _distribute_static_differentiated(body, class_name, static_bands):
     if body.get("due_date") and body.get("due_time"):
         due_iso = "{}T{}:00+08:00".format(body["due_date"], body["due_time"])
 
-    # One Gemini call per band — run them concurrently instead of back-to-back
-    # so a 3-band class doesn't take 3x as long as a single worksheet.
-    active_bands = [b for b in BAND_ORDER if by_band.get(b)]
-    errors = []
-    worksheets = {}
-    if active_bands:
-        with ThreadPoolExecutor(max_workers=len(active_bands)) as pool:
-            futures = {pool.submit(_worksheet_for_band, base_inputs, band): band
-                       for band in active_bands}
-            for fut in futures:
-                band = futures[fut]
-                try:
-                    worksheets[band] = fut.result()
-                except Exception as e:  # noqa: BLE001 — one band's failure shouldn't sink the rest
-                    errors.append("{}: {}".format(band, e))
-
     groups = []
-    for band in active_bands:
-        ws = worksheets.get(band)
-        if not ws:
+    for b in bands:
+        ws = b.get("worksheet") or {}
+        emails = b.get("emails") or []
+        if not ws or not emails:
             continue
-        emails = by_band[band]
         questions = [{
             "q": q.get("soalan", ""), "opts": q.get("pilihan", []),
             "answerIndex": "ABCD".find(str(q.get("jawapan_betul", "A"))[:1]),
@@ -1476,7 +1512,7 @@ def _distribute_static_differentiated(body, class_name, static_bands):
             "feedback": q.get("maklum_balas", ""),
         } for q in (ws.get("soalan") or [])]
         groups.append({
-            "band": band, "title": ws.get("tajuk") or "English Quiz",
+            "band": b.get("band", ""), "title": ws.get("tajuk") or "English Quiz",
             "description": (ws.get("arahan_murid") or "").strip()
                 or "Answer all questions and submit before the due date. Good luck!",
             "questions": questions,
@@ -1484,16 +1520,14 @@ def _distribute_static_differentiated(body, class_name, static_bands):
             "studentEmails": emails,
         })
     if not groups:
-        return {"ok": False, "error": "Could not generate any differentiated worksheet"
-                + ((": " + "; ".join(errors)) if errors else " — no bands to distribute.")}
+        return {"ok": False, "error": "No reviewed worksheet/pupils to post — "
+                "generate the differentiated worksheets first."}
     res = _post_hub({
         "action": "differentiatedworksheet", "courseId": course, "courseName": class_name,
         "dueIso": due_iso, "groups": groups,
     })
     res.setdefault("ok", True)
     res["differentiated"] = True
-    if errors:
-        res["partial_errors"] = errors
     return res
 
 

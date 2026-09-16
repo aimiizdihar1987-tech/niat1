@@ -12,6 +12,7 @@ let currentForm = 3;        // selected Form (1-5); drives which DSKP is loaded
 let availableForms = [3];   // forms that actually have a data file on the server
 let lastPlan = null;        // generated lesson plan (object)
 let lastWorksheet = null;   // generated worksheet (object)
+let lastDifferentiatedBands = null;  // [{band, cefr, emails, worksheet}] when the class has levels — teacher reviews these before sending
 let lastContext = null;
 let lastInputs = null;      // Agent-1 inputs used (for saving / duplicating)
 let STUDENTS = [];          // pilot students from "Email Student Prototype.txt"
@@ -685,8 +686,15 @@ async function genWorksheet(note = "") {
   if (lastPlan) inp.plan = lastPlan;  // keep questions aligned to THIS lesson
   try {
     const data = await api("/api/generate-worksheet", inp, "Building your worksheet — bank questions first, AI fills the rest…");
-    lastWorksheet = data.worksheet;
-    renderWorksheet(lastWorksheet);
+    if (data.differentiated) {
+      lastWorksheet = null;
+      lastDifferentiatedBands = data.bands || [];
+      renderDifferentiatedWorksheets(lastDifferentiatedBands);
+    } else {
+      lastDifferentiatedBands = null;
+      lastWorksheet = data.worksheet;
+      renderWorksheet(lastWorksheet);
+    }
     prefillSendCard();
     goto(4);
     guardrailNotice(data._guardrail);
@@ -696,8 +704,10 @@ async function genWorksheet(note = "") {
   }
 }
 
-function renderWorksheet(w) {
-  const questions = (w.soalan || []).map((q) => {
+// Question+answer-key HTML shared by the single worksheet and each
+// differentiated band's worksheet.
+function worksheetQuestionsHTML(w) {
+  return (w.soalan || []).map((q) => {
     const opts = (q.pilihan || []).map((p, i) => {
       const letter = "ABCD"[i];
       const correct = letter === q.jawapan_betul ? " correct" : "";
@@ -710,6 +720,9 @@ function renderWorksheet(w) {
       <div class="fb">Answer: ${esc(q.jawapan_betul)} · ${esc(q.maklum_balas)}</div>
     </div>`;
   }).join("");
+}
+
+function renderWorksheet(w) {
   const s = w._sumber || {};
   const source = (s.dari_bank || s.dijana_ai)
     ? ` · 🗄️ ${num(s.dari_bank)} from question bank · 🤖 ${num(s.dijana_ai)} AI-generated`
@@ -717,7 +730,26 @@ function renderWorksheet(w) {
   $("ws-output").innerHTML = `
     <h3>${esc(w.tajuk)}</h3>
     <p class="muted small">${esc(w.jumlah_soalan)} questions · ${esc(w.jumlah_markah)} marks · answer key included${source}</p>
-    ${questions}`;
+    ${worksheetQuestionsHTML(w)}`;
+}
+
+// Review screen for a differentiated class: one worksheet section per level,
+// clearly labelled, so the teacher checks every level's questions BEFORE
+// deciding to send anything to Classroom (human in the loop).
+function renderDifferentiatedWorksheets(bands) {
+  const BAND_LABEL = { remedial: "🌱 Remedial", core: "🎯 Core", extension: "🚀 Extension" };
+  const sections = (bands || []).map((b) => {
+    const w = b.worksheet || {};
+    const label = BAND_LABEL[b.band] || b.band;
+    return `<div class="band-worksheet">
+      <h3>${label} (${esc(b.cefr)}) — ${(b.emails || []).length} pupil(s)</h3>
+      <p class="muted small">${esc(w.tajuk || "")} · ${esc(w.jumlah_soalan)} questions · ${esc(w.jumlah_markah)} marks</p>
+      ${worksheetQuestionsHTML(w)}
+    </div>`;
+  }).join("<hr>");
+  $("ws-output").innerHTML =
+    `<p class="muted small">🧩 This class has differentiated levels — 3 separate worksheets were generated. `
+    + `Please review each level's questions below before sending to Classroom.</p>${sections}`;
 }
 
 // ====================== Save & export ======================
@@ -726,14 +758,34 @@ async function approveAndSave() {
   try {
     const r1 = await api("/api/save",
       { jenis: "lessonplan", kelas: lastContext.kelas, kandungan: planEdited }, "Saving lesson plan…");
-    const r2 = await api("/api/save",
-      { jenis: "worksheet", kelas: lastContext.kelas, kandungan: lastWorksheet,
-        topic: (lastInputs && lastInputs.topic) || "",
-        theme: (lastInputs && lastInputs.theme) || "" }, "Saving worksheet…");
-    const b = r2.bank || {};
-    const bankNote = (b.ditambah || b.diguna_semula)
-      ? `<li>🗄️ Question Bank: <b>${num(b.ditambah)}</b> new questions added · <b>${num(b.diguna_semula)}</b> reused</li>`
-      : "";
+
+    // Differentiated classes have 3 reviewed worksheets (one per band) instead
+    // of a single one — save each to the bank; otherwise save the one.
+    let wsNote = "", bankNote = "";
+    if (lastDifferentiatedBands && lastDifferentiatedBands.length) {
+      let added = 0, reused = 0, saved = 0;
+      for (const b of lastDifferentiatedBands) {
+        const rb = await api("/api/save",
+          { jenis: "worksheet", kelas: lastContext.kelas, kandungan: b.worksheet,
+            topic: (lastInputs && lastInputs.topic) || "",
+            theme: (lastInputs && lastInputs.theme) || "" }, "Saving " + b.band + " worksheet…");
+        const bb = rb.bank || {};
+        added += bb.ditambah || 0; reused += bb.diguna_semula || 0; saved++;
+      }
+      wsNote = `<li>📝 Worksheet: ${saved} differentiated levels saved</li>`;
+      if (added || reused) bankNote =
+        `<li>🗄️ Question Bank: <b>${num(added)}</b> new questions added · <b>${num(reused)}</b> reused</li>`;
+    } else {
+      const r2 = await api("/api/save",
+        { jenis: "worksheet", kelas: lastContext.kelas, kandungan: lastWorksheet,
+          topic: (lastInputs && lastInputs.topic) || "",
+          theme: (lastInputs && lastInputs.theme) || "" }, "Saving worksheet…");
+      wsNote = `<li>📝 Worksheet: <code>${esc(r2.fail)}</code></li>`;
+      const b = r2.bank || {};
+      bankNote = (b.ditambah || b.diguna_semula)
+        ? `<li>🗄️ Question Bank: <b>${num(b.ditambah)}</b> new questions added · <b>${num(b.diguna_semula)}</b> reused</li>`
+        : "";
+    }
     // Save the teaching materials too, if the teacher chose to use them.
     let matNote = "";
     if (materialsUsed && lastMaterials) {
@@ -747,13 +799,14 @@ async function approveAndSave() {
     let libNote = "";
     try {
       await api("/api/save-lesson",
-        { plan: lastPlan, worksheet: lastWorksheet, materials: materialsUsed ? lastMaterials : null, inputs: lastInputs,
+        { plan: lastPlan, worksheet: lastWorksheet, differentiated_bands: lastDifferentiatedBands,
+          materials: materialsUsed ? lastMaterials : null, inputs: lastInputs,
           classroom_doc_id: (lastClassroomDoc && lastClassroomDoc.doc_id) || "",
           classroom_url: (lastClassroomDoc && lastClassroomDoc.classroom_url) || "" }, "Saving to library…");
       libNote = `<li>📚 Saved to <b>My Lessons</b> library</li>`;
     } catch (e) { /* non-fatal — files are already saved */ }
     $("saved-list").innerHTML =
-      `<li>📄 Lesson Plan: <code>${esc(r1.fail)}</code></li><li>📝 Worksheet: <code>${esc(r2.fail)}</code></li>${matNote}${bankNote}${libNote}`;
+      `<li>📄 Lesson Plan: <code>${esc(r1.fail)}</code></li>${wsNote}${matNote}${bankNote}${libNote}`;
     updateBankBadge();
     goto(5);
   } catch (e) {
@@ -1222,7 +1275,8 @@ async function directMaterials() {
 }
 
 async function directWorksheet() {
-  if (!lastWorksheet) return toast("Generate a worksheet first.", true);
+  const isDifferentiated = lastDifferentiatedBands && lastDifferentiatedBands.length;
+  if (!lastWorksheet && !isDifferentiated) return toast("Generate a worksheet first.", true);
   const className = ($("classroom-class") ? $("classroom-class").value : "").trim()
     || ((lastContext && lastContext.kelas) || "");
   // Open the tab synchronously, in the same click gesture that triggered this
@@ -1235,17 +1289,18 @@ async function directWorksheet() {
     + "and posting to Classroom (" + esc(className) + ")… this tab will update automatically.</p>");
   showOverlay("Creating the Form quiz + posting to Classroom…");
   try {
+    // Differentiated: post exactly the bands the teacher already reviewed on
+    // this screen (human in the loop) — the server never regenerates them.
+    const body = isDifferentiated
+      ? { bands: lastDifferentiatedBands, class_name: className,
+          due_date: ($("due-date") ? $("due-date").value : ""),
+          due_time: ($("due-time") ? $("due-time").value : "") }
+      : { worksheet: lastWorksheet, class_name: className,
+          due_date: ($("due-date") ? $("due-date").value : ""),
+          due_time: ($("due-time") ? $("due-time").value : "") };
     const r = await fetch("/api/classroom-worksheet", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        worksheet: lastWorksheet, class_name: className,
-        due_date: ($("due-date") ? $("due-date").value : ""),
-        due_time: ($("due-time") ? $("due-time").value : ""),
-        // Only used if this class has pre-assigned pupil levels (Agent 4,
-        // student_levels.py) — lets the server regenerate one worksheet per
-        // level for TODAY'S topic instead of reusing this single one.
-        inputs: lastInputs, plan: lastPlan,
-      }),
+      body: JSON.stringify(body),
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || "Failed.");
