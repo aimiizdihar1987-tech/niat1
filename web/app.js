@@ -572,6 +572,18 @@ function printWorksheet() {
 async function createWithGamma() {
   if (!lastPlan) return toast("Generate a lesson plan first.", true);
   const fmt = $("gamma-format") ? $("gamma-format").value : "presentation";
+  // Open the tab(s) synchronously, in the same click gesture that triggered
+  // this handler — browsers block window.open() called after an `await`
+  // (it's no longer "caused by" the click), so opening now and redirecting
+  // later is what makes the deck actually pop out instead of getting
+  // silently swallowed by the popup blocker.
+  const winMain = window.open("", "_blank");
+  if (winMain) winMain.document.write(
+    "<p style='font-family:sans-serif;padding:2rem;color:#555'>Polishing your " + fmt +
+    " with a touch of Gamma magic… this tab will update automatically (30–90 s).</p>");
+  const winExport = fmt === "presentation" ? window.open("", "_blank") : null;
+  if (winExport) winExport.document.write(
+    "<p style='font-family:sans-serif;padding:2rem;color:#555'>Preparing the PPTX export…</p>");
   showOverlay("Polishing your " + fmt + " with a touch of Gamma magic… (30–90 s)");
   try {
     const r = await fetch("/api/gamma-generate", {
@@ -581,13 +593,25 @@ async function createWithGamma() {
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || "Gamma failed.");
-    if (d.url) window.open(d.url, "_blank");
+    if (d.url) {
+      if (winMain) winMain.location.href = d.url;
+      else window.open(d.url, "_blank");
+    } else if (winMain) {
+      winMain.close();
+    }
     toast("✨ Gamma " + fmt + " ready" + (d.export_url ? " — PPTX export included" : "") + "!");
-    if (d.export_url) window.open(d.export_url, "_blank");
+    if (d.export_url) {
+      if (winExport) winExport.location.href = d.export_url;
+      else window.open(d.export_url, "_blank");
+    } else if (winExport) {
+      winExport.close();
+    }
     // Slides created — NOW offer sending them to Google Classroom.
     const cc = $("mat-classroom-card");
     if (cc) cc.classList.remove("hidden");
   } catch (e) {
+    if (winMain) winMain.close();
+    if (winExport) winExport.close();
     toast(e.message, true);
   } finally {
     hideOverlay();
@@ -1176,6 +1200,14 @@ async function directWorksheet() {
   if (!lastWorksheet) return toast("Generate a worksheet first.", true);
   const className = ($("classroom-class") ? $("classroom-class").value : "").trim()
     || ((lastContext && lastContext.kelas) || "");
+  // Open the tab synchronously, in the same click gesture that triggered this
+  // handler — a window.open() after the awaited fetch below is no longer
+  // "caused by" the click, so most browsers silently block it and the teacher
+  // never sees the Classroom tab even though the post succeeded.
+  const winClassroom = window.open("", "_blank");
+  if (winClassroom) winClassroom.document.write(
+    "<p style='font-family:sans-serif;padding:2rem;color:#555'>Creating the Form quiz "
+    + "and posting to Classroom (" + esc(className) + ")… this tab will update automatically.</p>");
   showOverlay("Creating the Form quiz + posting to Classroom…");
   try {
     const r = await fetch("/api/classroom-worksheet", {
@@ -1197,16 +1229,27 @@ async function directWorksheet() {
         ? "✅ " + res.band + ": assigned to " + res.assigned + " pupil(s)"
           + (res.missing && res.missing.length ? " (not enrolled yet: " + res.missing.join(", ") + ")" : "")
         : "⚠️ " + res.band + ": " + (res.error || "failed"));
-      toast("🧩 Differentiated worksheets posted (" + className + "):\n" + lines.join("\n"));
       const first = (d.results || []).find((res) => res.ok && res.classroom_url);
-      if (first) window.open(first.classroom_url, "_blank");
+      if (!first) {
+        // Nothing actually landed in Classroom — this must read as a
+        // failure, not a success, even though the HTTP call was "ok".
+        if (winClassroom) winClassroom.close();
+        throw new Error("Nothing was posted to Classroom (" + className + "):\n" + lines.join("\n"));
+      }
+      toast("🧩 Differentiated worksheets posted (" + className + "):\n" + lines.join("\n"));
+      if (winClassroom) winClassroom.location.href = first.classroom_url;
+      else window.open(first.classroom_url, "_blank");
     } else {
       toast("✅ Quiz posted to Classroom (" + className + ") — " +
             (d.students_emailed || 0) + " pupil(s) emailed!");
-      if (d.classroom_url) window.open(d.classroom_url, "_blank");
-      else if (d.form_url) window.open(d.form_url, "_blank");
+      const url = d.classroom_url || d.form_url;
+      if (winClassroom) { if (url) winClassroom.location.href = url; else winClassroom.close(); }
+      else if (url) window.open(url, "_blank");
     }
-  } catch (e) { toast(e.message, true); } finally { hideOverlay(); }
+  } catch (e) {
+    if (winClassroom) winClassroom.close();
+    toast(e.message, true);
+  } finally { hideOverlay(); }
 }
 
 function refreshScript() {

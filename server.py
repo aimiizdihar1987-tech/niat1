@@ -25,6 +25,7 @@ import socket
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 import urllib.request
 import urllib.error
 from datetime import datetime, timedelta
@@ -1152,15 +1153,19 @@ def differentiate(body):
         return {"ok": True, "class_name": class_name, "ringkasan": summary,
                 "assignments": assignments, "decided_only": True}
 
-    # Generate one worksheet per band that actually has pupils.
-    bands_payload = []
-    for band in BAND_ORDER:
-        emails = by_band[band]
-        if not emails:
-            continue
-        worksheet = _worksheet_for_band(body, band)
-        bands_payload.append({"band": band, "cefr": band_cefr[band],
-                              "emails": emails, "worksheet": worksheet})
+    # Generate one worksheet per band that actually has pupils — concurrently,
+    # so a 3-band class doesn't take 3x as long as a single worksheet.
+    active_bands = [b for b in BAND_ORDER if by_band[b]]
+    worksheets = {}
+    if active_bands:
+        with ThreadPoolExecutor(max_workers=len(active_bands)) as pool:
+            futures = {pool.submit(_worksheet_for_band, body, band): band
+                       for band in active_bands}
+            for fut in futures:
+                worksheets[futures[fut]] = fut.result()
+    bands_payload = [{"band": band, "cefr": band_cefr[band],
+                      "emails": by_band[band], "worksheet": worksheets[band]}
+                     for band in active_bands]
 
     result = {"ok": True, "class_name": class_name, "ringkasan": summary,
               "assignments": assignments,
@@ -1408,16 +1413,28 @@ def _distribute_static_differentiated(body, class_name, static_bands):
     if body.get("due_date") and body.get("due_time"):
         due_iso = "{}T{}:00+08:00".format(body["due_date"], body["due_time"])
 
-    groups, errors = [], []
-    for band in BAND_ORDER:
-        emails = by_band.get(band)
-        if not emails:
+    # One Gemini call per band — run them concurrently instead of back-to-back
+    # so a 3-band class doesn't take 3x as long as a single worksheet.
+    active_bands = [b for b in BAND_ORDER if by_band.get(b)]
+    errors = []
+    worksheets = {}
+    if active_bands:
+        with ThreadPoolExecutor(max_workers=len(active_bands)) as pool:
+            futures = {pool.submit(_worksheet_for_band, base_inputs, band): band
+                       for band in active_bands}
+            for fut in futures:
+                band = futures[fut]
+                try:
+                    worksheets[band] = fut.result()
+                except Exception as e:  # noqa: BLE001 — one band's failure shouldn't sink the rest
+                    errors.append("{}: {}".format(band, e))
+
+    groups = []
+    for band in active_bands:
+        ws = worksheets.get(band)
+        if not ws:
             continue
-        try:
-            ws = _worksheet_for_band(base_inputs, band)
-        except Exception as e:  # noqa: BLE001 — one band's failure shouldn't sink the rest
-            errors.append("{}: {}".format(band, e))
-            continue
+        emails = by_band[band]
         questions = [{
             "q": q.get("soalan", ""), "opts": q.get("pilihan", []),
             "answerIndex": "ABCD".find(str(q.get("jawapan_betul", "A"))[:1]),
