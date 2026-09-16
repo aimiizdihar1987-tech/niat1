@@ -599,7 +599,8 @@ async function createWithGamma() {
     } else if (winMain) {
       winMain.close();
     }
-    toast("✨ Gamma " + fmt + " ready" + (d.export_url ? " — PPTX export included" : "") + "!");
+    toast("✨ Gamma " + fmt + " ready" + (d.export_url ? " — PPTX export included" : "") +
+          (d.emailed_teacher ? " — emailed to " + d.emailed_to : "") + "!");
     if (d.export_url) {
       if (winExport) winExport.location.href = d.export_url;
       else window.open(d.export_url, "_blank");

@@ -484,6 +484,31 @@ def _gamma_key():
 GAMMA_URL = "https://public-api.gamma.app/v1.0/generations"
 
 
+def _email_gamma_deck(plan, fmt, url, export_url):
+    """Email the finished Gamma deck link to the teacher (TEACHER_EMAIL),
+    best-effort — a mail hiccup should never fail the deck generation itself,
+    since the deck already exists and popped out in its own tab regardless."""
+    cfg = _read_reminder_cfg()
+    to = (cfg.get("TEACHER_EMAIL", "") or "").split(",")[0].strip()
+    if not to:
+        return None
+    subject = "Niat: Gamma " + fmt + " ready"
+    bits = [plan.get("tingkatan_kelas"), plan.get("tajuk")]
+    tail = " — ".join(b for b in bits if b)
+    if tail:
+        subject += " — " + tail
+    lines = ["Your " + fmt + " is ready:", url or "(no link returned)"]
+    if export_url:
+        lines += ["", "PPTX export:", export_url]
+    try:
+        res = _post_hub({"action": "mail", "to": to, "subject": subject,
+                          "body": "\n".join(lines)})
+    except Exception as e:  # noqa: BLE001 — email is best-effort here
+        return {"ok": False, "error": str(e)}
+    res["to"] = to
+    return res
+
+
 def generate_gamma(inputs):
     """Agent 2 (Gamma helper): send the lesson plan + slides to Gamma AI, which designs a
     polished presentation / document / webpage. Polls until the deck is ready.
@@ -575,9 +600,18 @@ def generate_gamma(inputs):
             continue
         status = (st.get("status") or "").lower()
         if status in ("completed", "complete", "succeeded"):
-            return {"ok": True, "url": st.get("gammaUrl") or st.get("url") or "",
-                    "export_url": st.get("exportUrl") or "",
-                    "credits": (st.get("credits") or {}).get("remaining")}
+            url = st.get("gammaUrl") or st.get("url") or ""
+            export_url = st.get("exportUrl") or ""
+            result = {"ok": True, "url": url, "export_url": export_url,
+                      "credits": (st.get("credits") or {}).get("remaining")}
+            mail_res = _email_gamma_deck(plan, fmt, url, export_url)
+            if mail_res is not None:
+                result["emailed_teacher"] = bool(mail_res.get("ok"))
+                if mail_res.get("ok"):
+                    result["emailed_to"] = mail_res.get("to")
+                else:
+                    result["email_error"] = mail_res.get("error")
+            return result
         if status in ("failed", "error"):
             return {"ok": False, "error": "Gamma generation failed: " + json.dumps(st)[:300]}
     return {"ok": False, "error": "Gamma timed out after 3 minutes - check gamma.app, "
