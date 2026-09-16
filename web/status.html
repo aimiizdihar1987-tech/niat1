@@ -38,6 +38,11 @@
   .pill.up,.pill.configured,.pill.closed{background:#e6f6ee;color:#3f7f63}
   .pill.half_open{background:#fdf1d6;color:#8a6a1c}
   .pill.down,.pill.open{background:#fde9e9;color:#a35252}
+  .pill.done{background:#e6f6ee;color:#3f7f63} .pill.running,.pill.awaiting_approval{background:#fdf1d6;color:#8a6a1c}
+  .pill.failed{background:#fde9e9;color:#a35252} .pill.pending,.pill.skipped{background:var(--line);color:var(--muted)}
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;margin:1px 3px 1px 0}
+  .tag.auto{background:#eee4fb;color:#6b4fa0} .tag.gate{background:#e3f0fb;color:#3d6f9c} .tag.opt{background:var(--line);color:var(--muted)}
+  .agent-name{font-weight:600} .agent-purpose{color:var(--muted);font-size:12.5px}
   .foot{color:var(--muted);font-size:13px;text-align:center;margin-top:22px}
   code{background:var(--bg);padding:1px 6px;border-radius:8px;font-size:13px}
 </style>
@@ -82,6 +87,14 @@
     <div class="grid" id="orch"></div>
   </div>
 
+  <div class="card">
+    <h2>Multi-agent workflow — niat.lesson_cycle</h2>
+    <p class="sub" style="margin:0 0 12px">The six agents, in dependency order, and — when a run has happened on
+       this instance — the live status of each step in the most recent one.</p>
+    <table><thead><tr><th>#</th><th>Agent</th><th>Depends on</th><th>Touches</th><th>Last run</th></tr></thead>
+      <tbody id="agents"><tr><td colspan="5" class="sub">Loading workflow graph…</td></tr></tbody></table>
+  </div>
+
   <p class="foot" id="foot"></p>
 </div>
 
@@ -95,6 +108,44 @@ function uptime(sec){
   if (sec == null) return "—";
   const d = Math.floor(sec/86400), h = Math.floor(sec%86400/3600), m = Math.floor(sec%3600/60);
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+}
+
+// The graph (agents/purposes/dependencies) never changes at runtime, so it's
+// fetched once and cached; only the "last run" column needs to re-render on
+// every poll — that's what actually moves as teachers use the system.
+let WORKFLOW = null;
+async function loadWorkflow(){
+  try {
+    const r = await fetch("/api/workflow", {cache:"no-store"});
+    WORKFLOW = await r.json();
+  } catch (e) { WORKFLOW = null; }
+}
+
+function renderAgents(lastRun){
+  if (!WORKFLOW || !WORKFLOW.agents) {
+    $("agents").innerHTML = `<tr><td colspan="5" class="sub">Workflow graph unavailable.</td></tr>`;
+    return;
+  }
+  const stepFor = (id) => (lastRun?.steps || []).find(s => s.agent_id === id);
+  $("agents").innerHTML = WORKFLOW.agents.map(a => {
+    const gate = a.checkpoint ? `<span class="tag gate">teacher approves</span>`
+      : a.autonomous ? `<span class="tag auto">autonomous</span>` : "";
+    const opt = a.optional ? `<span class="tag opt">optional</span>` : "";
+    const deps = a.depends_on.length
+      ? a.depends_on.map(d => WORKFLOW.agents.find(x => x.id === d)?.name || d).join(", ")
+      : "<span class=\"sub\">— starts the chain —</span>";
+    const step = stepFor(a.id);
+    const status = step
+      ? `${pill(step.status)}${step.duration_ms != null ? ` <span class="sub">${step.duration_ms}ms</span>` : ""}`
+      : `<span class="sub">no run yet</span>`;
+    return `<tr>
+      <td>${a.number}</td>
+      <td><div class="agent-name">${esc(a.name)}</div><div class="agent-purpose">${esc(a.purpose)}</div>${gate}${opt}</td>
+      <td class="sub">${deps}</td>
+      <td>${esc(a.upstreams.join(", "))}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join("");
 }
 
 async function refresh(){
@@ -139,6 +190,8 @@ async function refresh(){
       + kv("Run success rate", o.recent_success_rate != null ? o.recent_success_rate + "%" : "—")
       + kv("Last run", o.last_run ? `${o.last_run.run_id} (${o.last_run.status})` : "—");
 
+    renderAgents(o.last_run);
+
     $("foot").textContent = "Checked " + (s.checked_at || "") + " · service " + (s.service || "");
   } catch (e) {
     $("dot").className = "dot down";
@@ -146,7 +199,7 @@ async function refresh(){
     $("stateNote").textContent = "The status endpoint did not respond: " + e;
   }
 }
-refresh();
+loadWorkflow().then(refresh);
 setInterval(refresh, 15000);
 </script>
 </body>
