@@ -1152,6 +1152,14 @@ function niatDistribute() {
 // One-click Classroom posting via the Niat Hub (no Apps Script visits).
 async function directLessonPlan() {
   if (!lastPlan) return toast("Generate a lesson plan first.", true);
+  // Open the tab synchronously, in the same click gesture that triggered this
+  // handler — a window.open() after the awaited fetch below is no longer
+  // "caused by" the click, so most browsers silently block it and the teacher
+  // never sees the Classroom tab even though the post succeeded.
+  const winClassroom = window.open("", "_blank");
+  if (winClassroom) winClassroom.document.write(
+    "<p style='font-family:sans-serif;padding:2rem;color:#555'>Posting the lesson plan "
+    + "to Google Classroom… this tab will update automatically.</p>");
   showOverlay("Posting the lesson plan to Google Classroom…");
   try {
     const r = await fetch("/api/classroom-lessonplan", {
@@ -1161,9 +1169,13 @@ async function directLessonPlan() {
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || "Failed.");
     toast("✅ Lesson plan posted to Classroom + saved to Drive!");
-    if (d.classroom_url) window.open(d.classroom_url, "_blank");
-    else if (d.doc_url) window.open(d.doc_url, "_blank");
-  } catch (e) { toast(e.message, true); } finally { hideOverlay(); }
+    const url = d.classroom_url || d.doc_url;
+    if (winClassroom) { if (url) winClassroom.location.href = url; else winClassroom.close(); }
+    else if (url) window.open(url, "_blank");
+  } catch (e) {
+    if (winClassroom) winClassroom.close();
+    toast(e.message, true);
+  } finally { hideOverlay(); }
 }
 
 // Fill the Send-to-Classroom card with smart defaults (class from the lesson,
@@ -1183,6 +1195,14 @@ async function directMaterials() {
   const m = scrapeMaterials();
   if (!m || !(m.slides || []).length) return toast("Generate the teaching slides first.", true);
   const target = $("mat-target") ? $("mat-target").value : "lesson_plan";
+  // Open the tab synchronously, in the same click gesture that triggered this
+  // handler — a window.open() after the awaited fetch below is no longer
+  // "caused by" the click, so most browsers silently block it and the teacher
+  // never sees the Classroom tab even though the post succeeded.
+  const winClassroom = window.open("", "_blank");
+  if (winClassroom) winClassroom.document.write(
+    "<p style='font-family:sans-serif;padding:2rem;color:#555'>Creating Google Slides "
+    + "and posting to Classroom… this tab will update automatically.</p>");
   showOverlay("Creating Google Slides + posting to Classroom…");
   try {
     const r = await fetch("/api/classroom-materials", {
@@ -1192,9 +1212,13 @@ async function directMaterials() {
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || "Failed.");
     toast("✅ Slides posted to Classroom!");
-    if (d.classroom_url) window.open(d.classroom_url, "_blank");
-    else if (d.slides_url) window.open(d.slides_url, "_blank");
-  } catch (e) { toast(e.message, true); } finally { hideOverlay(); }
+    const url = d.classroom_url || d.slides_url;
+    if (winClassroom) { if (url) winClassroom.location.href = url; else winClassroom.close(); }
+    else if (url) window.open(url, "_blank");
+  } catch (e) {
+    if (winClassroom) winClassroom.close();
+    toast(e.message, true);
+  } finally { hideOverlay(); }
 }
 
 async function directWorksheet() {
