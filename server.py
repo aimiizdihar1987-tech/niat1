@@ -107,6 +107,17 @@ GOOGLE_API_KEY = (
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
+# Kunci API kedua (pilihan) — kuota harian percuma sangat kecil (~20
+# permintaan/hari), jadi satu kelas differentiated worksheet (3 panggilan)
+# boleh habiskan kuota dalam sekelip mata. Jika GOOGLE_API_KEY_2 ditetapkan,
+# call_gemini() automatik cuba kunci ini bila kunci utama kena rate-limit
+# (429) — sila lihat call_gemini(). Kunci baharu (projek baharu) tidak lagi
+# dapat guna model lama gemini-2.5-flash ("no longer available to new
+# users"), jadi kunci kedua guna model yang lebih baharu.
+GOOGLE_API_KEY_2 = os.environ.get("GOOGLE_API_KEY_2", "").strip()
+MODEL_2 = os.environ.get("GEMINI_MODEL_2", "gemini-3.6-flash")
+_GEMINI_KEYS = [(k, m) for k, m in ((GOOGLE_API_KEY, MODEL), (GOOGLE_API_KEY_2, MODEL_2)) if k]
+
 # --- Enjin sandaran luar talian (Ollama, tempatan) ---------------------------
 # Jika Gemini gagal (tiada internet / kuota habis), sistem beralih automatik
 # ke model tempatan melalui Ollama. Mod: auto (lalai) | gemini | local.
@@ -253,61 +264,96 @@ def call_ollama(system_prompt, user_prompt, max_tokens=8000):
     return text
 
 
+def _gemini_request(key, model, payload):
+    """One raw generateContent call against a specific key/model. Classifies
+    failures into resilience.py's taxonomy so guard()'s retry/circuit logic
+    (and call_gemini()'s key-failover logic) can act on them correctly."""
+    req = urllib.request.Request(
+        GEMINI_URL.format(model=model),
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"content-type": "application/json", "x-goog-api-key": key},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")
+        msg = "Gemini API ralat {}: {}".format(e.code, detail[:400])
+        if e.code == 429:
+            raise resilience.RateLimited(msg)
+        if e.code in (404, 500, 502, 503, 504):
+            # 404 here means "this key/project can't use this model" (e.g. a
+            # freshly-created key and a since-deprecated model) — not fixable
+            # by retrying the SAME key, but a different key in the pool might
+            # use a different model that works, so treat it like an upstream
+            # hiccup rather than a hard configuration error.
+            raise resilience.UpstreamError(msg)
+        # 400/401/403 won't fix themselves — don't burn the teacher's time.
+        raise resilience.ConfigurationError(msg) from e
+    except (TimeoutError, socket.timeout) as e:
+        raise resilience.UpstreamTimeout("Gemini timeout: {}".format(e)) from e
+    except (urllib.error.URLError, OSError) as e:
+        raise resilience.UpstreamError("Rangkaian gagal: {}".format(e)) from e
+
+
 def call_gemini(system_prompt, user_prompt, max_tokens=8000):
-    """Panggil Gemini generateContent dan pulangkan teks respons. Guna urllib sahaja."""
-    if not GOOGLE_API_KEY:
+    """Panggil Gemini generateContent dan pulangkan teks respons. Guna urllib sahaja.
+
+    Automatic key failover: if GOOGLE_API_KEY_2 is configured (see
+    _GEMINI_KEYS), a failure on one key falls through to the next key in the
+    pool instead of failing the whole request — a free-tier key's daily quota
+    (as low as ~20 requests) can otherwise be exhausted by a single
+    differentiated-worksheet generation (3 calls) plus normal traffic.
+    Every key except the last gets ONE quick attempt (no point retrying an
+    already-exhausted key 3x before trying the next one); the last key in the
+    pool gets the full retry-with-backoff treatment, same as before this pool
+    existed. Each key has its OWN circuit breaker (name "gemini-1", "gemini-2",
+    ...) so one exhausted key doesn't block attempts on another.
+    """
+    if not _GEMINI_KEYS:
         raise RuntimeError(
             "GOOGLE_API_KEY tidak ditetapkan. Set pemboleh ubah persekitaran dahulu."
         )
-    payload = {
-        "system_instruction": {"parts": [{"text": system_prompt}]},
-        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        "generationConfig": {
-            "maxOutputTokens": max_tokens,
-            "temperature": 0.7,
-            # Paksa output JSON tulen — padan dengan arahan dalam fail prompt.
-            "responseMimeType": "application/json",
-        },
-    }
-    # Transient failures (429 quota / 5xx / network) are retried with
-    # exponential backoff + jitter, behind a circuit breaker so a sustained
-    # Gemini outage fails fast instead of making every teacher wait 3x120s.
-    # See resilience.py; the breaker state is visible at /api/status.
-    def _one_call():
-        req = urllib.request.Request(
-            GEMINI_URL.format(model=MODEL),
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "content-type": "application/json",
-                "x-goog-api-key": GOOGLE_API_KEY,
+    last_err = None
+    for i, (key, model) in enumerate(_GEMINI_KEYS):
+        is_last = i == len(_GEMINI_KEYS) - 1
+        payload = {
+            "system_instruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": 0.7,
+                # Paksa output JSON tulen — padan dengan arahan dalam fail prompt.
+                "responseMimeType": "application/json",
             },
-            method="POST",
-        )
+        }
+        if model != MODEL:
+            # Newer models "think" before answering, which can silently eat
+            # the whole output-token budget on a JSON-only response — turn
+            # that off so this behaves like the primary model.
+            payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8", "replace")
-            msg = "Gemini API ralat {}: {}".format(e.code, detail[:400])
-            if e.code == 429:
-                raise resilience.RateLimited(msg)
-            if e.code in (500, 502, 503, 504):
-                raise resilience.UpstreamError(msg)
-            # 400/401/403 won't fix themselves — don't burn the teacher's time.
-            raise resilience.ConfigurationError(msg) from e
-        except (TimeoutError, socket.timeout) as e:
-            raise resilience.UpstreamTimeout("Gemini timeout: {}".format(e)) from e
-        except (urllib.error.URLError, OSError) as e:
-            raise resilience.UpstreamError("Rangkaian gagal: {}".format(e)) from e
-
-    data = resilience.guard("gemini", _one_call, attempts=3, base_delay=2.0)
-    if data is None:
-        raise resilience.UpstreamError("Gemini tiada respons")
-    candidates = data.get("candidates", [])
-    if not candidates:
-        raise RuntimeError("Gemini tiada respons (mungkin disekat): " + json.dumps(data)[:400])
-    parts = candidates[0].get("content", {}).get("parts", [])
-    return "".join(p.get("text", "") for p in parts).strip()
+            data = resilience.guard(
+                "gemini-{}".format(i + 1), lambda key=key, model=model, payload=payload:
+                    _gemini_request(key, model, payload),
+                attempts=(3 if is_last else 1), base_delay=2.0)
+        except resilience.NiatError as e:
+            last_err = e
+            continue  # try the next key in the pool, if any
+        if data is None:
+            last_err = resilience.UpstreamError("Gemini tiada respons")
+            continue
+        candidates = data.get("candidates", [])
+        if not candidates:
+            last_err = RuntimeError("Gemini tiada respons (mungkin disekat): " + json.dumps(data)[:400])
+            continue
+        parts = candidates[0].get("content", {}).get("parts", [])
+        text = "".join(p.get("text", "") for p in parts).strip()
+        if text:
+            return text
+        last_err = RuntimeError("Gemini respons kosong")
+    raise last_err or resilience.UpstreamError("Gemini tiada respons")
 
 
 def extract_json(text):
@@ -2750,10 +2796,12 @@ def _dependency_checks():
         checks.append(_probe("supabase",
                              lambda: sb.select("app_settings",
                                                params={"select": "key", "limit": "1"})))
-    if GOOGLE_API_KEY:
+    if _GEMINI_KEYS:
         checks.append({"name": "gemini", "status": "configured",
-                       "model": MODEL,
-                       "breaker": resilience.breaker("gemini").snapshot()["state"]})
+                       "keys": len(_GEMINI_KEYS),
+                       "pool": [{"model": model,
+                                 "breaker": resilience.breaker("gemini-{}".format(i + 1)).snapshot()["state"]}
+                                for i, (_, model) in enumerate(_GEMINI_KEYS)]})
     cfg = _read_reminder_cfg()
     if cfg.get("APPSCRIPT_HUB_URL"):
         checks.append({"name": "apps_script_hub", "status": "configured"})

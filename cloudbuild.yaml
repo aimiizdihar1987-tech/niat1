@@ -23,6 +23,12 @@
 # or ask whoever set this up), re-enable that version and repoint this to
 # :latest or the new version number — until then, :latest is a dead
 # reference and deploying with it will fail outright.
+#
+# GOOGLE_API_KEY_2 is a second, independent free-tier key (its own separate
+# Google Cloud project, so its quota doesn't share a pool with the primary
+# key) — server.py's call_gemini() automatically fails over to it when the
+# primary key is rate-limited. It only supports gemini-3.6-flash (see
+# MODEL_2 in server.py), not the primary's gemini-2.5-flash.
 
 steps:
   # Regression gate: run the unit test suite BEFORE building/deploying, so a
@@ -68,7 +74,7 @@ steps:
       - "--allow-unauthenticated"
       - "--min-instances=1"
       - "--set-env-vars=NIAT_REQUIRE_HUB=1,TEACHER_EMAIL=jpn-perlis-cm16@moe-dl.edu.my,NIAT_BUILD_SHA=$SHORT_SHA,NIAT_REGION=asia-southeast1,NIAT_JSON_LOGS=1,NIAT_PUBLIC_URL=https://niat-1094321285675.asia-southeast1.run.app"
-      - "--set-secrets=GOOGLE_API_KEY=gemini-api-key:2,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:latest,NIAT_AUTH_SECRET=niat-auth-secret:latest,APPSCRIPT_HUB_URL=apps-script-hub-url:latest,APPSCRIPT_HUB_KEY=apps-script-hub-key:latest,NIAT_CRON_SECRET=niat-cron-secret:latest,GAMMA_API_KEY=gamma-api-key:latest"
+      - "--set-secrets=GOOGLE_API_KEY=gemini-api-key:2,GOOGLE_API_KEY_2=gemini-api-key-2:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:latest,NIAT_AUTH_SECRET=niat-auth-secret:latest,APPSCRIPT_HUB_URL=apps-script-hub-url:latest,APPSCRIPT_HUB_KEY=apps-script-hub-key:latest,NIAT_CRON_SECRET=niat-cron-secret:latest,GAMMA_API_KEY=gamma-api-key:latest"
 
 images:
   - "asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:$COMMIT_SHA"
