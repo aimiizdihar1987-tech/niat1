@@ -689,7 +689,11 @@ async function genWorksheet(note = "") {
     if (data.differentiated) {
       lastWorksheet = null;
       lastDifferentiatedBands = data.bands || [];
-      renderDifferentiatedWorksheets(lastDifferentiatedBands);
+      renderDifferentiatedWorksheets(lastDifferentiatedBands, data.warning);
+      // A band can fail to generate (e.g. an AI rate limit) while the others
+      // succeed — that band's pupils would get NOTHING if this went unnoticed,
+      // so it must be a loud, sticky warning, not just a fading toast.
+      if (data.warning) toast("⚠️ " + data.warning, true);
     } else {
       lastDifferentiatedBands = null;
       lastWorksheet = data.worksheet;
@@ -769,7 +773,7 @@ function worksheetEditableQuestionsHTML(w, bandKey) {
 // pages — one at a time, side by side via Prev/Next — not stacked in one
 // long scroll, and every question is editable before sending to Classroom
 // (human in the loop).
-function renderDifferentiatedWorksheets(bands) {
+function renderDifferentiatedWorksheets(bands, warning) {
   dwActiveBand = 0;
   const tabs = (bands || []).map((b, i) => `
     <button type="button" class="dw-tab${i === 0 ? " active" : ""}" data-idx="${i}">
@@ -784,8 +788,14 @@ function renderDifferentiatedWorksheets(bands) {
       ${worksheetEditableQuestionsHTML(w, b.band)}
     </div>`;
   }).join("");
+  // A generation failure for one band is NOT a footnote — those pupils get
+  // nothing if it's missed, so it stays visible on screen, not just a toast
+  // that fades away.
+  const warningBanner = warning
+    ? `<p class="warn-banner">⚠️ ${esc(warning)}</p>` : "";
   $("ws-output").innerHTML =
-    `<p class="muted small">🧩 This class has differentiated levels — 3 separate worksheets were generated. `
+    warningBanner +
+    `<p class="muted small">🧩 This class has differentiated levels — ${(bands || []).length} worksheet(s) generated. `
     + `✎ Click any question, option, or feedback to edit it. Review every level before sending to Classroom.</p>
     <div class="dw-tabs">${tabs}</div>
     <div class="dw-pages">${pages}</div>

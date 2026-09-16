@@ -13,6 +13,16 @@
 # cost (roughly USD 5-10/month for one idle 512Mi/1vCPU instance in
 # asia-southeast1); drop the flag to go back to scale-to-zero if that's not
 # worth it for this traffic level.
+#
+# GOOGLE_API_KEY is pinned to gemini-api-key:2, NOT :latest — version 3 (added
+# 2026-09-16 while trying to move off a free-tier key with only 20
+# requests/day) turned out to be worse: gemini-2.5-flash is blocked for new
+# API keys entirely, and the suggested replacement (gemini-3.6-flash) needs
+# prepay credits this project doesn't have yet. Version 3 is disabled. Once
+# billing/prepay is sorted at https://ai.studio/projects (see RELIABILITY.md
+# or ask whoever set this up), re-enable that version and repoint this to
+# :latest or the new version number — until then, :latest is a dead
+# reference and deploying with it will fail outright.
 
 steps:
   # Regression gate: run the unit test suite BEFORE building/deploying, so a
@@ -58,7 +68,7 @@ steps:
       - "--allow-unauthenticated"
       - "--min-instances=1"
       - "--set-env-vars=NIAT_REQUIRE_HUB=1,TEACHER_EMAIL=jpn-perlis-cm16@moe-dl.edu.my,NIAT_BUILD_SHA=$SHORT_SHA,NIAT_REGION=asia-southeast1,NIAT_JSON_LOGS=1,NIAT_PUBLIC_URL=https://niat-1094321285675.asia-southeast1.run.app"
-      - "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:latest,NIAT_AUTH_SECRET=niat-auth-secret:latest,APPSCRIPT_HUB_URL=apps-script-hub-url:latest,APPSCRIPT_HUB_KEY=apps-script-hub-key:latest,NIAT_CRON_SECRET=niat-cron-secret:latest,GAMMA_API_KEY=gamma-api-key:latest"
+      - "--set-secrets=GOOGLE_API_KEY=gemini-api-key:2,SUPABASE_URL=supabase-url:latest,SUPABASE_ANON_KEY=supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-key:latest,NIAT_AUTH_SECRET=niat-auth-secret:latest,APPSCRIPT_HUB_URL=apps-script-hub-url:latest,APPSCRIPT_HUB_KEY=apps-script-hub-key:latest,NIAT_CRON_SECRET=niat-cron-secret:latest,GAMMA_API_KEY=gamma-api-key:latest"
 
 images:
   - "asia-southeast1-docker.pkg.dev/$PROJECT_ID/niat/niat:$COMMIT_SHA"

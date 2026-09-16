@@ -25,7 +25,6 @@ import socket
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 import urllib.request
 import urllib.error
 from datetime import datetime, timedelta
@@ -657,8 +656,14 @@ def generate_worksheet(inputs):
 
 
 def _generate_differentiated_review(inputs, class_name, static_bands):
-    """Generate one Agent-3 worksheet per band, concurrently, for the teacher
-    to review before sending — this IS the human-in-the-loop step."""
+    """Generate one Agent-3 worksheet per band, ONE AT A TIME, for the teacher
+    to review before sending — this IS the human-in-the-loop step.
+
+    Sequential, not concurrent: firing all 3 bands' Gemini calls at once was
+    tried and reverted — in production it tripped the API key's per-minute
+    rate limit (3 simultaneous calls exhausted a free-tier quota), silently
+    dropping a band. A dropped band means those pupils get NOTHING, so any
+    partial failure here must be surfaced loudly, not hidden by a retry."""
     by_band = {}
     for emel, band in static_bands.items():
         by_band.setdefault(band, []).append(emel)
@@ -668,15 +673,11 @@ def _generate_differentiated_review(inputs, class_name, static_bands):
 
     errors = []
     worksheets = {}
-    with ThreadPoolExecutor(max_workers=len(active_bands)) as pool:
-        futures = {pool.submit(_worksheet_for_band, inputs, band): band
-                   for band in active_bands}
-        for fut in futures:
-            band = futures[fut]
-            try:
-                worksheets[band] = fut.result()
-            except Exception as e:  # noqa: BLE001 — one band's failure shouldn't sink the rest
-                errors.append("{}: {}".format(band, e))
+    for band in active_bands:
+        try:
+            worksheets[band] = _worksheet_for_band(inputs, band)
+        except Exception as e:  # noqa: BLE001 — one band's failure shouldn't sink the rest
+            errors.append("{}: {}".format(band, e))
 
     band_cefr = band_cefr_for_form(inputs.get("form", 3))
     bands_payload = [{"band": band, "cefr": band_cefr[band], "emails": by_band[band],
@@ -686,9 +687,18 @@ def _generate_differentiated_review(inputs, class_name, static_bands):
         return {"ok": False, "error": "Could not generate any differentiated worksheet"
                 + ((": " + "; ".join(errors)) if errors else ".")}
     cur = find_curriculum(inputs)
-    return {"ok": True, "differentiated": True, "class_name": class_name,
-            "bands": bands_payload, "konteks": cur_summary(cur, inputs),
-            "_partial_errors": errors or None, "_enjin": last_engine()}
+    result = {"ok": True, "differentiated": True, "class_name": class_name,
+              "bands": bands_payload, "konteks": cur_summary(cur, inputs),
+              "_enjin": last_engine()}
+    if errors:
+        missing = [b for b in active_bands if not worksheets.get(b)]
+        result["_partial_errors"] = errors
+        result["warning"] = (
+            "Could not generate a worksheet for: {} — those pupils will get "
+            "NOTHING if you send now. Click Regenerate to try again, or send "
+            "the levels below and handle {} separately.").format(
+                ", ".join(missing), " and ".join(missing))
+    return result
 
 
 def _generate_single_worksheet(inputs):
@@ -1241,25 +1251,31 @@ def differentiate(body):
         return {"ok": True, "class_name": class_name, "ringkasan": summary,
                 "assignments": assignments, "decided_only": True}
 
-    # Generate one worksheet per band that actually has pupils — concurrently,
-    # so a 3-band class doesn't take 3x as long as a single worksheet.
+    # Generate one worksheet per band that actually has pupils — ONE AT A
+    # TIME. Firing all bands' Gemini calls at once was tried and reverted:
+    # in production it tripped the API key's per-minute rate limit, silently
+    # dropping a band (see _generate_differentiated_review for the same fix).
     active_bands = [b for b in BAND_ORDER if by_band[b]]
-    worksheets = {}
-    if active_bands:
-        with ThreadPoolExecutor(max_workers=len(active_bands)) as pool:
-            futures = {pool.submit(_worksheet_for_band, body, band): band
-                       for band in active_bands}
-            for fut in futures:
-                worksheets[futures[fut]] = fut.result()
+    worksheets, gen_errors = {}, []
+    for band in active_bands:
+        try:
+            worksheets[band] = _worksheet_for_band(body, band)
+        except Exception as e:  # noqa: BLE001 — one band's failure shouldn't sink the rest
+            gen_errors.append("{}: {}".format(band, e))
     bands_payload = [{"band": band, "cefr": band_cefr[band],
                       "emails": by_band[band], "worksheet": worksheets[band]}
-                     for band in active_bands]
+                     for band in active_bands if worksheets.get(band)]
 
     result = {"ok": True, "class_name": class_name, "ringkasan": summary,
               "assignments": assignments,
               "bands": [{"band": b["band"], "cefr": b["cefr"],
                          "bil_murid": len(b["emails"]),
                          "worksheet": b["worksheet"]} for b in bands_payload]}
+    if gen_errors:
+        missing = [b for b in active_bands if not worksheets.get(b)]
+        result["generation_warning"] = (
+            "Could not generate a worksheet for: {} — those pupils will get "
+            "nothing unless this is retried.").format(", ".join(missing))
 
     # Fully automatic: post to Google Classroom if Path B is ready.
     try:
