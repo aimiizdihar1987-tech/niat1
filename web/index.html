@@ -301,6 +301,25 @@
     .q .fb{font-size:14.5px;color:var(--muted);margin-top:8px;font-style:italic;border-top:2px dashed var(--line);padding-top:8px;}
     .band-worksheet{margin-bottom:20px;}
     .band-worksheet h3{margin:0 0 4px;font-size:17px;}
+    /* Differentiated worksheet review: 3 levels shown side by side as tabs/
+       pages the teacher flips through, not stacked one under another. */
+    .dw-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+    .dw-tab{border:2px solid var(--line);border-radius:999px;padding:8px 16px;background:var(--panel);cursor:pointer;font-weight:700;font-size:13.5px;color:var(--muted);}
+    .dw-tab.active{border-color:var(--blue);background:var(--blue-50);color:var(--blue-700);}
+    .dw-page[hidden]{display:none;}
+    .dw-nav{display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;}
+    .dw-nav .dw-pos{font-size:13px;color:var(--muted);font-weight:700;}
+    .q .qtext{outline-offset:3px;}
+    .q [contenteditable="true"]:focus{outline:2px dashed var(--blue);border-radius:6px;}
+    .opt-edit{padding:5px 0 5px 10px;border-radius:8px;}
+    /* Override the global label{flex-direction:column} — the tick, the
+       letter and the option text must sit on one line, not stack. */
+    .opt-edit label{display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;}
+    .opt-edit input{flex:0 0 auto;margin:0;}
+    .opt-edit b{flex:0 0 auto;}
+    .opt-edit:has(input:checked){color:var(--ok);font-weight:700;background:#e5f7ec;}
+    .opt-edit .opt-text{flex:1;min-width:0;}
+    .q-points{width:52px;font-size:13px;border:2px solid var(--line);border-radius:8px;padding:3px 6px;}
     .badge{display:inline-block;font-size:11.5px;padding:4px 12px;border-radius:999px;background:var(--sun-50);color:var(--sun-deep);font-weight:800;}
     .checkpoint{background:linear-gradient(180deg,#f4fbf8,#fdf6e9);}
     .checkpoint legend::before{background:var(--blue);box-shadow:0 0 0 3px var(--blue-50);}

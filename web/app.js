@@ -733,23 +733,123 @@ function renderWorksheet(w) {
     ${worksheetQuestionsHTML(w)}`;
 }
 
-// Review screen for a differentiated class: one worksheet section per level,
-// clearly labelled, so the teacher checks every level's questions BEFORE
-// deciding to send anything to Classroom (human in the loop).
+const DW_BAND_LABEL = { remedial: "🌱 Remedial", core: "🎯 Core", extension: "🚀 Extension" };
+let dwActiveBand = 0;  // which of the 3 level-pages is currently showing
+
+// Editable question card for the differentiated review — the teacher can
+// fix the question text, any option, the correct answer, the feedback, and
+// the points, before anything is sent to Classroom.
+function worksheetEditableQuestionsHTML(w, bandKey) {
+  return (w.soalan || []).map((q, qi) => {
+    const opts = (q.pilihan || []).map((p, i) => {
+      const letter = "ABCD"[i];
+      const checked = letter === q.jawapan_betul ? " checked" : "";
+      return `<div class="opt-edit">
+        <label>
+          <input type="radio" name="correct-${esc(bandKey)}-${qi}" value="${letter}"${checked}>
+          <b>${letter}.</b>
+          <span class="opt-text" contenteditable="true">${esc(p)}</span>
+        </label>
+      </div>`;
+    }).join("");
+    return `<div class="q" data-qidx="${qi}">
+      <div class="qhead">
+        <span>Question ${q.no} · LS ${esc(q.sp_rujukan)}</span>
+        <span class="badge">${esc(q.aras)}</span>
+      </div>
+      <div class="qtext" contenteditable="true">${esc(q.soalan)}</div>
+      ${opts}
+      <div class="fb">Feedback: <span class="fb-text" contenteditable="true">${esc(q.maklum_balas)}</span>
+        · Points: <input class="q-points" type="number" min="1" value="${esc(q.markah)}"></div>
+    </div>`;
+  }).join("");
+}
+
+// Review screen for a differentiated class: the 3 levels are shown as tabs/
+// pages — one at a time, side by side via Prev/Next — not stacked in one
+// long scroll, and every question is editable before sending to Classroom
+// (human in the loop).
 function renderDifferentiatedWorksheets(bands) {
-  const BAND_LABEL = { remedial: "🌱 Remedial", core: "🎯 Core", extension: "🚀 Extension" };
-  const sections = (bands || []).map((b) => {
+  dwActiveBand = 0;
+  const tabs = (bands || []).map((b, i) => `
+    <button type="button" class="dw-tab${i === 0 ? " active" : ""}" data-idx="${i}">
+      ${DW_BAND_LABEL[b.band] || esc(b.band)} · ${(b.emails || []).length} pupil(s)
+    </button>`).join("");
+  const pages = (bands || []).map((b, i) => {
     const w = b.worksheet || {};
-    const label = BAND_LABEL[b.band] || b.band;
-    return `<div class="band-worksheet">
+    const label = DW_BAND_LABEL[b.band] || b.band;
+    return `<div class="dw-page" data-idx="${i}"${i === 0 ? "" : " hidden"}>
       <h3>${label} (${esc(b.cefr)}) — ${(b.emails || []).length} pupil(s)</h3>
       <p class="muted small">${esc(w.tajuk || "")} · ${esc(w.jumlah_soalan)} questions · ${esc(w.jumlah_markah)} marks</p>
-      ${worksheetQuestionsHTML(w)}
+      ${worksheetEditableQuestionsHTML(w, b.band)}
     </div>`;
-  }).join("<hr>");
+  }).join("");
   $("ws-output").innerHTML =
     `<p class="muted small">🧩 This class has differentiated levels — 3 separate worksheets were generated. `
-    + `Please review each level's questions below before sending to Classroom.</p>${sections}`;
+    + `✎ Click any question, option, or feedback to edit it. Review every level before sending to Classroom.</p>
+    <div class="dw-tabs">${tabs}</div>
+    <div class="dw-pages">${pages}</div>
+    <div class="dw-nav">
+      <button type="button" id="dw-prev" class="ghost">← Previous level</button>
+      <span class="dw-pos">${dwActiveBand + 1} / ${(bands || []).length}</span>
+      <button type="button" id="dw-next" class="ghost">Next level →</button>
+    </div>`;
+
+  const wrap = $("ws-output");
+  const total = (bands || []).length;
+  const showBand = (idx) => {
+    dwActiveBand = Math.max(0, Math.min(total - 1, idx));
+    wrap.querySelectorAll(".dw-page").forEach((p) =>
+      p.hidden = Number(p.dataset.idx) !== dwActiveBand);
+    wrap.querySelectorAll(".dw-tab").forEach((t) =>
+      t.classList.toggle("active", Number(t.dataset.idx) === dwActiveBand));
+    wrap.querySelector(".dw-pos").textContent = (dwActiveBand + 1) + " / " + total;
+  };
+  wrap.querySelectorAll(".dw-tab").forEach((t) =>
+    t.onclick = () => showBand(Number(t.dataset.idx)));
+  wrap.querySelector("#dw-prev").onclick = () => showBand(dwActiveBand - 1);
+  wrap.querySelector("#dw-next").onclick = () => showBand(dwActiveBand + 1);
+
+  // Basic touch swipe between levels, for the "just slide the screen" case.
+  let touchStartX = null;
+  const pagesEl = wrap.querySelector(".dw-pages");
+  pagesEl.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; });
+  pagesEl.addEventListener("touchend", (e) => {
+    if (touchStartX === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 60) showBand(dwActiveBand + (dx < 0 ? 1 : -1));
+    touchStartX = null;
+  });
+}
+
+// Read back the (possibly teacher-edited) differentiated worksheets from the
+// DOM, in the exact shape classroom_worksheet() expects for posting.
+function scrapeDifferentiatedBands() {
+  const wrap = $("ws-output");
+  if (!wrap) return lastDifferentiatedBands;
+  const pages = [...wrap.querySelectorAll(".dw-page")];
+  if (!pages.length) return lastDifferentiatedBands;
+  return (lastDifferentiatedBands || []).map((b, i) => {
+    const page = pages[i];
+    if (!page) return b;
+    const w = { ...(b.worksheet || {}) };
+    const qCards = [...page.querySelectorAll(".q")];
+    w.soalan = (w.soalan || []).map((q, qi) => {
+      const card = qCards[qi];
+      if (!card) return q;
+      const opts = [...card.querySelectorAll(".opt-edit")];
+      const checkedInput = card.querySelector(".opt-edit input:checked");
+      return {
+        ...q,
+        soalan: (card.querySelector(".qtext")?.innerText || q.soalan).trim(),
+        pilihan: opts.map((o) => (o.querySelector(".opt-text")?.innerText || "").trim()),
+        jawapan_betul: checkedInput ? checkedInput.value : q.jawapan_betul,
+        maklum_balas: (card.querySelector(".fb-text")?.innerText || q.maklum_balas).trim(),
+        markah: Number(card.querySelector(".q-points")?.value) || q.markah,
+      };
+    });
+    return { ...b, worksheet: w };
+  });
 }
 
 // ====================== Save & export ======================
@@ -763,6 +863,7 @@ async function approveAndSave() {
     // of a single one — save each to the bank; otherwise save the one.
     let wsNote = "", bankNote = "";
     if (lastDifferentiatedBands && lastDifferentiatedBands.length) {
+      lastDifferentiatedBands = scrapeDifferentiatedBands();  // capture teacher edits first
       let added = 0, reused = 0, saved = 0;
       for (const b of lastDifferentiatedBands) {
         const rb = await api("/api/save",
@@ -1289,8 +1390,10 @@ async function directWorksheet() {
     + "and posting to Classroom (" + esc(className) + ")… this tab will update automatically.</p>");
   showOverlay("Creating the Form quiz + posting to Classroom…");
   try {
-    // Differentiated: post exactly the bands the teacher already reviewed on
-    // this screen (human in the loop) — the server never regenerates them.
+    // Differentiated: post exactly the bands the teacher already reviewed
+    // (and possibly edited) on this screen (human in the loop) — the server
+    // never regenerates them.
+    if (isDifferentiated) lastDifferentiatedBands = scrapeDifferentiatedBands();
     const body = isDifferentiated
       ? { bands: lastDifferentiatedBands, class_name: className,
           due_date: ($("due-date") ? $("due-date").value : ""),

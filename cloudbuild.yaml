@@ -15,6 +15,23 @@
 # worth it for this traffic level.
 
 steps:
+  # Regression gate: run the unit test suite BEFORE building/deploying, so a
+  # change that breaks a locked-in safety property (e.g. the human-in-the-loop
+  # worksheet review — tests/test_worksheet_review.py — never auto-posting a
+  # differentiated worksheet without teacher review) fails the build instead
+  # of silently shipping. Cloud Build stops the whole pipeline on the first
+  # failing step, so no docker build/deploy runs if tests fail.
+  - name: "python:3.12-slim"
+    entrypoint: bash
+    env:
+      - "NIAT_CONTAINER=1"
+      - "NIAT_JSON_LOGS=1"
+    args:
+      - "-c"
+      - |
+        pip install --quiet -r requirements.txt
+        python -m unittest discover -s tests -v
+
   - name: "gcr.io/cloud-builders/docker"
     args:
       - "build"
