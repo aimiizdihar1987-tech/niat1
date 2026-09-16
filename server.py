@@ -2510,6 +2510,53 @@ ROUTES = {
     "/api/remind": remind_agent,
 }
 
+# Which orchestrator agent each real endpoint corresponds to (see
+# orchestrator.AGENTS). Everything else in ROUTES is plumbing, not an agent,
+# and is called directly with no orchestration wrapper.
+AGENT_ID_FOR_PATH = {
+    "/api/generate-rph": "agent1_lesson_plan",
+    "/api/generate-materials": "agent2_materials",
+    "/api/generate-worksheet": "agent3_worksheet",
+    "/api/differentiate": "agent4_differentiation",
+    "/api/reflect": "agent5_reflection",
+    "/api/remind": "agent6_reminder",
+}
+# Agent 1/2/3/5 are one pass through a single lesson (setup -> plan -> slides
+# -> worksheet, then later a reflection on how it went), so calls that share
+# a class+date+topic are correlated into the SAME run even though the UI
+# sends them as separate requests with no run_id of its own. Agent 4
+# (differentiation) decides from a class's whole performance history, and
+# Agent 6 (reminder) is schedule-driven with no lesson in view at all —
+# neither fits a single lesson's run, so each gets its own standalone one.
+LESSON_RUN_AGENTS = ["agent1_lesson_plan", "agent2_materials", "agent3_worksheet", "agent5_reflection"]
+
+
+def _orchestrated_call(path, body, actor):
+    """Run a real agent endpoint through the orchestrator so 'multi-agent
+    orchestration' is something that actually happens on every request, not
+    just a schema `/api/workflow` describes. Falls back to calling the route
+    directly for every path that isn't one of the six agents."""
+    agent_id = AGENT_ID_FOR_PATH.get(path)
+    if agent_id is None:
+        return ROUTES[path](body)
+    fn = ROUTES[path]
+    if agent_id in ("agent4_differentiation", "agent6_reminder"):
+        run = orchestrator.Run.start(
+            context={"class_name": body.get("class_name") or body.get("kelas") or ""},
+            owner=actor, agents=[agent_id],
+        )
+    else:
+        plan = body.get("plan") or {}
+        kelas = body.get("nama_kelas") or plan.get("tingkatan_kelas") or ""
+        topic = body.get("topic") or plan.get("tajuk") or ""
+        tarikh = body.get("tarikh") or ""
+        key = "|".join([actor or "", kelas, tarikh, topic])
+        run = orchestrator.Run.start_or_resume(
+            key, context={"kelas": kelas, "tarikh": tarikh, "topic": topic},
+            owner=actor, agents=LESSON_RUN_AGENTS,
+        )
+    return run.auto_execute(agent_id, lambda: fn(body), actor=actor)
+
 
 def runtime_readiness(check_database=False):
     """Secret-free readiness details for operators and deployment probes."""
@@ -3237,7 +3284,7 @@ class Handler(BaseHTTPRequestHandler):
             elif path in ROUTES:
                 routed_body = dict(body)
                 routed_body["_actor_username"] = self._current_user()
-                self._send(200, ROUTES[path](routed_body))
+                self._send(200, _orchestrated_call(path, routed_body, self._current_user()))
             else:
                 self._send(404, {"ralat": "laluan tidak dikenali: " + path})
         except Exception as e:  # noqa: BLE001 — pulangkan ralat ke UI

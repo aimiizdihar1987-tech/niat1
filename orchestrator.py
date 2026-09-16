@@ -21,6 +21,7 @@ Supabase mirroring is optional and best-effort: a logging failure must never
 fail a lesson.
 """
 
+import hashlib
 import json
 import os
 import threading
@@ -223,6 +224,57 @@ class Run:
         return run
 
     @classmethod
+    def start_or_resume(cls, key, *, context=None, owner=None, agents=None):
+        """Like `start`, but addressed by a stable key instead of a random id,
+        so separate HTTP calls that belong to the same lesson (RPH, then
+        materials, then worksheet — three independent requests with no
+        run_id passed between them) land in the SAME run instead of each
+        becoming its own untracked, one-step run.
+
+        `key` should be something that is genuinely stable across those
+        calls and genuinely different across lessons — e.g. teacher +
+        class + date + topic. The run_id is a hash of it, so calling this
+        twice with the same key resumes the same run; a different key (a
+        different lesson) always gets its own.
+        """
+        run_id = "run_ctx_" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:16]
+        existing = cls.load(run_id)
+        if existing is not None:
+            return existing
+        chosen = agents or [a.agent_id for a in AGENTS]
+        data = {
+            "run_id": run_id,
+            "correlation_id": run_id,
+            "owner": owner,
+            "context": context or {},
+            "status": RUNNING,
+            "started_at": _now(),
+            "finished_at": None,
+            "steps": [
+                {
+                    "agent_id": aid,
+                    "number": BY_ID[aid].number,
+                    "name": BY_ID[aid].name,
+                    "status": PENDING,
+                    "attempts": 0,
+                    "started_at": None,
+                    "finished_at": None,
+                    "duration_ms": None,
+                    "error": None,
+                    "output_summary": None,
+                }
+                for aid in chosen
+                if aid in BY_ID
+            ],
+            "trace": [],
+        }
+        run = cls(data)
+        run._trace("run.started", context_keys=sorted((context or {}).keys()))
+        run.save()
+        resilience.info("orchestrator.run_started", run_id=run_id, owner=owner)
+        return run
+
+    @classmethod
     def load(cls, run_id):
         try:
             with open(_path(run_id), encoding="utf-8") as f:
@@ -354,6 +406,34 @@ class Run:
         self.save()
         resilience.info("orchestrator.step_finished", run_id=self.run_id,
                         agent_id=agent_id, duration_ms=step["duration_ms"])
+        return result
+
+    def auto_execute(self, agent_id, fn, *, attempts=2, summarize=None, actor=None):
+        """Transparent instrumentation for a real HTTP call, used where the
+        caller (today's UI) has no explicit "approve" gesture between agents
+        — a teacher moving from the RPH panel to the Materials panel IS the
+        approval, there's just no button that says so yet.
+
+        Unlike `execute`, this never blocks the real request over
+        orchestration bookkeeping: if a dependency wasn't tracked in this
+        run (e.g. the teacher opened a saved lesson and only ever
+        regenerated the worksheet), it's marked skipped — honestly, not
+        silently — rather than raising, then the step runs. A genuine
+        failure from `fn` itself still raises exactly as `execute` would;
+        only the dependency gate is softened.
+        """
+        ok, missing = self.dependencies_met(agent_id)
+        if not ok:
+            self._trace("step.dependency_soft_skip", agent_id=agent_id, missing=missing)
+            dep_step = self.step(missing)
+            if dep_step is not None and dep_step["status"] not in (DONE, SKIPPED):
+                dep_step["status"] = SKIPPED
+                dep_step["output_summary"] = "not run in this session"
+            self.save()
+        result = self.execute(agent_id, fn, attempts=attempts, summarize=summarize)
+        step = self.step(agent_id)
+        if step is not None and step["status"] == AWAITING:
+            self.approve(agent_id, by=actor or self.data.get("owner"))
         return result
 
     def approve(self, agent_id, *, by=None):

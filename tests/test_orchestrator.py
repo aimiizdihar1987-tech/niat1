@@ -83,6 +83,54 @@ class RunFlowTests(OrchestratorTestCase):
         self.assertEqual(run.status, orchestrator.DONE)
 
 
+class TransparentInstrumentationTests(OrchestratorTestCase):
+    """`start_or_resume` / `auto_execute` are what actually wire the real
+    HTTP handlers to the orchestrator (server.py's `_orchestrated_call`),
+    since the UI has no run_id or explicit approve gesture of its own."""
+
+    def test_start_or_resume_reuses_the_same_run_for_the_same_key(self):
+        a = orchestrator.Run.start_or_resume("cikgu|3 Delima|2026-09-20|Unit 9",
+                                              agents=["agent1_lesson_plan"])
+        b = orchestrator.Run.start_or_resume("cikgu|3 Delima|2026-09-20|Unit 9",
+                                              agents=["agent1_lesson_plan"])
+        self.assertEqual(a.run_id, b.run_id)
+
+    def test_start_or_resume_gives_a_different_lesson_its_own_run(self):
+        a = orchestrator.Run.start_or_resume("cikgu|3 Delima|2026-09-20|Unit 9")
+        b = orchestrator.Run.start_or_resume("cikgu|3 Zamrud|2026-09-20|Unit 9")
+        self.assertNotEqual(a.run_id, b.run_id)
+
+    def test_auto_execute_advances_past_a_checkpoint_with_no_explicit_approval(self):
+        run = orchestrator.Run.start_or_resume(
+            "k", agents=["agent1_lesson_plan", "agent2_materials"])
+        run.auto_execute("agent1_lesson_plan", lambda: {"rph": "..."}, actor="cikgu")
+        # No .approve() call from a caller anywhere — auto_execute did it —
+        # yet the dependent step is already unblocked:
+        self.assertEqual(run.step("agent1_lesson_plan")["status"], orchestrator.DONE)
+        result = run.auto_execute("agent2_materials", lambda: {"slides": 3}, actor="cikgu")
+        self.assertEqual(result, {"slides": 3})
+        self.assertEqual(run.status, orchestrator.DONE)
+
+    def test_auto_execute_never_blocks_on_an_untracked_dependency(self):
+        # e.g. a saved lesson's worksheet regenerated on its own, with no
+        # agent1 step having run in THIS run at all.
+        run = orchestrator.Run.start_or_resume("k2", agents=["agent1_lesson_plan", "agent3_worksheet"])
+        result = run.auto_execute("agent3_worksheet", lambda: "worksheet")
+        self.assertEqual(result, "worksheet")
+        self.assertEqual(run.step("agent1_lesson_plan")["status"], orchestrator.SKIPPED)
+        self.assertEqual(run.step("agent1_lesson_plan")["output_summary"], "not run in this session")
+
+    def test_auto_execute_still_raises_a_genuine_failure(self):
+        run = orchestrator.Run.start_or_resume("k3", agents=["agent1_lesson_plan"])
+
+        def boom():
+            raise resilience.UpstreamError("gemini down")
+
+        with self.assertRaises(resilience.UpstreamError):
+            run.auto_execute("agent1_lesson_plan", boom, attempts=1)
+        self.assertEqual(run.step("agent1_lesson_plan")["status"], orchestrator.FAILED)
+
+
 class FailureTests(OrchestratorTestCase):
     def test_failure_is_recorded_not_swallowed(self):
         run = orchestrator.Run.start(agents=["agent1_lesson_plan"])
